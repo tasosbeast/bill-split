@@ -7,6 +7,7 @@ import Balances from "./components/Balances";
 import Transactions from "./components/Transactions";
 import EditTransactionModal from "./components/EditTransactionModal";
 import { loadState, saveState, clearState } from "./lib/storage";
+import { CATEGORIES } from "./lib/categories";
 
 const seededFriends = [
   { id: crypto.randomUUID(), name: "Valia", email: "valia@example.com" },
@@ -20,9 +21,8 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(boot?.selectedId ?? null);
   const [transactions, setTransactions] = useState(boot?.transactions ?? []);
   const [showAdd, setShowAdd] = useState(false);
-
-  // NEW: edit modal state
   const [editTx, setEditTx] = useState(null);
+  const [txFilter, setTxFilter] = useState("All");
 
   useEffect(() => {
     saveState({ friends, selectedId, transactions });
@@ -41,11 +41,13 @@ export default function App() {
     return m;
   }, [transactions]);
 
-  const friendTx = useMemo(
-    () =>
-      selectedId ? transactions.filter((t) => t.friendId === selectedId) : [],
-    [transactions, selectedId]
-  );
+  const friendTx = useMemo(() => {
+    const base = selectedId
+      ? transactions.filter((t) => t.friendId === selectedId)
+      : [];
+    if (txFilter === "All") return base;
+    return base.filter((t) => (t.category ?? "Other") === txFilter);
+  }, [transactions, selectedId, txFilter]);
 
   // Current balance for selected friend (for pill & settle button visibility)
   const selectedBalance = useMemo(() => {
@@ -246,7 +248,39 @@ export default function App() {
               <SplitForm friend={selectedFriend} onSplit={handleSplit} />
 
               <div style={{ height: 16 }} />
-              <h2>Transactions</h2>
+              <div
+                className="row"
+                style={{
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <h2>Transactions</h2>
+                <div className="row" style={{ gap: 8 }}>
+                  <select
+                    className="select"
+                    value={txFilter}
+                    onChange={(e) => setTxFilter(e.target.value)}
+                    style={{ width: 180 }}
+                    title="Filter by category"
+                  >
+                    <option value="All">All</option>
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  {txFilter !== "All" && (
+                    <button
+                      className="button-ghost"
+                      onClick={() => setTxFilter("All")}
+                    >
+                      Clear filter
+                    </button>
+                  )}
+                </div>
+              </div>
               <Transactions
                 friend={selectedFriend}
                 items={friendTx}

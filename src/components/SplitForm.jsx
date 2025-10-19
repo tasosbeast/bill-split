@@ -123,15 +123,40 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
 
   function splitEvenly() {
     if (!canSplitEvenly) return;
-    const perPerson = roundToCents(totalNumber / totalParticipants);
-    let remainder = roundToCents(totalNumber - perPerson * totalParticipants);
-    setParticipants((prev) =>
-      prev.map((p, index) => {
-        const extra = index === 0 ? remainder : 0;
-        const amount = perPerson + extra;
-        return { ...p, amount: amount.toFixed(2) };
-      })
-    );
+    setParticipants((prev) => {
+      const parsedPrev = prev.map((p) => ({
+        id: p.id,
+        value: parseAmount(p.amount),
+      }));
+
+      const locked = parsedPrev.filter((p) => p.value !== null);
+      const lockedSum = roundToCents(
+        locked.reduce((acc, p) => acc + (p.value || 0), 0)
+      );
+
+      const remaining = roundToCents(totalNumber - lockedSum);
+      const editable = parsedPrev.filter((p) => p.value === null);
+      const n = editable.length;
+
+      if (n === 0 || remaining < 0) {
+        return prev;
+      }
+
+      const perPerson = roundToCents(remaining / n);
+      let remainder = roundToCents(remaining - perPerson * n);
+
+      return prev.map((p) => {
+        const existing = parseAmount(p.amount);
+        if (existing !== null) {
+          return p;
+        }
+        const add = perPerson + (remainder > 0 ? 0.01 : 0);
+        if (remainder > 0) {
+          remainder = roundToCents(remainder - 0.01);
+        }
+        return { ...p, amount: add.toFixed(2) };
+      });
+    });
   }
 
   function normalizeParticipants(total) {

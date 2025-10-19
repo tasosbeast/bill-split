@@ -255,3 +255,25 @@ body {
 .button-danger:hover {
   filter: brightness(1.05);
 }
+
+.badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.badge-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #12141b;
+  color: var(--muted);
+}
+.badge-chip strong {
+  color: var(--text);
+  font-weight: 600;
+}

@@ -1,9 +1,12 @@
 import PropTypes from "prop-types";
 import { useState } from "react";
+import { CATEGORIES } from "../lib/categories";
 
 export default function SplitForm({ friend, onSplit }) {
   const [bill, setBill] = useState("");
   const [payer, setPayer] = useState("you");
+  const [category, setCategory] = useState("Other");
+  const [note, setNote] = useState("");
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -24,6 +27,8 @@ export default function SplitForm({ friend, onSplit }) {
       payer, // 'you' | 'friend'
       half,
       delta, // signed amount (receivable/payable)
+      category,
+      note: note.trim(),
       createdAt: new Date().toISOString(),
     });
 
@@ -60,6 +65,34 @@ export default function SplitForm({ friend, onSplit }) {
           <option value="you">You</option>
           <option value="friend">{friend.name}</option>
         </select>
+      </div>
+
+      <div>
+        <label className="kicker">Category</label>
+        <select
+          className="select"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+        >
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="kicker" htmlFor="note">
+          Note (optional)
+        </label>
+        <input
+          id="note"
+          className="input"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="e.g. Pizza, movie night, tolls..."
+        />
       </div>
 
       <button className="button" type="submit">

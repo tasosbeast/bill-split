@@ -1,6 +1,7 @@
 import PropTypes from "prop-types";
 import { useState } from "react";
 import { CATEGORIES } from "../lib/categories";
+import { roundToCents } from "../lib/money";
 
 export default function SplitForm({ friend, onSplit }) {
   const [bill, setBill] = useState("");
@@ -10,14 +11,17 @@ export default function SplitForm({ friend, onSplit }) {
 
   function handleSubmit(e) {
     e.preventDefault();
-    const total = parseFloat(bill);
-    if (isNaN(total) || total <= 0) return;
+    const rawTotal = parseFloat(bill);
+    if (isNaN(rawTotal) || rawTotal <= 0) return;
 
-    const half = total / 2;
+    const total = roundToCents(rawTotal);
+    if (total <= 0) return;
+
+    const half = roundToCents(total / 2);
 
     // delta > 0  => friend owes YOU
     // delta < 0  => YOU owe friend
-    const delta = payer === "you" ? half : -half;
+    const delta = roundToCents(payer === "you" ? half : -half);
 
     onSplit({
       id: crypto.randomUUID(),

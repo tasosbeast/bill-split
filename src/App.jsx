@@ -62,8 +62,9 @@ export default function App() {
 
   const handleCreateFriend = useCallback(
     (friend) => {
+      const normalizedEmail = (friend?.email ?? "").trim().toLowerCase();
       const exists = friends.some(
-        (f) => f.email.toLowerCase() === friend.email
+        (f) => (f.email ?? "").trim().toLowerCase() === normalizedEmail
       );
       if (exists) {
         alert("A friend with this email already exists.");

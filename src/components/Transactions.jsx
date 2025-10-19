@@ -22,12 +22,26 @@ export default function Transactions({ friend, items }) {
   return (
     <div className="list">
       {items.map((t) => {
-        const sign = t.delta > 0 ? "+" : t.delta < 0 ? "−" : "";
         const whoPaid = t.payer === "you" ? "You paid" : `${friend.name} paid`;
         const summary =
           t.payer === "you"
             ? `${friend.name} owes you ${formatEUR(t.half)}`
             : `You owe ${friend.name} ${formatEUR(t.half)}`;
+
+        const cls =
+          t.delta > 0
+            ? "amount amount-pos"
+            : t.delta < 0
+            ? "amount amount-neg"
+            : "amount amount-zero";
+
+        const arrow = t.delta > 0 ? "▲" : t.delta < 0 ? "▼" : "•";
+        const sr =
+          t.delta > 0
+            ? "credit (they owe you)"
+            : t.delta < 0
+            ? "debt (you owe them)"
+            : "settled";
 
         return (
           <div key={t.id} className="list-item">
@@ -37,9 +51,13 @@ export default function Transactions({ friend, items }) {
                 {summary} • {when(t.createdAt)}
               </div>
             </div>
-            <div className="amount" aria-label="balance delta">
-              {sign}
+
+            <div className={cls} aria-label={sr}>
+              <span aria-hidden="true" style={{ marginRight: 6 }}>
+                {arrow}
+              </span>
               {formatEUR(Math.abs(t.delta))}
+              <span className="sr-only"> {sr}</span>
             </div>
           </div>
         );

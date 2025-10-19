@@ -18,6 +18,21 @@ export default function Balances({ friends, balances, onJumpTo }) {
             ? `You owe ${f.name}`
             : "Settled";
 
+        const cls =
+          bal > 0
+            ? "amount amount-pos"
+            : bal < 0
+            ? "amount amount-neg"
+            : "amount amount-zero";
+
+        const arrow = bal > 0 ? "▲" : bal < 0 ? "▼" : "•";
+        const sr =
+          bal > 0
+            ? "credit (they owe you)"
+            : bal < 0
+            ? "debt (you owe them)"
+            : "settled";
+
         return (
           <div
             key={f.id}
@@ -33,7 +48,13 @@ export default function Balances({ friends, balances, onJumpTo }) {
               <div style={{ fontWeight: 600 }}>{f.name}</div>
               <div className="kicker">{label}</div>
             </div>
-            <div className="amount">{formatEUR(Math.abs(bal))}</div>
+            <div className={cls} aria-label={sr}>
+              <span aria-hidden="true" style={{ marginRight: 6 }}>
+                {arrow}
+              </span>
+              {formatEUR(Math.abs(bal))}
+              <span className="sr-only"> {sr}</span>
+            </div>
           </div>
         );
       })}

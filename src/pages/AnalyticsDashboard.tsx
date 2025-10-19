@@ -15,6 +15,13 @@ import {
   computeCategoryTotals,
   computeMonthlyTrend,
 } from "../lib/analytics";
+import {
+  CategoryFilter,
+  DateRangeFilter,
+  useTransactionFilters,
+  CATEGORY_FILTER_ALL,
+} from "../components/filters";
+import { CATEGORIES } from "../lib/categories";
 
 type Friend = {
   id: string;
@@ -50,6 +57,23 @@ type AnalyticsDashboardProps = {
   onNavigateHome: () => void;
 };
 
+type DateRange = {
+  start: string | null;
+  end: string | null;
+};
+
+type TransactionFiltersHook = {
+  filters: {
+    category?: string;
+    dateRange?: DateRange;
+  };
+  setCategory: (category: string) => void;
+  setDateRange: (range: DateRange) => void;
+  resetFilters: () => void;
+  applyFilters: (transactions?: Transaction[]) => Transaction[];
+  hasActiveFilters: boolean;
+};
+
 const formatStatus = (status: string) => {
   switch (status) {
     case "over":
@@ -78,19 +102,36 @@ const AnalyticsDashboard: FC<AnalyticsDashboardProps> = ({ state, onNavigateHome
   const balances = useMemo(() => selectBalances(state), [state]);
   const monthlyBudget = useMemo(() => selectMonthlyBudget(state), [state]);
 
+  const {
+    filters,
+    setCategory,
+    setDateRange,
+    resetFilters,
+    applyFilters,
+    hasActiveFilters,
+  } = useTransactionFilters() as TransactionFiltersHook;
+
+  const selectedCategory = filters?.category ?? CATEGORY_FILTER_ALL;
+  const dateRange: DateRange = filters?.dateRange ?? { start: null, end: null };
+
+  const filteredTransactions = useMemo(
+    () => applyFilters(transactions),
+    [transactions, applyFilters],
+  );
+
   const categoryTotals = useMemo(
-    () => computeCategoryTotals(transactions),
-    [transactions]
+    () => computeCategoryTotals(filteredTransactions),
+    [filteredTransactions]
   );
 
   const monthlyTrend = useMemo(
-    () => computeMonthlyTrend(transactions, 6),
-    [transactions]
+    () => computeMonthlyTrend(filteredTransactions, 6),
+    [filteredTransactions]
   );
 
   const budgetStatus = useMemo(
-    () => computeBudgetStatus(transactions, monthlyBudget),
-    [transactions, monthlyBudget]
+    () => computeBudgetStatus(filteredTransactions, monthlyBudget),
+    [filteredTransactions, monthlyBudget]
   );
 
   const friendMap = useMemo(() => new Map(friends.map((f) => [f.id, f])), [friends]);
@@ -120,6 +161,25 @@ const AnalyticsDashboard: FC<AnalyticsDashboardProps> = ({ state, onNavigateHome
         <button type="button" className="button" onClick={onNavigateHome}>
           Back to splits
         </button>
+      </div>
+
+      <div className={styles.filterBar}>
+        <CategoryFilter
+          id="analytics-category-filter"
+          categories={CATEGORIES}
+          value={selectedCategory}
+          onChange={setCategory}
+        />
+        <DateRangeFilter
+          idPrefix="analytics-date-range"
+          value={dateRange}
+          onChange={setDateRange}
+        />
+        {hasActiveFilters && (
+          <button className="btn-ghost" type="button" onClick={resetFilters}>
+            Clear filters
+          </button>
+        )}
       </div>
 
       <div className={styles.grid}>

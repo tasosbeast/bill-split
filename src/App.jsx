@@ -4,7 +4,8 @@ import FriendList from "./components/FriendList";
 import SplitForm from "./components/SplitForm";
 import AddFriendModal from "./components/AddFriendModal";
 import Balances from "./components/Balances";
-import Transactions from "./components/Transactions";
+import AnalyticsDashboard from "./components/AnalyticsDashboard";
+import TransactionList from "./components/TransactionList";
 import EditTransactionModal from "./components/EditTransactionModal";
 import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 import { loadState, saveState, clearState } from "./lib/storage";
@@ -179,9 +180,9 @@ export default function App() {
   const [transactions, setTransactions] = useState(() =>
     upgradeTransactions(boot?.transactions ?? [])
   );
+  const [activeView, setActiveView] = useState("home");
   const [showAdd, setShowAdd] = useState(false);
   const [editTx, setEditTx] = useState(null);
-  const [txFilter, setTxFilter] = useState("All");
   const [restoreFeedback, setRestoreFeedback] = useState(null);
   const [activeView, setActiveView] = useState("home");
   const preferences = useMemo(
@@ -219,9 +220,19 @@ export default function App() {
     [friends, transactions, balances, preferences]
   );
 
+  const storeSnapshot = useMemo(
+    () => ({
+      friends,
+      selectedId,
+      balances,
+      transactions,
+    }),
+    [friends, selectedId, balances, transactions]
+  );
+
   const friendTx = useMemo(() => {
     if (!selectedId) return [];
-    const base = transactions
+    return transactions
       .map((t) => {
         if (!transactionIncludesFriend(t, selectedId)) return null;
         const effects = getTransactionEffects(t);
@@ -229,9 +240,7 @@ export default function App() {
         return effect ? { ...t, effect } : null;
       })
       .filter(Boolean);
-    if (txFilter === "All") return base;
-    return base.filter((t) => (t.category ?? "Other") === txFilter);
-  }, [transactions, selectedId, txFilter]);
+  }, [transactions, selectedId]);
 
   // Current balance for selected friend (for pill & settle button visibility)
   const selectedBalance = balances.get(selectedId) ?? 0;
@@ -246,6 +255,10 @@ export default function App() {
   const openAdd = useCallback(() => setShowAdd(true), []);
 
   const closeAdd = useCallback(() => setShowAdd(false), []);
+
+  const openAnalytics = useCallback(() => setActiveView("analytics"), []);
+
+  const navigateHome = useCallback(() => setActiveView("home"), []);
 
   const normalizedFriendEmails = useMemo(
     () =>
@@ -548,6 +561,16 @@ export default function App() {
           </nav>
 
           <span className="badge">React + Vite</span>
+
+          {activeView === "home" && (
+            <button
+              className="button btn-ghost"
+              onClick={openAnalytics}
+              title="View analytics for all transactions"
+            >
+              Analytics
+            </button>
+          )}
 
           <button
             className="button btn-ghost"

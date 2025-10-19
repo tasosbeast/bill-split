@@ -37,7 +37,7 @@ export default function Transactions({
             : "Settlement";
 
         const summary = isSettlement
-          ? `Balance settled — ${formatEUR(Math.abs(t.delta))}`
+          ? `Balance settled \u2014 ${formatEUR(Math.abs(t.delta))}`
           : t.payer === "you"
           ? `${friend.name} owes you ${formatEUR(t.half)}`
           : `You owe ${friend.name} ${formatEUR(t.half)}`;
@@ -51,12 +51,12 @@ export default function Transactions({
           : "amount amount-zero";
 
         const arrow = isSettlement
-          ? "—"
+          ? "\u2014"
           : t.delta > 0
-          ? "↑"
+          ? "\u2191"
           : t.delta < 0
-          ? "↓"
-          : "—";
+          ? "\u2193"
+          : "\u2014";
 
         const sr = isSettlement
           ? "settlement (balance cleared)"

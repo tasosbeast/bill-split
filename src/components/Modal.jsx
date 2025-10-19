@@ -76,7 +76,7 @@ export default function Modal({ title, children, onClose }) {
         <header>
           <h3>{title}</h3>
           <button className="close" onClick={onClose} aria-label="Close modal">
-            <span aria-hidden="true">×</span>
+            <span aria-hidden="true">{"\u2715"}</span>
           </button>
         </header>
         {/* Pass a ref handle so child can auto-focus first field */}

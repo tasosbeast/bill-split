@@ -25,7 +25,7 @@ export default function Balances({ friends, balances, onJumpTo }) {
             ? "amount amount-neg"
             : "amount amount-zero";
 
-        const arrow = bal > 0 ? "↑" : bal < 0 ? "↓" : "—";
+        const arrow = bal > 0 ? "\u2191" : bal < 0 ? "\u2193" : "\u2014";
         const sr =
           bal > 0
             ? "credit (they owe you)"

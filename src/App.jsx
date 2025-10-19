@@ -351,10 +351,10 @@ export default function App() {
                     }
                   >
                     {selectedBalance > 0
-                      ? "↑"
+                      ? "\u2191"
                       : selectedBalance < 0
-                      ? "↓"
-                      : "—"}{" "}
+                      ? "\u2193"
+                      : "\u2014"}{" "}
                     {Math.abs(selectedBalance).toLocaleString(undefined, {
                       style: "currency",
                       currency: "EUR",

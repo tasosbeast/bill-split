@@ -106,15 +106,9 @@ export default function AnalyticsDashboard({
 
   const friends = state?.friends;
 
-  const friendsList = useMemo(() => {
-    if (Array.isArray(friends)) {
-      return friends;
-    }
-    return [];
-  }, [friends]);
-
   const friendBalanceEntries = useMemo(() => {
     if (!friendBalances.length) return [];
+    const friendsList = Array.isArray(friends) ? friends : [];
     const entries = [];
     for (const entry of friendBalances) {
       const friend =
@@ -130,7 +124,7 @@ export default function AnalyticsDashboard({
       });
     }
     return entries;
-  }, [friendBalances, friendsList]);
+  }, [friendBalances, friends]);
 
   const netAccent = overview.netBalance >= 0 ? "brand" : "danger";
   const budgetAccent =

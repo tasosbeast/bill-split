@@ -1,28 +1,36 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./index.css";
 import FriendList from "./components/FriendList";
 import SplitForm from "./components/SplitForm";
 import AddFriendModal from "./components/AddFriendModal";
 import Balances from "./components/Balances";
 import Transactions from "./components/Transactions";
+import { loadState, saveState } from "./lib/storage";
 
-const initialFriends = [
+const seededFriends = [
   { id: crypto.randomUUID(), name: "Valia", email: "valia@example.com" },
   { id: crypto.randomUUID(), name: "Nikos", email: "nikos@example.com" },
 ];
 
 export default function App() {
-  const [friends, setFriends] = useState(initialFriends);
-  const [selectedId, setSelectedId] = useState(null);
-  const [transactions, setTransactions] = useState([]); // <-- new
+  // Load once from localStorage
+  const boot = loadState();
+
+  const [friends, setFriends] = useState(boot?.friends ?? seededFriends);
+  const [selectedId, setSelectedId] = useState(boot?.selectedId ?? null);
+  const [transactions, setTransactions] = useState(boot?.transactions ?? []);
   const [showAdd, setShowAdd] = useState(false);
+
+  // Save on changes (debounced by the event loop; fine for this scale)
+  useEffect(() => {
+    saveState({ friends, selectedId, transactions });
+  }, [friends, selectedId, transactions]);
 
   const selectedFriend = useMemo(
     () => friends.find((f) => f.id === selectedId) || null,
     [friends, selectedId]
   );
 
-  // Compute balances per friend: sum of deltas
   const balances = useMemo(() => {
     const m = new Map();
     for (const t of transactions) {
@@ -31,7 +39,6 @@ export default function App() {
     return m;
   }, [transactions]);
 
-  // Transactions for the selected friend
   const friendTx = useMemo(
     () =>
       selectedId ? transactions.filter((t) => t.friendId === selectedId) : [],
@@ -67,7 +74,6 @@ export default function App() {
       </header>
 
       <div className="layout">
-        {/* Left column: Friends + overall balances */}
         <section className="panel">
           <h2>Friends</h2>
           <div className="row" style={{ marginBottom: 10 }}>
@@ -80,6 +86,7 @@ export default function App() {
             selectedId={selectedId}
             onSelect={setSelectedId}
           />
+
           <div style={{ height: 16 }} />
           <h2>Balances</h2>
           <p className="kicker" style={{ marginBottom: 8 }}>
@@ -92,7 +99,6 @@ export default function App() {
           />
         </section>
 
-        {/* Right column: Split form + per-friend transactions */}
         <section className="panel">
           <h2>Split a bill</h2>
 

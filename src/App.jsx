@@ -60,19 +60,25 @@ export default function App() {
 
   const closeAdd = useCallback(() => setShowAdd(false), []);
 
+  const normalizedFriendEmails = useMemo(
+    () =>
+      new Set(
+        friends.map((f) => (f.email ?? "").trim().toLowerCase())
+      ),
+    [friends]
+  );
+
   const handleCreateFriend = useCallback(
     (friend) => {
-      const exists = friends.some(
-        (f) => f.email.toLowerCase() === friend.email
-      );
-      if (exists) {
+      const normalizedEmail = (friend?.email ?? "").trim().toLowerCase();
+      if (normalizedFriendEmails.has(normalizedEmail)) {
         alert("A friend with this email already exists.");
         return;
       }
       setFriends((prev) => [...prev, friend]);
       setSelectedId(friend.id);
     },
-    [friends]
+    [normalizedFriendEmails]
   );
 
   function handleSettle() {

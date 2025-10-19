@@ -74,7 +74,34 @@ type TransactionFiltersHook = {
   hasActiveFilters: boolean;
 };
 
-const formatStatus = (status: string) => {
+type BudgetStatusLevel = "over" | "warning" | "on-track";
+
+type CategoryTotal = {
+  category: string;
+  amount: number;
+};
+
+type MonthlyTrendPoint = {
+  key: string;
+  label: string;
+  amount: number;
+};
+
+type BudgetStatus = {
+  budget: number;
+  spent: number;
+  remaining: number;
+  utilization: number;
+  status: BudgetStatusLevel;
+};
+
+type TopBalance = {
+  friendId: string;
+  amount: number;
+  name: string;
+};
+
+const formatStatus = (status: BudgetStatusLevel) => {
   switch (status) {
     case "over":
       return "Over budget";
@@ -85,7 +112,7 @@ const formatStatus = (status: string) => {
   }
 };
 
-const statusAccent = (status: string) => {
+const statusAccent = (status: BudgetStatusLevel): "danger" | "neutral" | "brand" => {
   switch (status) {
     case "over":
       return "danger" as const;
@@ -97,10 +124,16 @@ const statusAccent = (status: string) => {
 };
 
 const AnalyticsDashboard: FC<AnalyticsDashboardProps> = ({ state, onNavigateHome }) => {
-  const friends = useMemo(() => selectFriends(state), [state]);
-  const transactions = useMemo(() => selectTransactions(state), [state]);
-  const balances = useMemo(() => selectBalances(state), [state]);
-  const monthlyBudget = useMemo(() => selectMonthlyBudget(state), [state]);
+  const friends = useMemo<Friend[]>(() => selectFriends(state) as Friend[], [state]);
+  const transactions = useMemo<Transaction[]>(
+    () => selectTransactions(state) as Transaction[],
+    [state]
+  );
+  const balances = useMemo<Map<string, number>>(
+    () => selectBalances(state) as Map<string, number>,
+    [state]
+  );
+  const monthlyBudget = useMemo<number>(() => selectMonthlyBudget(state) as number, [state]);
 
   const {
     filters,
@@ -119,24 +152,25 @@ const AnalyticsDashboard: FC<AnalyticsDashboardProps> = ({ state, onNavigateHome
     [transactions, applyFilters],
   );
 
-  const categoryTotals = useMemo(
-    () => computeCategoryTotals(filteredTransactions),
-    [filteredTransactions]
+  const categoryTotals = useMemo<CategoryTotal[]>(
+    () => computeCategoryTotals(filteredTransactions) as CategoryTotal[],
+    [filteredTransactions],
   );
 
-  const monthlyTrend = useMemo(
-    () => computeMonthlyTrend(filteredTransactions, 6),
-    [filteredTransactions]
+  const monthlyTrend = useMemo<MonthlyTrendPoint[]>(
+    () => computeMonthlyTrend(filteredTransactions, 6) as MonthlyTrendPoint[],
+    [filteredTransactions],
   );
 
-  const budgetStatus = useMemo(
-    () => computeBudgetStatus(filteredTransactions, monthlyBudget),
-    [filteredTransactions, monthlyBudget]
+  const budgetStatus = useMemo<BudgetStatus>(
+    () =>
+      computeBudgetStatus(filteredTransactions, monthlyBudget) as unknown as BudgetStatus,
+    [filteredTransactions, monthlyBudget],
   );
 
-  const friendMap = useMemo(() => new Map(friends.map((f) => [f.id, f])), [friends]);
+  const friendMap = useMemo(() => new Map<string, Friend>(friends.map((f) => [f.id, f])), [friends]);
 
-  const topBalances = useMemo(() => {
+  const topBalances = useMemo<TopBalance[]>(() => {
     const entries = Array.from(balances.entries())
       .map(([friendId, amount]) => ({
         friendId,

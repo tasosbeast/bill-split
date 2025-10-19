@@ -11,8 +11,10 @@ function when(ts) {
   }
 }
 
-function Transactions({ friend, items, onRequestEdit, onDelete }) {
+function Transactions({ friend, friendsById, items, onRequestEdit, onDelete }) {
   if (!friend) return null;
+
+  const map = friendsById instanceof Map ? friendsById : new Map();
 
   if (!items || items.length === 0) {
     return (
@@ -24,43 +26,71 @@ function Transactions({ friend, items, onRequestEdit, onDelete }) {
     <div className="list">
       {items.map((t) => {
         const isSettlement = t.type === "settlement";
+        const isGroupSplit = Array.isArray(t.friendIds)
+          ? t.friendIds.filter(Boolean).length > 1
+          : false;
+        const delta = t.effect?.delta ?? 0;
+        const share = t.effect?.share ?? Math.abs(delta);
+        const payerName = (() => {
+          if (t.payer === "you") return "You";
+          if (typeof t.payer === "string") {
+            const payerFriend = map.get(t.payer);
+            if (payerFriend) return payerFriend.name;
+          }
+          return null;
+        })();
 
-        const whoPaid =
-          t.payer === "you"
-            ? "You paid"
-            : t.payer === "friend"
-            ? `${friend.name} paid`
-            : "Settlement";
+        const whoPaid = isSettlement
+          ? "Settlement"
+          : payerName
+          ? `${payerName} paid`
+          : "Shared expense";
 
-        const summary = isSettlement
-          ? `Balance settled \u2014 ${formatEUR(Math.abs(t.delta))}`
-          : t.payer === "you"
-          ? `${friend.name} owes you ${formatEUR(t.half)}`
-          : `You owe ${friend.name} ${formatEUR(t.half)}`;
+        let summary;
+        if (isSettlement) {
+          summary = `Balance settled \u2014 ${formatEUR(Math.abs(delta))}`;
+        } else if (delta > 0) {
+          summary = `${friend.name} owes you ${formatEUR(delta)}`;
+          if (share && Math.abs(share - delta) > 0.01) {
+            summary += ` (share ${formatEUR(share)})`;
+          }
+        } else if (delta < 0) {
+          summary = `You owe ${friend.name} ${formatEUR(Math.abs(delta))}`;
+          if (share && Math.abs(share - Math.abs(delta)) > 0.01) {
+            summary += ` (share ${formatEUR(share)})`;
+          }
+        } else if (share > 0) {
+          summary = `No balance change — share ${formatEUR(share)}`;
+        } else {
+          summary = "Settled";
+        }
 
-        const cls = isSettlement
-          ? "amount amount-zero"
-          : t.delta > 0
-          ? "amount amount-pos"
-          : t.delta < 0
-          ? "amount amount-neg"
-          : "amount amount-zero";
+        const cls =
+          delta > 0
+            ? "amount amount-pos"
+            : delta < 0
+            ? "amount amount-neg"
+            : "amount amount-zero";
 
-        const arrow = isSettlement
-          ? "\u2014"
-          : t.delta > 0
-          ? "\u2191"
-          : t.delta < 0
-          ? "\u2193"
-          : "\u2014";
+        const arrow = delta > 0 ? "\u2191" : delta < 0 ? "\u2193" : "\u2014";
 
-        const sr = isSettlement
-          ? "settlement (balance cleared)"
-          : t.delta > 0
-          ? "credit (they owe you)"
-          : t.delta < 0
-          ? "debt (you owe them)"
-          : "settled";
+        const sr =
+          delta > 0
+            ? "credit (they owe you)"
+            : delta < 0
+            ? "debt (you owe them)"
+            : "settled";
+
+        const participantNames = (t.participants || [])
+          .map((p) => {
+            if (p.id === "you") return "You";
+            const f = map.get(p.id);
+            // Omit the currently selected friend from the "With" badge to avoid redundancy
+            if (f && f.id === friend.id) return null;
+            return f ? f.name : null;
+          })
+          .filter(Boolean)
+          .join(", ");
 
         return (
           <div key={t.id} className="list-item">
@@ -91,6 +121,16 @@ function Transactions({ friend, items, onRequestEdit, onDelete }) {
                     <strong>Category</strong> {t.category}
                   </span>
                 )}
+                {t.total ? (
+                  <span className="badge-chip">
+                    <strong>Total</strong> {formatEUR(t.total)}
+                  </span>
+                ) : null}
+                {participantNames && (
+                  <span className="badge-chip">
+                    <strong>With</strong> {participantNames}
+                  </span>
+                )}
                 {t.note && (
                   <span className="badge-chip" title={t.note}>
                     <strong>Note</strong> {t.note}
@@ -104,7 +144,12 @@ function Transactions({ friend, items, onRequestEdit, onDelete }) {
                   <button
                     className="btn-ghost"
                     onClick={() => onRequestEdit?.(t)}
-                    title="Edit this split"
+                    title={
+                      isGroupSplit
+                        ? "Editing multi-friend splits isn't supported yet"
+                        : "Edit this split"
+                    }
+                    disabled={isGroupSplit}
                   >
                     Edit
                   </button>
@@ -124,7 +169,7 @@ function Transactions({ friend, items, onRequestEdit, onDelete }) {
               <span aria-hidden="true" className="mr-6">
                 {arrow}
               </span>
-              {formatEUR(Math.abs(t.delta))}
+              {formatEUR(Math.abs(delta))}
               <span className="sr-only"> {sr}</span>
             </div>
           </div>
@@ -141,15 +186,19 @@ Transactions.propTypes = {
     name: PropTypes.string.isRequired,
     email: PropTypes.string,
   }),
+  friendsById: PropTypes.instanceOf(Map),
   items: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string.isRequired,
       type: PropTypes.oneOf(["split", "settlement"]).isRequired,
-      friendId: PropTypes.string.isRequired,
       total: PropTypes.number,
-      payer: PropTypes.oneOf(["you", "friend", null]),
-      half: PropTypes.number,
-      delta: PropTypes.number.isRequired,
+      payer: PropTypes.string,
+      friendIds: PropTypes.arrayOf(PropTypes.string),
+      effect: PropTypes.shape({
+        friendId: PropTypes.string.isRequired,
+        share: PropTypes.number,
+        delta: PropTypes.number.isRequired,
+      }).isRequired,
       category: PropTypes.string,
       note: PropTypes.string,
       createdAt: PropTypes.string.isRequired,

@@ -15,11 +15,16 @@ const seededFriends = [
 ];
 
 export default function App() {
-  const boot = loadState();
+  const [friends, setFriends] = useState(
+    () => loadState()?.friends ?? seededFriends
+  );
+  const [selectedId, setSelectedId] = useState(
+    () => loadState()?.selectedId ?? null
+  );
+  const [transactions, setTransactions] = useState(
+    () => loadState()?.transactions ?? []
+  );
 
-  const [friends, setFriends] = useState(boot?.friends ?? seededFriends);
-  const [selectedId, setSelectedId] = useState(boot?.selectedId ?? null);
-  const [transactions, setTransactions] = useState(boot?.transactions ?? []);
   const [showAdd, setShowAdd] = useState(false);
   const [editTx, setEditTx] = useState(null);
   const [txFilter, setTxFilter] = useState("All");
@@ -178,20 +183,25 @@ export default function App() {
         }
 
         // Optional: καθάρισε ids που λείπουν ή λάθος types
-        const sanitizeId = (x) =>
-          typeof x === "string" ? x : crypto.randomUUID();
-
+        const idMap = new Map();
+        function stableId(id) {
+          if (typeof id === "string") return id;
+          if (idMap.has(id)) return idMap.get(id);
+          const newId = crypto.randomUUID();
+          idMap.set(id, newId);
+          return newId;
+        }
         const safeFriends = data.friends.map((f) => ({
-          id: sanitizeId(f.id),
+          id: stableId(f.id),
           name: String(f.name ?? "").trim() || "Friend",
           email: String(f.email ?? "").trim() || "",
           tag: f.tag ?? "friend",
         }));
 
         const safeTransactions = data.transactions.filter(Boolean).map((t) => ({
-          id: sanitizeId(t.id),
+          id: stableId(t.id),
           type: t.type === "settlement" ? "settlement" : "split",
-          friendId: sanitizeId(t.friendId),
+          friendId: stableId(t.friendId),
           total: t.type === "split" ? Number(t.total ?? 0) : null,
           payer:
             t.type === "split"
@@ -308,7 +318,7 @@ export default function App() {
           <div style={{ height: 16 }} />
           <h2>Balances</h2>
           <p className="kicker" style={{ marginBottom: 8 }}>
-            Positive = they owe you • Negative = you owe them
+            Positive = they owe you | Negative = you owe them
           </p>
           <Balances
             friends={friends}
@@ -355,10 +365,10 @@ export default function App() {
                     }
                   >
                     {selectedBalance > 0
-                      ? "▲"
+                      ? "↑"
                       : selectedBalance < 0
-                      ? "▼"
-                      : "•"}{" "}
+                      ? "↓"
+                      : "—"}{" "}
                     {Math.abs(selectedBalance).toLocaleString(undefined, {
                       style: "currency",
                       currency: "EUR",

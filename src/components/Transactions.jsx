@@ -37,7 +37,7 @@ export default function Transactions({
             : "Settlement";
 
         const summary = isSettlement
-          ? `Balance settled • ${formatEUR(Math.abs(t.delta))}`
+          ? `Balance settled — ${formatEUR(Math.abs(t.delta))}`
           : t.payer === "you"
           ? `${friend.name} owes you ${formatEUR(t.half)}`
           : `You owe ${friend.name} ${formatEUR(t.half)}`;
@@ -51,12 +51,12 @@ export default function Transactions({
           : "amount amount-zero";
 
         const arrow = isSettlement
-          ? "✓"
+          ? "—"
           : t.delta > 0
-          ? "▲"
+          ? "↑"
           : t.delta < 0
-          ? "▼"
-          : "•";
+          ? "↓"
+          : "—";
 
         const sr = isSettlement
           ? "settlement (balance cleared)"
@@ -74,8 +74,8 @@ export default function Transactions({
 
               {/* Meta line */}
               <div className="tx-meta">
-                {summary} • {when(t.createdAt)}
-                {t.updatedAt ? " • edited" : ""}
+                {summary} | {when(t.createdAt)}
+                {t.updatedAt ? " | edited" : ""}
               </div>
 
               {/* Badges */}

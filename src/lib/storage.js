@@ -5,26 +5,24 @@ export function loadState() {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
     return JSON.parse(raw);
-  } catch (err) {
-    console.warn("Could not load state:", err);
+  } catch {
     return null;
   }
 }
 
-export function saveState(partial) {
+// now saveState just writes what it's given
+export function saveState(snapshot) {
   try {
-    const prev = loadState() || {};
-    const next = { ...prev, ...partial };
-    localStorage.setItem(KEY, JSON.stringify(next));
-  } catch (err) {
-    console.warn("Could not save state to localStorage:", err);
+    localStorage.setItem(KEY, JSON.stringify(snapshot));
+  } catch {
+    console.warn("Could not save state to localStorage");
   }
 }
 
 export function clearState() {
   try {
     localStorage.removeItem(KEY);
-  } catch (err) {
-    console.warn("Could not clear state:", err);
+  } catch {
+    console.warn("Could not clear state from localStorage");
   }
 }

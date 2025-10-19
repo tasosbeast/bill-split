@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import "./index.css";
 import FriendList from "./components/FriendList";
 import SplitForm from "./components/SplitForm";
@@ -56,6 +56,9 @@ export default function App() {
       .filter((t) => t.friendId === selectedId)
       .reduce((sum, t) => sum + t.delta, 0);
   }, [transactions, selectedId]);
+
+  // Hidden input ref για Restore
+  const fileInputRef = useRef(null);
 
   function handleSplit(tx) {
     setTransactions((prev) => [tx, ...prev]);
@@ -130,12 +133,139 @@ export default function App() {
     window.location.reload();
   }
 
+  function handleBackup() {
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      friends,
+      selectedId,
+      transactions,
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bill-split-backup-${new Date()
+      .toISOString()
+      .slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleRestore(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // επιτρέπει επανα-επιλογή ίδιου αρχείου αργότερα
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+
+        // Σούπερ απλό validation: περιμένουμε arrays & σωστούς τύπους
+        if (!data || typeof data !== "object")
+          throw new Error("Invalid JSON root");
+        if (!Array.isArray(data.friends)) throw new Error("Missing friends[]");
+        if (!Array.isArray(data.transactions))
+          throw new Error("Missing transactions[]");
+        if (data.selectedId !== null && typeof data.selectedId !== "string") {
+          throw new Error("selectedId must be null or string");
+        }
+
+        // Optional: καθάρισε ids που λείπουν ή λάθος types
+        const sanitizeId = (x) =>
+          typeof x === "string" ? x : crypto.randomUUID();
+
+        const safeFriends = data.friends.map((f) => ({
+          id: sanitizeId(f.id),
+          name: String(f.name ?? "").trim() || "Friend",
+          email: String(f.email ?? "").trim() || "",
+          tag: f.tag ?? "friend",
+        }));
+
+        const safeTransactions = data.transactions.filter(Boolean).map((t) => ({
+          id: sanitizeId(t.id),
+          type: t.type === "settlement" ? "settlement" : "split",
+          friendId: sanitizeId(t.friendId),
+          total: t.type === "split" ? Number(t.total ?? 0) : null,
+          payer:
+            t.type === "split"
+              ? t.payer === "friend"
+                ? "friend"
+                : "you"
+              : null,
+          half:
+            t.type === "split"
+              ? Number(t.half ?? Number(t.total ?? 0) / 2)
+              : Math.abs(Number(t.half ?? 0)),
+          delta: Number(t.delta ?? 0),
+          category: t.category ?? "Other",
+          note: String(t.note ?? ""),
+          createdAt: t.createdAt ?? new Date().toISOString(),
+          updatedAt: t.updatedAt ?? null,
+        }));
+
+        // Εφάρμοσε στο state
+        setFriends(safeFriends);
+        setTransactions(safeTransactions);
+        setSelectedId(data.selectedId ?? null);
+
+        // Αποθήκευση & ενημέρωση UI
+        saveState({
+          friends: safeFriends,
+          transactions: safeTransactions,
+          selectedId: data.selectedId ?? null,
+        });
+
+        alert("Restore completed successfully!");
+      } catch (err) {
+        console.warn("Restore failed:", err);
+        alert("Restore failed: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
   return (
     <div className="app">
       <header className="header">
         <div className="brand">Bill Split</div>
         <div className="row" style={{ gap: 8 }}>
           <span className="badge">React + Vite</span>
+
+          <button
+            className="button"
+            style={{
+              background: "transparent",
+              borderColor: "var(--border)",
+              fontSize: 12,
+              padding: "6px 10px",
+            }}
+            onClick={handleBackup}
+            title="Export all data to a JSON file"
+          >
+            Backup
+          </button>
+
+          <button
+            className="button"
+            style={{
+              background: "transparent",
+              borderColor: "var(--border)",
+              fontSize: 12,
+              padding: "6px 10px",
+            }}
+            onClick={() => fileInputRef.current?.click()}
+            title="Import data from a JSON file"
+          >
+            Restore
+          </button>
+
           <button
             className="button"
             style={{
@@ -150,6 +280,15 @@ export default function App() {
             Reset Data
           </button>
         </div>
+
+        {/* Hidden file input for Restore */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json"
+          style={{ display: "none" }}
+          onChange={handleRestore}
+        />
       </header>
 
       <div className="layout">

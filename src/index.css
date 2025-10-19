@@ -328,3 +328,15 @@ body {
 .list-item {
   padding: 12px 14px;
 }
+
+.button[title*="Export"],
+.button[title*="Import"],
+.button[title*="Clear all data"] {
+  color: var(--muted);
+}
+
+.button[title*="Export"]:hover,
+.button[title*="Import"]:hover,
+.button[title*="Clear all data"]:hover {
+  color: var(--text);
+}

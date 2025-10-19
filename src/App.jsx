@@ -181,12 +181,28 @@ export default function App() {
         );
         const allowedPayers = new Set(["you", "friend"]);
 
-        const safeFriends = data.friends.map((f) => ({
-          id: stableId(f.id),
-          name: String(f.name ?? "").trim() || "Friend",
-          email: String(f.email ?? "").trim().toLowerCase(),
-          tag: f.tag ?? "friend",
-        }));
+        const emailIndex = new Map();
+        const safeFriends = [];
+        for (const f of data.friends) {
+          const id = stableId(f.id);
+          const name = String(f.name ?? "").trim() || "Friend";
+          const email = String(f.email ?? "").trim().toLowerCase();
+          const tag = f.tag ?? "friend";
+
+          if (email && emailIndex.has(email)) {
+            const existing = emailIndex.get(email);
+            console.warn(
+              "Merging duplicate friend by email during restore:",
+              { kept: existing, dropped: { id, name, email, tag } },
+            );
+            // Skip adding duplicate friend; stableId mapping already ensures consistent ids for references
+            continue;
+          }
+
+          const friend = { id, name, email, tag };
+          safeFriends.push(friend);
+          if (email) emailIndex.set(email, friend);
+        }
 
         const safeTransactions = [];
         const skippedTransactions = [];

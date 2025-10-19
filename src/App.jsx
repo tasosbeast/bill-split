@@ -171,10 +171,13 @@ export default function App() {
           idMap.set(id, newId);
           return newId;
         }
-        const categorySet = new Set(
-          CATEGORIES.map((c) =>
-            typeof c === "string" ? c : c.value ?? c.name ?? String(c)
-          )
+        // Build a normalized, case-insensitive category index
+        const categoryIndex = new Map(
+          CATEGORIES.map((c) => {
+            const label =
+              typeof c === "string" ? c : c.value ?? c.name ?? String(c);
+            return [label.trim().toLowerCase(), label];
+          })
         );
         const allowedPayers = new Set(["you", "friend"]);
 
@@ -198,10 +201,11 @@ export default function App() {
               typeof t.category === "string" ? t.category.trim() : "";
             let category = "Other";
             if (rawCategory) {
-              if (!categorySet.has(rawCategory)) {
+              const normalizedCategory = rawCategory.toLowerCase();
+              if (!categoryIndex.has(normalizedCategory)) {
                 throw new Error(`Unknown category: ${rawCategory}`);
               }
-              category = rawCategory;
+              category = categoryIndex.get(normalizedCategory);
             }
 
             const rawPayer =

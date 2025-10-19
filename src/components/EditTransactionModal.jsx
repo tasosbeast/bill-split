@@ -55,41 +55,49 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
 
   function validate() {
     if (!simpleEditable) {
-      return "Only one-on-one splits can be edited at the moment.";
+      return {
+        error: "Only one-on-one splits can be edited at the moment.",
+      };
     }
-    const parsedTotal = parseAmountInput(bill);
-    if (parsedTotal === null || parsedTotal <= 0) {
-      return "Enter a valid total amount.";
+
+    const totalAmount = parseAmountInput(bill);
+    if (totalAmount === null || totalAmount <= 0) {
+      return { error: "Enter a valid total amount." };
     }
-    const parsedFriendShare = parseAmountInput(friendShare);
-    if (parsedFriendShare === null) {
-      return "Enter your friend's share.";
+
+    const friendAmount = parseAmountInput(friendShare);
+    if (friendAmount === null) {
+      return { error: "Enter your friend's share." };
     }
-    if (parsedFriendShare > parsedTotal) {
-      return "Friend's share cannot exceed the total.";
+
+    if (friendAmount > totalAmount) {
+      return { error: "Friend's share cannot exceed the total." };
     }
+
+    const yourAmount = roundToCents(totalAmount - friendAmount);
+    const sum = roundToCents(yourAmount + friendAmount);
+    if (sum !== roundToCents(totalAmount)) {
+      return { error: "Shares must add up exactly to the total." };
+    }
+
     const allowedPayers = new Set(["you", friendId]);
     if (!allowedPayers.has(payer)) {
-      return "Invalid payer.";
+      return { error: "Invalid payer." };
     }
-    return "";
+
+    return { error: "", totalAmount, friendAmount, yourAmount };
   }
 
   function handleSubmit(e) {
     e.preventDefault();
     const validation = validate();
-    if (validation) {
-      setError(validation);
+    if (validation.error) {
+      setError(validation.error);
       return;
     }
 
-    const totalAmount = parseAmountInput(bill);
-    const friendAmount = parseAmountInput(friendShare) ?? 0;
-    const yourAmount = roundToCents(totalAmount - friendAmount);
-    if (yourAmount < 0) {
-      setError("Shares must add up to the total.");
-      return;
-    }
+    const { totalAmount, friendAmount, yourAmount } = validation;
+    setError("");
 
     const updated = buildSplitTransaction({
       id: tx.id,

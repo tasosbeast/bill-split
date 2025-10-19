@@ -283,11 +283,9 @@ export default function App() {
                   if (pid !== "you") {
                     pid = stableId(pid);
                     if (!friendIdSet.has(pid)) {
-                      console.warn(
-                        "Skipping participant with unknown friend id during restore",
-                        part,
-                        t,
-                      );
+                    console.warn(
+                      "Skipping participant with unknown friend id during restore",
+                    );
                       continue;
                     }
                   }

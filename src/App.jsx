@@ -7,7 +7,6 @@ import Balances from "./components/Balances";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import TransactionList from "./components/TransactionList";
 import EditTransactionModal from "./components/EditTransactionModal";
-import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 import { loadState, saveState, clearState } from "./lib/storage";
 import { CATEGORIES } from "./lib/categories";
 import { computeBalances } from "./lib/compute";
@@ -18,7 +17,6 @@ import {
   transactionIncludesFriend,
   upgradeTransactions,
 } from "./lib/transactions";
-import { DEFAULT_MONTHLY_BUDGET } from "./lib/selectors";
 
 function parseV2SplitTransaction(transaction, base, helpers) {
   const { stableId, friendIdSet } = helpers;
@@ -33,7 +31,9 @@ function parseV2SplitTransaction(transaction, base, helpers) {
     if (pid !== "you") {
       pid = stableId(pid);
       if (!friendIdSet.has(pid)) {
-        console.warn("Skipping participant with unknown friend id during restore");
+        console.warn(
+          "Skipping participant with unknown friend id during restore"
+        );
         continue;
       }
     }
@@ -181,14 +181,10 @@ export default function App() {
     upgradeTransactions(boot?.transactions ?? [])
   );
   const [activeView, setActiveView] = useState("home");
+  const [txFilter, setTxFilter] = useState("All");
   const [showAdd, setShowAdd] = useState(false);
   const [editTx, setEditTx] = useState(null);
   const [restoreFeedback, setRestoreFeedback] = useState(null);
-  const [activeView, setActiveView] = useState("home");
-  const preferences = useMemo(
-    () => ({ monthlyBudget: DEFAULT_MONTHLY_BUDGET }),
-    []
-  );
 
   useEffect(() => {
     saveState({ friends, selectedId, transactions });
@@ -215,10 +211,6 @@ export default function App() {
   }, [friends]);
 
   const balances = useMemo(() => computeBalances(transactions), [transactions]);
-  const storeSnapshot = useMemo(
-    () => ({ friends, transactions, balances, preferences }),
-    [friends, transactions, balances, preferences]
-  );
 
   const storeSnapshot = useMemo(
     () => ({
@@ -235,12 +227,13 @@ export default function App() {
     return transactions
       .map((t) => {
         if (!transactionIncludesFriend(t, selectedId)) return null;
+        if (txFilter !== "All" && t.category !== txFilter) return null;
         const effects = getTransactionEffects(t);
         const effect = effects.find((e) => e.friendId === selectedId) || null;
         return effect ? { ...t, effect } : null;
       })
       .filter(Boolean);
-  }, [transactions, selectedId]);
+  }, [transactions, selectedId, txFilter]);
 
   // Current balance for selected friend (for pill & settle button visibility)
   const selectedBalance = balances.get(selectedId) ?? 0;
@@ -261,10 +254,7 @@ export default function App() {
   const navigateHome = useCallback(() => setActiveView("home"), []);
 
   const normalizedFriendEmails = useMemo(
-    () =>
-      new Set(
-        friends.map((f) => (f.email ?? "").trim().toLowerCase())
-      ),
+    () => new Set(friends.map((f) => (f.email ?? "").trim().toLowerCase())),
     [friends]
   );
 
@@ -402,15 +392,17 @@ export default function App() {
         for (const f of data.friends) {
           const id = stableId(f.id);
           const name = String(f.name ?? "").trim() || "Friend";
-          const email = String(f.email ?? "").trim().toLowerCase();
+          const email = String(f.email ?? "")
+            .trim()
+            .toLowerCase();
           const tag = f.tag ?? "friend";
 
           if (email && emailIndex.has(email)) {
             const existing = emailIndex.get(email);
-            console.warn(
-              "Merging duplicate friend by email during restore:",
-              { kept: existing, dropped: { id, name, email, tag } },
-            );
+            console.warn("Merging duplicate friend by email during restore:", {
+              kept: existing,
+              dropped: { id, name, email, tag },
+            });
             // Skip adding duplicate friend; stableId mapping already ensures consistent ids for references
             continue;
           }
@@ -446,7 +438,7 @@ export default function App() {
               if (!canonicalCategory) {
                 console.warn(
                   "Unknown category during restore, defaulting to 'Other':",
-                  rawCategory,
+                  rawCategory
                 );
               } else {
                 category = canonicalCategory;
@@ -517,7 +509,7 @@ export default function App() {
             : {
                 status: "success",
                 message: "Restore completed successfully!",
-              },
+              }
         );
       } catch (err) {
         console.warn("Restore failed:", err);
@@ -610,7 +602,7 @@ export default function App() {
       {activeView === "analytics" ? (
         <AnalyticsDashboard
           state={storeSnapshot}
-          onNavigateHome={() => setActiveView("home")}
+          onNavigateHome={navigateHome}
         />
       ) : (
         <div className="layout">

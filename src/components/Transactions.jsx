@@ -22,26 +22,46 @@ export default function Transactions({ friend, items }) {
   return (
     <div className="list">
       {items.map((t) => {
-        const whoPaid = t.payer === "you" ? "You paid" : `${friend.name} paid`;
-        const summary =
+        const isSettlement = t.type === "settlement";
+
+        // Περιγραφές για split
+        const whoPaid =
           t.payer === "you"
-            ? `${friend.name} owes you ${formatEUR(t.half)}`
-            : `You owe ${friend.name} ${formatEUR(t.half)}`;
+            ? "You paid"
+            : t.payer === "friend"
+            ? `${friend.name} paid`
+            : "Settlement";
 
-        const cls =
-          t.delta > 0
-            ? "amount amount-pos"
-            : t.delta < 0
-            ? "amount amount-neg"
-            : "amount amount-zero";
+        const summary = isSettlement
+          ? `Balance settled • ${formatEUR(Math.abs(t.delta))}`
+          : t.payer === "you"
+          ? `${friend.name} owes you ${formatEUR(t.half)}`
+          : `You owe ${friend.name} ${formatEUR(t.half)}`;
 
-        const arrow = t.delta > 0 ? "▲" : t.delta < 0 ? "▼" : "•";
-        const sr =
-          t.delta > 0
-            ? "credit (they owe you)"
-            : t.delta < 0
-            ? "debt (you owe them)"
-            : "settled";
+        // Χρώματα/βέλη: ουδέτερο για settlement
+        const cls = isSettlement
+          ? "amount amount-zero"
+          : t.delta > 0
+          ? "amount amount-pos"
+          : t.delta < 0
+          ? "amount amount-neg"
+          : "amount amount-zero";
+
+        const arrow = isSettlement
+          ? "✓"
+          : t.delta > 0
+          ? "▲"
+          : t.delta < 0
+          ? "▼"
+          : "•";
+
+        const sr = isSettlement
+          ? "settlement (balance cleared)"
+          : t.delta > 0
+          ? "credit (they owe you)"
+          : t.delta < 0
+          ? "debt (you owe them)"
+          : "settled";
 
         return (
           <div key={t.id} className="list-item">

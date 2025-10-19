@@ -77,6 +77,31 @@ export default function App() {
     window.location.reload();
   }
 
+  function handleSettle() {
+    if (!selectedId) return;
+    // Υπολογίζουμε το τρέχον υπόλοιπο για τον επιλεγμένο φίλο
+    const balMap = new Map();
+    for (const t of transactions) {
+      balMap.set(t.friendId, (balMap.get(t.friendId) || 0) + t.delta);
+    }
+    const bal = balMap.get(selectedId) || 0;
+    if (bal === 0) return;
+
+    // Καταχωρούμε “settlement”: αντίθετο πρόσημο για να μηδενίσει
+    const tx = {
+      id: crypto.randomUUID(),
+      type: "settlement",
+      friendId: selectedId,
+      total: null,
+      payer: null,
+      half: Math.abs(bal), // πληροφοριακά
+      delta: -bal, // ακυρώνει το υπόλοιπο
+      createdAt: new Date().toISOString(),
+    };
+
+    setTransactions((prev) => [tx, ...prev]);
+  }
+
   return (
     <div className="app">
       <header className="header">
@@ -134,9 +159,32 @@ export default function App() {
 
           {selectedFriend && (
             <>
-              <div className="kicker" style={{ marginBottom: 10 }}>
-                Splitting with <strong>{selectedFriend.name}</strong>
+              <div
+                className="row"
+                style={{
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 12,
+                }}
+              >
+                <div className="kicker">
+                  Splitting with <strong>{selectedFriend.name}</strong>
+                </div>
+                <button
+                  className="button"
+                  style={{
+                    background: "transparent",
+                    borderColor: "var(--border)",
+                    fontSize: 13,
+                    padding: "6px 10px",
+                  }}
+                  onClick={handleSettle}
+                  title="Zero out balance with this friend"
+                >
+                  Settle up
+                </button>
               </div>
+
               <SplitForm friend={selectedFriend} onSplit={handleSplit} />
 
               <div style={{ height: 16 }} />

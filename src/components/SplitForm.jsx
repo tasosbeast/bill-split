@@ -18,6 +18,7 @@ export default function SplitForm({ friend, onSplit }) {
 
     onSplit({
       id: crypto.randomUUID(),
+      type: "split",
       friendId: friend.id,
       total,
       payer, // 'you' | 'friend'

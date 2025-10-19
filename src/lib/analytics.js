@@ -1,4 +1,5 @@
 import { roundToCents } from "./money";
+import { getTransactionEffects } from "./transactions";
 
 function toDate(value) {
   if (!value) return null;
@@ -7,7 +8,10 @@ function toDate(value) {
 }
 
 function getMonthKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}`;
 }
 
 function formatMonthLabel(key) {
@@ -42,9 +46,10 @@ export function computeCategoryTotals(transactions) {
     if (!tx || typeof tx !== "object") continue;
     if (tx.type && tx.type !== "split") continue;
 
-    const category = typeof tx.category === "string" && tx.category.trim()
-      ? tx.category.trim()
-      : "Uncategorized";
+    const category =
+      typeof tx.category === "string" && tx.category.trim()
+        ? tx.category.trim()
+        : "Uncategorized";
 
     const share = getPersonalShare(tx);
     if (share <= 0) continue;
@@ -56,6 +61,102 @@ export function computeCategoryTotals(transactions) {
   return Array.from(totals.entries())
     .map(([category, amount]) => ({ category, amount }))
     .sort((a, b) => b.amount - a.amount);
+}
+
+export function computeAnalyticsOverview(transactions) {
+  let count = 0;
+  let totalVolume = 0;
+  let owedToYou = 0;
+  let youOwe = 0;
+
+  for (const tx of transactions || []) {
+    if (!tx || typeof tx !== "object") continue;
+    count += 1;
+
+    const effects = getTransactionEffects(tx);
+
+    const rawTotal = Number(tx.total);
+    if (Number.isFinite(rawTotal) && rawTotal > 0) {
+      totalVolume += Math.abs(rawTotal);
+    } else if (effects.length > 0) {
+      for (const effect of effects) {
+        const share = Number(effect?.share);
+        if (Number.isFinite(share) && share > 0) {
+          totalVolume += share;
+        } else {
+          const delta = Number(effect?.delta);
+          if (Number.isFinite(delta) && delta !== 0) {
+            totalVolume += Math.abs(delta);
+          }
+        }
+      }
+    }
+
+    for (const effect of effects) {
+      const delta = Number(effect?.delta);
+      if (!Number.isFinite(delta) || delta === 0) continue;
+      if (delta > 0) {
+        owedToYou += delta;
+      } else {
+        youOwe += Math.abs(delta);
+      }
+    }
+  }
+
+  const roundedTotalVolume = roundToCents(totalVolume);
+  const roundedOwedToYou = roundToCents(owedToYou);
+  const roundedYouOwe = roundToCents(youOwe);
+  const netBalance = roundToCents(owedToYou - youOwe);
+  const average = count > 0 ? roundToCents(totalVolume / count) : 0;
+
+  return {
+    count,
+    totalVolume: roundedTotalVolume,
+    owedToYou: roundedOwedToYou,
+    youOwe: roundedYouOwe,
+    netBalance,
+    average,
+  };
+}
+
+export function computeCategoryBreakdown(transactions) {
+  const categories = new Map();
+  let overall = 0;
+
+  for (const tx of transactions || []) {
+    if (!tx || typeof tx !== "object") continue;
+    if (tx.type && tx.type !== "split") continue;
+
+    const category =
+      typeof tx.category === "string" && tx.category.trim()
+        ? tx.category.trim()
+        : "Uncategorized";
+
+    const share = getPersonalShare(tx);
+    if (share <= 0) continue;
+
+    overall += share;
+    const current = categories.get(category) || { count: 0, total: 0 };
+    current.count += 1;
+    current.total = roundToCents(current.total + share);
+    categories.set(category, current);
+  }
+
+  const grandTotal = roundToCents(overall);
+
+  return Array.from(categories.entries())
+    .map(([category, info]) => {
+      const { count, total } = info;
+      const percentage =
+        grandTotal > 0 ? Math.round((total / grandTotal) * 1000) / 10 : 0;
+      return {
+        category,
+        count,
+        total,
+        percentage,
+      };
+    })
+    .sort((a, b) => b.total - a.total);
 }
 
 export function computeMonthlyTrend(transactions, months = 6) {
@@ -83,11 +184,17 @@ export function computeMonthlyTrend(transactions, months = 6) {
   }));
 }
 
-export function computeBudgetStatus(transactions, monthlyBudget = 0, today = new Date()) {
+export function computeBudgetStatus(
+  transactions,
+  monthlyBudget = 0,
+  today = new Date()
+) {
   const budget = roundToCents(Number(monthlyBudget) || 0);
 
   const safeToday =
-    today instanceof Date && !Number.isNaN(today.getTime()) ? today : new Date();
+    today instanceof Date && !Number.isNaN(today.getTime())
+      ? today
+      : new Date();
 
   const currentMonthKey = getMonthKey(safeToday);
 

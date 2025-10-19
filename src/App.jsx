@@ -5,7 +5,7 @@ import SplitForm from "./components/SplitForm";
 import AddFriendModal from "./components/AddFriendModal";
 import Balances from "./components/Balances";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
-import TransactionList from "./components/TransactionList";
+import Transactions from "./components/Transactions";
 import EditTransactionModal from "./components/EditTransactionModal";
 import { loadState, saveState, clearState } from "./lib/storage";
 import { CATEGORIES } from "./lib/categories";

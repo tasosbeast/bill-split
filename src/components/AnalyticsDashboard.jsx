@@ -1,6 +1,10 @@
 import { useMemo } from "react";
-import { formatEUR, roundToCents } from "../lib/money";
+import { formatEUR } from "../lib/money";
 import { CATEGORIES } from "../lib/categories";
+import { DEFAULT_MONTHLY_BUDGET } from "../lib/selectors";
+import AnalyticsCard from "./AnalyticsCard";
+import AnalyticsCategoryList from "./AnalyticsCategoryList";
+import AnalyticsTrendChart from "./AnalyticsTrendChart";
 import {
   CategoryFilter,
   DateRangeFilter,
@@ -9,13 +13,34 @@ import {
 import {
   computeAnalyticsOverview,
   computeCategoryBreakdown,
+  computeCategoryTotals,
+  computeMonthlyTrend,
+  computeBudgetStatus,
 } from "../lib/analytics";
 
 function formatCurrency(value) {
-  return formatEUR(roundToCents(value));
+  return formatEUR(value ?? 0);
 }
 
-export default function AnalyticsDashboard({ transactions, state, onNavigateHome }) {
+function selectMonthlyBudget(state) {
+  const preferencesBudget = Number(state?.preferences?.monthlyBudget);
+  if (Number.isFinite(preferencesBudget) && preferencesBudget > 0) {
+    return preferencesBudget;
+  }
+
+  const directBudget = Number(state?.monthlyBudget);
+  if (Number.isFinite(directBudget) && directBudget > 0) {
+    return directBudget;
+  }
+
+  return DEFAULT_MONTHLY_BUDGET;
+}
+
+export default function AnalyticsDashboard({
+  transactions,
+  state,
+  onNavigateHome,
+}) {
   const sourceTransactions = useMemo(() => {
     if (Array.isArray(transactions)) {
       return transactions;
@@ -29,6 +54,8 @@ export default function AnalyticsDashboard({ transactions, state, onNavigateHome
     return [];
   }, [transactions, state]);
 
+  const budget = useMemo(() => selectMonthlyBudget(state), [state]);
+
   const {
     filters,
     setCategory,
@@ -40,27 +67,61 @@ export default function AnalyticsDashboard({ transactions, state, onNavigateHome
 
   const filteredTransactions = useMemo(
     () => applyFilters(sourceTransactions),
-    [sourceTransactions, applyFilters],
-  );
-
-  const overview = useMemo(
-    () => computeAnalyticsOverview(filteredTransactions),
-    [filteredTransactions],
-  );
-
-  const categoryBreakdown = useMemo(
-    () => computeCategoryBreakdown(filteredTransactions),
-    [filteredTransactions],
+    [sourceTransactions, applyFilters]
   );
 
   const hasTransactions = filteredTransactions.length > 0;
 
+  const overview = useMemo(
+    () => computeAnalyticsOverview(filteredTransactions),
+    [filteredTransactions]
+  );
+
+  const topCategories = useMemo(
+    () => computeCategoryTotals(filteredTransactions),
+    [filteredTransactions]
+  );
+
+  const categoryBreakdown = useMemo(
+    () => computeCategoryBreakdown(filteredTransactions),
+    [filteredTransactions]
+  );
+
+  const trend = useMemo(
+    () => computeMonthlyTrend(filteredTransactions, 6),
+    [filteredTransactions]
+  );
+
+  const budgetStatus = useMemo(
+    () => computeBudgetStatus(filteredTransactions, budget),
+    [filteredTransactions, budget]
+  );
+
+  const netAccent = overview.netBalance >= 0 ? "brand" : "danger";
+  const budgetAccent =
+    budgetStatus.status === "over"
+      ? "danger"
+      : budgetStatus.status === "warning"
+      ? "danger"
+      : "brand";
+  const budgetStatusLabel =
+    budgetStatus.status === "over"
+      ? "Over budget"
+      : budgetStatus.status === "warning"
+      ? "Close to limit"
+      : "On track";
+
   return (
-    <section className="card analytics-card" aria-label="Analytics dashboard">
-      <div className="analytics-card__header">
-        <h2>Analytics</h2>
+    <section className="analytics-view" aria-label="Analytics dashboard">
+      <header className="analytics-view__header">
+        <div>
+          <h2>Analytics</h2>
+          <p className="analytics-view__subtitle">
+            Track shared expenses and spot trends at a glance.
+          </p>
+        </div>
         {(onNavigateHome || hasActiveFilters) && (
-          <div className="analytics-card__actions">
+          <div className="analytics-view__actions">
             {hasActiveFilters && (
               <button
                 type="button"
@@ -81,8 +142,9 @@ export default function AnalyticsDashboard({ transactions, state, onNavigateHome
             )}
           </div>
         )}
-      </div>
-      <div className="analytics-card__filters">
+      </header>
+
+      <div className="analytics-view__filters">
         <CategoryFilter
           categories={CATEGORIES}
           value={filters.category}
@@ -92,54 +154,65 @@ export default function AnalyticsDashboard({ transactions, state, onNavigateHome
       </div>
 
       {!hasTransactions ? (
-        <p className="kicker">No transactions match the selected filters yet.</p>
+        <p className="kicker">
+          No transactions match the selected filters yet.
+        </p>
       ) : (
         <>
-          <div className="analytics-stats">
-            <div className="analytics-stat">
-              <span className="analytics-stat__label">Transactions</span>
-              <span className="analytics-stat__value">{overview.count}</span>
-            </div>
-            <div className="analytics-stat">
-              <span className="analytics-stat__label">Total volume</span>
-              <span className="analytics-stat__value">
-                {formatCurrency(overview.totalVolume)}
-              </span>
-            </div>
-            <div className="analytics-stat">
-              <span className="analytics-stat__label">Owed to you</span>
-              <span className="analytics-stat__value analytics-stat__value--positive">
-                {formatCurrency(overview.owedToYou)}
-              </span>
-            </div>
-            <div className="analytics-stat">
-              <span className="analytics-stat__label">You owe</span>
-              <span className="analytics-stat__value analytics-stat__value--negative">
-                {formatCurrency(overview.youOwe)}
-              </span>
-            </div>
-            <div className="analytics-stat">
-              <span className="analytics-stat__label">Net balance</span>
-              <span
-                className={`analytics-stat__value ${
-                  overview.netBalance >= 0
-                    ? "analytics-stat__value--positive"
-                    : "analytics-stat__value--negative"
-                }`}
-              >
-                {formatCurrency(overview.netBalance)}
-              </span>
-            </div>
-            <div className="analytics-stat">
-              <span className="analytics-stat__label">Average volume</span>
-              <span className="analytics-stat__value">
-                {formatCurrency(overview.average)}
-              </span>
-            </div>
+          <div className="analytics-view__stats">
+            <AnalyticsCard
+              title="Net balance"
+              value={formatCurrency(overview.netBalance)}
+              accent={netAccent}
+              description="What remains after settling up with everyone."
+              footer={`Owed to you: ${formatCurrency(
+                overview.owedToYou
+              )} | You owe: ${formatCurrency(overview.youOwe)}`}
+            />
+            <AnalyticsCard
+              title="Total volume"
+              value={formatCurrency(overview.totalVolume)}
+              description={`Across ${overview.count} transaction${
+                overview.count === 1 ? "" : "s"
+              }`}
+              footer={`Average per transaction: ${formatCurrency(
+                overview.average
+              )}`}
+            />
+            <AnalyticsCard
+              title="Budget status"
+              value={formatCurrency(budgetStatus.remaining)}
+              accent={budgetAccent}
+              description={`${formatCurrency(
+                budgetStatus.spent
+              )} of ${formatCurrency(budgetStatus.budget)} spent`}
+              footer={`${budgetStatusLabel} | ${Math.round(
+                budgetStatus.utilization * 100
+              )}% of monthly budget`}
+            />
           </div>
 
-          <div className="analytics-breakdown">
-            <h3>Category breakdown</h3>
+          <div className="analytics-view__visuals">
+            <AnalyticsCard
+              title="Monthly trend"
+              description="Six-month view of your share of spending."
+              className="analytics-view__visual-card"
+            >
+              <AnalyticsTrendChart data={trend} />
+            </AnalyticsCard>
+            <AnalyticsCard
+              title="Top categories"
+              description="Where your biggest shared expenses land."
+              className="analytics-view__visual-card"
+            >
+              <AnalyticsCategoryList categories={topCategories} />
+            </AnalyticsCard>
+          </div>
+
+          <AnalyticsCard
+            title="Category breakdown"
+            description="Dig into how often and how much you spend by category."
+          >
             <div className="analytics-table-wrapper">
               <table className="analytics-table">
                 <thead>
@@ -168,7 +241,7 @@ export default function AnalyticsDashboard({ transactions, state, onNavigateHome
                 </tbody>
               </table>
             </div>
-          </div>
+          </AnalyticsCard>
         </>
       )}
     </section>

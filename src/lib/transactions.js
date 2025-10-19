@@ -1,5 +1,24 @@
 import { roundToCents } from "./money";
 
+function generateId() {
+  if (typeof crypto === "object" && crypto) {
+    if (typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    if (typeof crypto.getRandomValues === "function") {
+      const buffer = new Uint32Array(4);
+      crypto.getRandomValues(buffer);
+      const randomPart = Array.from(buffer)
+        .map((value) => value.toString(16).padStart(8, "0"))
+        .join("-");
+      return `${Date.now().toString(16)}-${randomPart}`;
+    }
+  }
+  const timestamp = Date.now().toString(16);
+  const random = Math.random().toString(16).slice(2);
+  return `tx-${timestamp}-${random}`;
+}
+
 function isValidAmount(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
@@ -67,7 +86,7 @@ export function buildSplitTransaction({
   const friendId = friendIds.length === 1 ? friendIds[0] : null;
 
   return {
-    id: id || crypto.randomUUID(),
+    id: id || generateId(),
     type: "split",
     total: cleanTotal,
     payer,

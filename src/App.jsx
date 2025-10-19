@@ -202,10 +202,16 @@ export default function App() {
             let category = "Other";
             if (rawCategory) {
               const normalizedCategory = rawCategory.toLowerCase();
-              if (!categoryIndex.has(normalizedCategory)) {
-                throw new Error(`Unknown category: ${rawCategory}`);
+              const canonicalCategory = categoryIndex.get(normalizedCategory);
+              if (!canonicalCategory) {
+                console.warn(
+                  "Unknown category during restore, defaulting to 'Other':",
+                  rawCategory,
+                  t,
+                );
+              } else {
+                category = canonicalCategory;
               }
-              category = categoryIndex.get(normalizedCategory);
             }
 
             let payer = null;

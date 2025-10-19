@@ -23,6 +23,7 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
     return false;
   }, [tx]);
 
+  // Only one-on-one splits allow amount/payer editing; group splits lock amounts
   const simpleEditable = isSplit && friendId && !hasMultipleFriends;
 
   const initialTotal = isSplit && tx?.total ? String(tx.total) : "";
@@ -54,11 +55,8 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
   const [error, setError] = useState("");
 
   function validate() {
-    if (!simpleEditable) {
-      return {
-        error: "Only one-on-one splits can be edited at the moment.",
-      };
-    }
+    // For group splits, we won't validate amounts (they're locked)
+    if (!simpleEditable) return { error: "" };
 
     const totalAmount = parseAmountInput(bill);
     if (totalAmount === null || totalAmount <= 0) {
@@ -96,9 +94,22 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
       return;
     }
 
-    const { totalAmount, friendAmount, yourAmount } = validation;
     setError("");
 
+    if (!simpleEditable) {
+      // Group split: only update metadata
+      const updated = {
+        ...tx,
+        category,
+        note: note.trim(),
+        updatedAt: new Date().toISOString(),
+      };
+      onSave(updated);
+      onClose();
+      return;
+    }
+
+    const { totalAmount, friendAmount, yourAmount } = validation;
     const updated = buildSplitTransaction({
       id: tx.id,
       total: totalAmount,
@@ -121,11 +132,12 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
     <Modal title="Edit transaction" onClose={onClose}>
       {({ firstFieldRef }) => (
         <form className="form-grid" onSubmit={handleSubmit}>
-          {!simpleEditable && (
-            <div className="error">
-              {isSplit
-                ? "Editing is currently limited to one-on-one splits."
-                : "Only split transactions can be edited."}
+          {!isSplit && (
+            <div className="error">Only split transactions can be edited.</div>
+          )}
+          {isSplit && !simpleEditable && (
+            <div className="helper">
+              Editing details only for group splits; amounts are locked.
             </div>
           )}
 

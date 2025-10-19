@@ -29,8 +29,11 @@ function Transactions({ friend, friendsById, items, onRequestEdit, onDelete }) {
         const isGroupSplit = Array.isArray(t.friendIds)
           ? t.friendIds.filter(Boolean).length > 1
           : false;
-        const delta = t.effect?.delta ?? 0;
-        const share = t.effect?.share ?? Math.abs(delta);
+        const delta =
+          t.effect?.delta ?? (typeof t.delta === "number" ? t.delta : 0);
+        const share =
+          t.effect?.share ??
+          (typeof t.half === "number" ? t.half : Math.abs(delta));
         const yourShare = Array.isArray(t.participants)
           ? t.participants.find((p) => p.id === "you")?.amount ?? null
           : null;
@@ -150,19 +153,21 @@ function Transactions({ friend, friendsById, items, onRequestEdit, onDelete }) {
               <div className="tx-actions row gap-8 flex-wrap">
                 {!isSettlement && (
                   <button
+                    type="button"
                     className="btn-ghost"
                     onClick={() => onRequestEdit?.(t)}
                     title={
                       isGroupSplit
-                        ? "Editing multi-friend splits isn't supported yet"
+                        ? "Edit details (amounts locked)"
                         : "Edit this split"
                     }
-                    disabled={isGroupSplit}
+                    
                   >
                     Edit
                   </button>
                 )}
                 <button
+                  type="button"
                   className="button-danger"
                   onClick={() => onDelete?.(t.id)}
                   title="Delete this transaction"
@@ -216,3 +221,6 @@ Transactions.propTypes = {
   onRequestEdit: PropTypes.func,
   onDelete: PropTypes.func,
 };
+
+
+

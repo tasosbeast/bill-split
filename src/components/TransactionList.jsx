@@ -23,6 +23,7 @@ export default function TransactionList({
   friend,
   friendsById,
   transactions,
+  items,
   onRequestEdit,
   onDelete,
 }) {
@@ -35,9 +36,15 @@ export default function TransactionList({
     hasActiveFilters,
   } = useTransactionFilters();
 
+  const sourceTransactions = useMemo(() => {
+    if (Array.isArray(transactions)) return transactions;
+    if (Array.isArray(items)) return items;
+    return [];
+  }, [items, transactions]);
+
   const filteredTransactions = useMemo(
-    () => applyFilters(transactions ?? []),
-    [transactions, applyFilters],
+    () => applyFilters(sourceTransactions),
+    [sourceTransactions, applyFilters],
   );
 
   const normalizedFriends = useMemo(() => ensureMap(friendsById), [friendsById]);

@@ -1,10 +1,12 @@
 import { useCallback } from "react";
 import { CATEGORY_FILTER_ALL } from "../../lib/transactionFilters";
 
+const EMPTY_LIST = Object.freeze([]);
+
 export function CategoryFilter({
-  categories,
-  value,
-  onChange,
+  categories = EMPTY_LIST,
+  value = CATEGORY_FILTER_ALL,
+  onChange = () => {},
   label = "Category",
   id = "category-filter",
   includeAllOption = true,
@@ -39,3 +41,5 @@ export function CategoryFilter({
     </label>
   );
 }
+
+export default CategoryFilter;

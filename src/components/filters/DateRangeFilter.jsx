@@ -1,20 +1,24 @@
+const EMPTY_RANGE = Object.freeze({ start: null, end: null });
+
 export function DateRangeFilter({
-  value,
-  onChange,
+  value = EMPTY_RANGE,
+  onChange = () => {},
   idPrefix = "date-range",
   label = "Date range",
   disabled = false,
 }) {
+  const state = value ?? EMPTY_RANGE;
+
   const handleStartChange = (event) => {
     onChange({
-      ...value,
+      ...state,
       start: event.target.value ? event.target.value : null,
     });
   };
 
   const handleEndChange = (event) => {
     onChange({
-      ...value,
+      ...state,
       end: event.target.value ? event.target.value : null,
     });
   };
@@ -27,7 +31,7 @@ export function DateRangeFilter({
           id={`${idPrefix}-start`}
           className="input"
           type="date"
-          value={value.start ?? ""}
+          value={state.start ?? ""}
           onChange={handleStartChange}
         />
         <span aria-hidden="true" className="filter-separator">
@@ -37,10 +41,12 @@ export function DateRangeFilter({
           id={`${idPrefix}-end`}
           className="input"
           type="date"
-          value={value.end ?? ""}
+          value={state.end ?? ""}
           onChange={handleEndChange}
         />
       </div>
     </fieldset>
   );
 }
+
+export default DateRangeFilter;

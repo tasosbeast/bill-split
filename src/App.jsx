@@ -5,8 +5,8 @@ import SplitForm from "./components/SplitForm";
 import AddFriendModal from "./components/AddFriendModal";
 import Balances from "./components/Balances";
 import Transactions from "./components/Transactions";
-import { loadState, saveState } from "./lib/storage";
-import { clearState } from "./lib/storage";
+import EditTransactionModal from "./components/EditTransactionModal";
+import { loadState, saveState, clearState } from "./lib/storage";
 
 const seededFriends = [
   { id: crypto.randomUUID(), name: "Valia", email: "valia@example.com" },
@@ -14,7 +14,6 @@ const seededFriends = [
 ];
 
 export default function App() {
-  // Load once from localStorage
   const boot = loadState();
 
   const [friends, setFriends] = useState(boot?.friends ?? seededFriends);
@@ -22,7 +21,9 @@ export default function App() {
   const [transactions, setTransactions] = useState(boot?.transactions ?? []);
   const [showAdd, setShowAdd] = useState(false);
 
-  // Save on changes (debounced by the event loop; fine for this scale)
+  // NEW: edit modal state
+  const [editTx, setEditTx] = useState(null);
+
   useEffect(() => {
     saveState({ friends, selectedId, transactions });
   }, [friends, selectedId, transactions]);
@@ -46,6 +47,14 @@ export default function App() {
     [transactions, selectedId]
   );
 
+  // Current balance for selected friend (for pill & settle button visibility)
+  const selectedBalance = useMemo(() => {
+    if (!selectedId) return 0;
+    return transactions
+      .filter((t) => t.friendId === selectedId)
+      .reduce((sum, t) => sum + t.delta, 0);
+  }, [transactions, selectedId]);
+
   function handleSplit(tx) {
     setTransactions((prev) => [tx, ...prev]);
   }
@@ -67,19 +76,8 @@ export default function App() {
     setSelectedId(friend.id);
   }
 
-  function handleReset() {
-    const ok = confirm(
-      "This will delete all your friends, transactions, and balances. Are you sure?"
-    );
-    if (!ok) return;
-    clearState();
-    // Hard reload to get fresh initial state
-    window.location.reload();
-  }
-
   function handleSettle() {
     if (!selectedId) return;
-    // Υπολογίζουμε το τρέχον υπόλοιπο για τον επιλεγμένο φίλο
     const balMap = new Map();
     for (const t of transactions) {
       balMap.set(t.friendId, (balMap.get(t.friendId) || 0) + t.delta);
@@ -87,19 +85,47 @@ export default function App() {
     const bal = balMap.get(selectedId) || 0;
     if (bal === 0) return;
 
-    // Καταχωρούμε “settlement”: αντίθετο πρόσημο για να μηδενίσει
     const tx = {
       id: crypto.randomUUID(),
       type: "settlement",
       friendId: selectedId,
       total: null,
       payer: null,
-      half: Math.abs(bal), // πληροφοριακά
-      delta: -bal, // ακυρώνει το υπόλοιπο
+      half: Math.abs(bal),
+      delta: -bal,
       createdAt: new Date().toISOString(),
     };
 
     setTransactions((prev) => [tx, ...prev]);
+  }
+
+  // NEW: delete a transaction
+  function handleDeleteTx(id) {
+    const ok = confirm("Delete this transaction permanently?");
+    if (!ok) return;
+    setTransactions((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  // NEW: open edit modal
+  function handleRequestEdit(tx) {
+    setEditTx(tx);
+  }
+
+  // NEW: save edited transaction
+  function handleSaveEditedTx(updated) {
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === updated.id ? updated : t))
+    );
+  }
+
+  // Reset data (dev helper already added previously)
+  function handleReset() {
+    const ok = confirm(
+      "This will delete all your friends, transactions, and balances. Are you sure?"
+    );
+    if (!ok) return;
+    clearState();
+    window.location.reload();
   }
 
   return (
@@ -167,29 +193,66 @@ export default function App() {
                   marginBottom: 12,
                 }}
               >
-                <div className="kicker">
-                  Splitting with <strong>{selectedFriend.name}</strong>
+                <div className="row" style={{ alignItems: "center", gap: 10 }}>
+                  <div className="kicker">
+                    Splitting with <strong>{selectedFriend.name}</strong>
+                  </div>
+                  <span
+                    className={
+                      selectedBalance > 0
+                        ? "pill pill-pos"
+                        : selectedBalance < 0
+                        ? "pill pill-neg"
+                        : "pill pill-zero"
+                    }
+                    title={
+                      selectedBalance > 0
+                        ? `${selectedFriend.name} owes you`
+                        : selectedBalance < 0
+                        ? `You owe ${selectedFriend.name}`
+                        : "Settled"
+                    }
+                  >
+                    {selectedBalance > 0
+                      ? "▲"
+                      : selectedBalance < 0
+                      ? "▼"
+                      : "•"}{" "}
+                    {Math.abs(selectedBalance).toLocaleString(undefined, {
+                      style: "currency",
+                      currency: "EUR",
+                      minimumFractionDigits: 2,
+                    })}
+                  </span>
                 </div>
-                <button
-                  className="button"
-                  style={{
-                    background: "transparent",
-                    borderColor: "var(--border)",
-                    fontSize: 13,
-                    padding: "6px 10px",
-                  }}
-                  onClick={handleSettle}
-                  title="Zero out balance with this friend"
-                >
-                  Settle up
-                </button>
+
+                {selectedBalance !== 0 && (
+                  <button
+                    className="button"
+                    style={{
+                      background: "transparent",
+                      borderColor: "var(--border)",
+                      fontSize: 13,
+                      padding: "6px 10px",
+                    }}
+                    onClick={handleSettle}
+                    title="Zero out balance with this friend"
+                  >
+                    Settle up
+                  </button>
+                )}
               </div>
 
               <SplitForm friend={selectedFriend} onSplit={handleSplit} />
 
               <div style={{ height: 16 }} />
               <h2>Transactions</h2>
-              <Transactions friend={selectedFriend} items={friendTx} />
+              <Transactions
+                friend={selectedFriend}
+                items={friendTx}
+                onRequestEdit={handleRequestEdit}
+                onDelete={handleDeleteTx}
+              />
             </>
           )}
         </section>
@@ -197,6 +260,15 @@ export default function App() {
 
       {showAdd && (
         <AddFriendModal onClose={closeAdd} onCreate={handleCreateFriend} />
+      )}
+
+      {editTx && (
+        <EditTransactionModal
+          tx={editTx}
+          friend={friends.find((f) => f.id === editTx.friendId)}
+          onClose={() => setEditTx(null)}
+          onSave={handleSaveEditedTx}
+        />
       )}
     </div>
   );

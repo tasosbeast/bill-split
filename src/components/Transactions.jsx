@@ -10,7 +10,12 @@ function when(ts) {
   }
 }
 
-export default function Transactions({ friend, items }) {
+export default function Transactions({
+  friend,
+  items,
+  onRequestEdit,
+  onDelete,
+}) {
   if (!friend) return null;
 
   if (!items || items.length === 0) {
@@ -24,7 +29,6 @@ export default function Transactions({ friend, items }) {
       {items.map((t) => {
         const isSettlement = t.type === "settlement";
 
-        // Περιγραφές για split
         const whoPaid =
           t.payer === "you"
             ? "You paid"
@@ -38,7 +42,6 @@ export default function Transactions({ friend, items }) {
           ? `${friend.name} owes you ${formatEUR(t.half)}`
           : `You owe ${friend.name} ${formatEUR(t.half)}`;
 
-        // Χρώματα/βέλη: ουδέτερο για settlement
         const cls = isSettlement
           ? "amount amount-zero"
           : t.delta > 0
@@ -69,6 +72,27 @@ export default function Transactions({ friend, items }) {
               <div style={{ fontWeight: 600 }}>{whoPaid}</div>
               <div className="kicker">
                 {summary} • {when(t.createdAt)}
+                {t.updatedAt ? " • edited" : ""}
+              </div>
+
+              {/* Action buttons */}
+              <div className="actions" style={{ marginTop: 8 }}>
+                {!isSettlement && (
+                  <button
+                    className="button-ghost"
+                    onClick={() => onRequestEdit?.(t)}
+                    title="Edit this split"
+                  >
+                    Edit
+                  </button>
+                )}
+                <button
+                  className="button-danger"
+                  onClick={() => onDelete?.(t.id)}
+                  title="Delete this transaction"
+                >
+                  Delete
+                </button>
               </div>
             </div>
 
@@ -89,4 +113,6 @@ export default function Transactions({ friend, items }) {
 Transactions.propTypes = {
   friend: PropTypes.object,
   items: PropTypes.array.isRequired,
+  onRequestEdit: PropTypes.func,
+  onDelete: PropTypes.func,
 };

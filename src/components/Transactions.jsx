@@ -31,6 +31,9 @@ function Transactions({ friend, friendsById, items, onRequestEdit, onDelete }) {
           : false;
         const delta = t.effect?.delta ?? 0;
         const share = t.effect?.share ?? Math.abs(delta);
+        const yourShare = Array.isArray(t.participants)
+          ? t.participants.find((p) => p.id === "you")?.amount ?? null
+          : null;
         const payerName = (() => {
           if (t.payer === "you") return "You";
           if (typeof t.payer === "string") {
@@ -124,6 +127,11 @@ function Transactions({ friend, friendsById, items, onRequestEdit, onDelete }) {
                 {t.total ? (
                   <span className="badge-chip">
                     <strong>Total</strong> {formatEUR(t.total)}
+                  </span>
+                ) : null}
+                {yourShare !== null && yourShare > 0 ? (
+                  <span className="badge-chip">
+                    <strong>Your share</strong> {formatEUR(yourShare)}
                   </span>
                 ) : null}
                 {participantNames && (

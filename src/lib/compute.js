@@ -1,7 +1,15 @@
+import { getTransactionEffects } from "./transactions";
+
 export function computeBalances(transactions) {
   const m = new Map();
   for (const t of transactions) {
-    m.set(t.friendId, (m.get(t.friendId) || 0) + (t.delta || 0));
+    const effects = getTransactionEffects(t);
+    for (const effect of effects) {
+      const key = effect.friendId;
+      if (!key) continue;
+      const current = m.get(key) || 0;
+      m.set(key, current + (effect.delta || 0));
+    }
   }
   return m;
 }

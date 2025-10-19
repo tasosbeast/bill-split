@@ -55,12 +55,7 @@ export default function App() {
   }, [transactions, selectedId, txFilter]);
 
   // Current balance for selected friend (for pill & settle button visibility)
-  const selectedBalance = useMemo(() => {
-    if (!selectedId) return 0;
-    return transactions
-      .filter((t) => t.friendId === selectedId)
-      .reduce((sum, t) => sum + t.delta, 0);
-  }, [transactions, selectedId]);
+  const selectedBalance = balances.get(selectedId) ?? 0;
 
   // Hidden input ref για Restore
   const fileInputRef = useRef(null);
@@ -88,11 +83,7 @@ export default function App() {
 
   function handleSettle() {
     if (!selectedId) return;
-    const balMap = new Map();
-    for (const t of transactions) {
-      balMap.set(t.friendId, (balMap.get(t.friendId) || 0) + t.delta);
-    }
-    const bal = balMap.get(selectedId) || 0;
+    const bal = balances.get(selectedId) ?? 0;
     if (bal === 0) return;
 
     const tx = {
@@ -105,7 +96,6 @@ export default function App() {
       delta: -bal,
       createdAt: new Date().toISOString(),
     };
-
     setTransactions((prev) => [tx, ...prev]);
   }
 

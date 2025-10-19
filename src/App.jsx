@@ -67,7 +67,7 @@ function parseV2SplitTransaction(transaction, base, helpers) {
   if (total === null) {
     total = computedTotal;
   }
-  if (Math.abs(computedTotal - total) > 0.05) {
+  if (computedTotal !== total) {
     throw new Error("Participant shares do not match total");
   }
 

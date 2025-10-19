@@ -46,11 +46,11 @@ function Balances({ friends, balances, onJumpTo }) {
             }
           >
             <div>
-              <div style={{ fontWeight: 600 }}>{f.name}</div>
+              <div className="fw-600">{f.name}</div>
               <div className="kicker">{label}</div>
             </div>
             <div className={cls} aria-label={sr}>
-              <span aria-hidden="true" style={{ marginRight: 6 }}>
+              <span aria-hidden="true" className="mr-6">
                 {arrow}
               </span>
               {formatEUR(Math.abs(bal))}

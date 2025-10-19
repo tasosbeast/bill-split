@@ -89,10 +89,10 @@ function Transactions({ friend, items, onRequestEdit, onDelete }) {
               </div>
 
               {/* Actions */}
-              <div className="tx-actions actions">
+              <div className="tx-actions row gap-8 flex-wrap">
                 {!isSettlement && (
                   <button
-                    className="button-ghost"
+                    className="btn-ghost"
                     onClick={() => onRequestEdit?.(t)}
                     title="Edit this split"
                   >
@@ -111,7 +111,7 @@ function Transactions({ friend, items, onRequestEdit, onDelete }) {
 
             {/* Amount column stays right-aligned */}
             <div className={cls} aria-label={sr}>
-              <span aria-hidden="true" style={{ marginRight: 6 }}>
+              <span aria-hidden="true" className="mr-6">
                 {arrow}
               </span>
               {formatEUR(Math.abs(t.delta))}

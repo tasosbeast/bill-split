@@ -225,17 +225,11 @@ export default function App() {
     <div className="app">
       <header className="header">
         <div className="brand">Bill Split</div>
-        <div className="row" style={{ gap: 8 }}>
+        <div className="row gap-8">
           <span className="badge">React + Vite</span>
 
           <button
-            className="button"
-            style={{
-              background: "transparent",
-              borderColor: "var(--border)",
-              fontSize: 12,
-              padding: "6px 10px",
-            }}
+            className="button btn-ghost"
             onClick={handleBackup}
             title="Export all data to a JSON file"
           >
@@ -243,13 +237,7 @@ export default function App() {
           </button>
 
           <button
-            className="button"
-            style={{
-              background: "transparent",
-              borderColor: "var(--border)",
-              fontSize: 12,
-              padding: "6px 10px",
-            }}
+            className="button btn-ghost"
             onClick={() => fileInputRef.current?.click()}
             title="Import data from a JSON file"
           >
@@ -257,13 +245,7 @@ export default function App() {
           </button>
 
           <button
-            className="button"
-            style={{
-              background: "transparent",
-              borderColor: "var(--border)",
-              fontSize: 12,
-              padding: "6px 10px",
-            }}
+            className="button btn-ghost"
             onClick={handleReset}
             title="Clear all data and restart"
           >
@@ -284,7 +266,7 @@ export default function App() {
       <div className="layout">
         <section className="panel">
           <h2>Friends</h2>
-          <div className="row" style={{ marginBottom: 10 }}>
+          <div className="row stack-sm">
             <button className="button" onClick={openAdd}>
               + Add friend
             </button>
@@ -295,9 +277,9 @@ export default function App() {
             onSelect={setSelectedId}
           />
 
-          <div style={{ height: 16 }} />
+          <div className="spacer-md" aria-hidden="true" />
           <h2>Balances</h2>
-          <p className="kicker" style={{ marginBottom: 8 }}>
+          <p className="kicker stack-tight">
             Positive = they owe you | Negative = you owe them
           </p>
           <Balances
@@ -316,15 +298,8 @@ export default function App() {
 
           {selectedFriend && (
             <>
-              <div
-                className="row"
-                style={{
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 12,
-                }}
-              >
-                <div className="row" style={{ alignItems: "center", gap: 10 }}>
+              <div className="row justify-between stack-sm">
+                <div className="row">
                   <div className="kicker">
                     Splitting with <strong>{selectedFriend.name}</strong>
                   </div>
@@ -359,13 +334,7 @@ export default function App() {
 
                 {selectedBalance !== 0 && (
                   <button
-                    className="button"
-                    style={{
-                      background: "transparent",
-                      borderColor: "var(--border)",
-                      fontSize: 13,
-                      padding: "6px 10px",
-                    }}
+                    className="button btn-ghost"
                     onClick={handleSettle}
                     title="Zero out balance with this friend"
                   >
@@ -376,21 +345,14 @@ export default function App() {
 
               <SplitForm friend={selectedFriend} onSplit={handleSplit} />
 
-              <div style={{ height: 16 }} />
-              <div
-                className="row"
-                style={{
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
+              <div className="spacer-md" aria-hidden="true" />
+              <div className="row justify-between">
                 <h2>Transactions</h2>
-                <div className="row" style={{ gap: 8 }}>
+                <div className="row gap-8">
                   <select
-                    className="select"
+                    className="select w-180"
                     value={txFilter}
                     onChange={(e) => setTxFilter(e.target.value)}
-                    style={{ width: 180 }}
                     title="Filter by category"
                   >
                     <option value="All">All</option>
@@ -402,7 +364,7 @@ export default function App() {
                   </select>
                   {txFilter !== "All" && (
                     <button
-                      className="button-ghost"
+                      className="btn-ghost"
                       onClick={() => setTxFilter("All")}
                     >
                       Clear filter

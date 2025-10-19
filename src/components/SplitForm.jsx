@@ -37,7 +37,7 @@ export default function SplitForm({ friend, onSplit }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="list" style={{ gap: "12px" }}>
+    <form onSubmit={handleSubmit} className="list list-gap-md">
       <div>
         <label className="kicker" htmlFor="bill">
           Total bill amount (€)

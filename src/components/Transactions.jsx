@@ -71,7 +71,17 @@ function Transactions({ friend, items, onRequestEdit, onDelete }) {
               {/* Meta line */}
               <div className="tx-meta">
                 {summary} | {when(t.createdAt)}
-                {t.updatedAt ? " | edited" : ""}
+                {t.updatedAt && (
+                  <>
+                    {" | "}
+                    <span
+                      className="tx-meta-updated"
+                      title={`Edited ${when(t.updatedAt)}`}
+                    >
+                      edited {when(t.updatedAt)}
+                    </span>
+                  </>
+                )}
               </div>
 
               {/* Badges */}

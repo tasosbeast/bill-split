@@ -25,6 +25,7 @@ export default function App() {
   const [showAdd, setShowAdd] = useState(false);
   const [editTx, setEditTx] = useState(null);
   const [txFilter, setTxFilter] = useState("All");
+  const [restoreFeedback, setRestoreFeedback] = useState(null);
 
   useEffect(() => {
     saveState({ friends, selectedId, transactions });
@@ -147,6 +148,7 @@ export default function App() {
     e.target.value = ""; // επιτρέπει επανα-επιλογή ίδιου αρχείου αργότερα
     if (!file) return;
 
+    setRestoreFeedback(null);
     const reader = new FileReader();
     reader.onload = () => {
       try {
@@ -300,16 +302,23 @@ export default function App() {
           selectedId: data.selectedId ?? null,
         });
 
-        if (skippedTransactions.length > 0) {
-          alert(
-            `Restore completed with ${skippedTransactions.length} transaction(s) skipped. Check console for details.`,
-          );
-        } else {
-          alert("Restore completed successfully!");
-        }
+        setRestoreFeedback(
+          skippedTransactions.length > 0
+            ? {
+                status: "warning",
+                message: `${skippedTransactions.length} transaction(s) were skipped during restore. Check console for details.`,
+              }
+            : {
+                status: "success",
+                message: "Restore completed successfully!",
+              },
+        );
       } catch (err) {
         console.warn("Restore failed:", err);
-        alert("Restore failed: " + err.message);
+        setRestoreFeedback({
+          status: "error",
+          message: `Restore failed: ${err.message}`,
+        });
       }
     };
     reader.readAsText(file);
@@ -317,6 +326,14 @@ export default function App() {
 
   return (
     <div className="app">
+      {restoreFeedback ? (
+        <div
+          className={`restore-feedback restore-feedback-${restoreFeedback.status}`}
+          role="status"
+        >
+          {restoreFeedback.message}
+        </div>
+      ) : null}
       <header className="header">
         <div className="brand">Bill Split</div>
         <div className="row gap-8">

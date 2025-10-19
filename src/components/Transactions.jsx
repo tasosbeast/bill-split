@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
 import { formatEUR } from "../lib/money";
+import { memo } from "react";
 
 function when(ts) {
   try {
@@ -10,12 +11,7 @@ function when(ts) {
   }
 }
 
-export default function Transactions({
-  friend,
-  items,
-  onRequestEdit,
-  onDelete,
-}) {
+function Transactions({ friend, items, onRequestEdit, onDelete }) {
   if (!friend) return null;
 
   if (!items || items.length === 0) {
@@ -128,6 +124,7 @@ export default function Transactions({
   );
 }
 
+export default memo(Transactions);
 Transactions.propTypes = {
   friend: PropTypes.shape({
     id: PropTypes.string.isRequired,

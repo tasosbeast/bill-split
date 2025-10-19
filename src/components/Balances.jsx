@@ -1,7 +1,8 @@
 import PropTypes from "prop-types";
 import { formatEUR } from "../lib/money";
+import { memo } from "react";
 
-export default function Balances({ friends, balances, onJumpTo }) {
+function Balances({ friends, balances, onJumpTo }) {
   // balances: Map<friendId, number> (signed)
   return (
     <div className="list">
@@ -61,6 +62,8 @@ export default function Balances({ friends, balances, onJumpTo }) {
     </div>
   );
 }
+
+export default memo(Balances);
 
 Balances.propTypes = {
   friends: PropTypes.arrayOf(

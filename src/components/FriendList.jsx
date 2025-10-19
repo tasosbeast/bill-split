@@ -1,6 +1,7 @@
 import PropTypes from "prop-types";
+import { memo } from "react";
 
-export default function FriendList({ friends, selectedId, onSelect }) {
+function FriendList({ friends, selectedId, onSelect }) {
   return (
     <div className="list">
       {friends.length === 0 && (
@@ -33,6 +34,7 @@ export default function FriendList({ friends, selectedId, onSelect }) {
   );
 }
 
+export default memo(FriendList);
 FriendList.propTypes = {
   friends: PropTypes.array.isRequired,
   selectedId: PropTypes.string,

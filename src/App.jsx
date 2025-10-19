@@ -55,22 +55,24 @@ export default function App() {
     setTransactions((prev) => [tx, ...prev]);
   }
 
-  function openAdd() {
-    setShowAdd(true);
-  }
-  function closeAdd() {
-    setShowAdd(false);
-  }
+  const openAdd = useCallback(() => setShowAdd(true), []);
 
-  function handleCreateFriend(friend) {
-    const exists = friends.some((f) => f.email.toLowerCase() === friend.email);
-    if (exists) {
-      alert("A friend with this email already exists.");
-      return;
-    }
-    setFriends((prev) => [...prev, friend]);
-    setSelectedId(friend.id);
-  }
+  const closeAdd = useCallback(() => setShowAdd(false), []);
+
+  const handleCreateFriend = useCallback(
+    (friend) => {
+      const exists = friends.some(
+        (f) => f.email.toLowerCase() === friend.email
+      );
+      if (exists) {
+        alert("A friend with this email already exists.");
+        return;
+      }
+      setFriends((prev) => [...prev, friend]);
+      setSelectedId(friend.id);
+    },
+    [friends]
+  );
 
   function handleSettle() {
     if (!selectedId) return;
@@ -89,25 +91,22 @@ export default function App() {
     };
     setTransactions((prev) => [tx, ...prev]);
   }
-
-  // NEW: delete a transaction
-  function handleDeleteTx(id) {
+  const handleDeleteTx = useCallback((id) => {
     const ok = confirm("Delete this transaction permanently?");
     if (!ok) return;
     setTransactions((prev) => prev.filter((t) => t.id !== id));
-  }
-
+  }, []);
   // NEW: open edit modal
-  function handleRequestEdit(tx) {
+  const handleRequestEdit = useCallback((tx) => {
     setEditTx(tx);
-  }
+  }, []);
 
   // NEW: save edited transaction
-  function handleSaveEditedTx(updated) {
+  const handleSaveEditedTx = useCallback((updated) => {
     setTransactions((prev) =>
       prev.map((t) => (t.id === updated.id ? updated : t))
     );
-  }
+  }, []);
 
   // Reset data (dev helper already added previously)
   function handleReset() {

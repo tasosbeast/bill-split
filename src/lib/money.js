@@ -6,3 +6,9 @@ export function formatEUR(value) {
     minimumFractionDigits: 2,
   }).format(n);
 }
+
+export function roundToCents(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return Math.round(num * 100) / 100;
+}

@@ -2,6 +2,7 @@ import PropTypes from "prop-types";
 import { useState } from "react";
 import Modal from "./Modal";
 import { CATEGORIES } from "../lib/categories";
+import { roundToCents } from "../lib/money";
 
 export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
   // Μόνο split επιτρέπεται να επεξεργαστεί
@@ -27,9 +28,15 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
     const v = validate();
     if (v) return setErr(v);
 
-    const total = parseFloat(bill);
-    const half = total / 2;
-    const delta = payer === "you" ? half : -half;
+    const rawTotal = parseFloat(bill);
+    const total = roundToCents(rawTotal);
+    if (total <= 0) {
+      setErr("Enter a valid total amount.");
+      return;
+    }
+
+    const half = roundToCents(total / 2);
+    const delta = roundToCents(payer === "you" ? half : -half);
 
     const updated = {
       ...tx,

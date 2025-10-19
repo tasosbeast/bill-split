@@ -63,7 +63,13 @@ export default function Balances({ friends, balances, onJumpTo }) {
 }
 
 Balances.propTypes = {
-  friends: PropTypes.array.isRequired,
+  friends: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      name: PropTypes.string.isRequired,
+      email: PropTypes.string,
+    })
+  ).isRequired,
   balances: PropTypes.instanceOf(Map).isRequired,
   onJumpTo: PropTypes.func,
 };

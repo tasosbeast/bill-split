@@ -129,8 +129,26 @@ export default function Transactions({
 }
 
 Transactions.propTypes = {
-  friend: PropTypes.object,
-  items: PropTypes.array.isRequired,
+  friend: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    email: PropTypes.string,
+  }),
+  items: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      type: PropTypes.oneOf(["split", "settlement"]).isRequired,
+      friendId: PropTypes.string.isRequired,
+      total: PropTypes.number,
+      payer: PropTypes.oneOf(["you", "friend", null]),
+      half: PropTypes.number,
+      delta: PropTypes.number.isRequired,
+      category: PropTypes.string,
+      note: PropTypes.string,
+      createdAt: PropTypes.string.isRequired,
+      updatedAt: PropTypes.string,
+    })
+  ).isRequired,
   onRequestEdit: PropTypes.func,
   onDelete: PropTypes.func,
 };

@@ -103,6 +103,9 @@ export default function SplitForm({ friend, onSplit }) {
 }
 
 SplitForm.propTypes = {
-  friend: PropTypes.object.isRequired,
+  friend: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+  }).isRequired,
   onSplit: PropTypes.func.isRequired,
 };

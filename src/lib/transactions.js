@@ -174,7 +174,8 @@ export function upgradeTransaction(tx) {
   }
 
   if (tx.type === "split") {
-    const total = Number(tx.total) || 0;
+    const total = Number(tx.total);
+    if (!Number.isFinite(total) || total <= 0) return null;
     const friendId = typeof tx.friendId === "string" ? tx.friendId : null;
     const half = Number(tx.half);
     const friendShare = isValidAmount(half) ? roundToCents(half) : roundToCents(total / 2);
@@ -189,6 +190,7 @@ export function upgradeTransaction(tx) {
     const friendIds = friendId ? [friendId] : effects.map((e) => e.friendId);
     return {
       ...tx,
+      total,
       participants,
       effects,
       payer: normalizedPayer,

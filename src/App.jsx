@@ -25,6 +25,7 @@ export default function App() {
   const [showAdd, setShowAdd] = useState(false);
   const [editTx, setEditTx] = useState(null);
   const [txFilter, setTxFilter] = useState("All");
+  const [restoreFeedback, setRestoreFeedback] = useState(null);
 
   useEffect(() => {
     saveState({ friends, selectedId, transactions });
@@ -147,6 +148,7 @@ export default function App() {
     e.target.value = ""; // επιτρέπει επανα-επιλογή ίδιου αρχείου αργότερα
     if (!file) return;
 
+    setRestoreFeedback(null);
     const reader = new FileReader();
     reader.onload = () => {
       try {
@@ -171,34 +173,122 @@ export default function App() {
           idMap.set(id, newId);
           return newId;
         }
-        const safeFriends = data.friends.map((f) => ({
-          id: stableId(f.id),
-          name: String(f.name ?? "").trim() || "Friend",
-          email: String(f.email ?? "").trim() || "",
-          tag: f.tag ?? "friend",
-        }));
+        // Build a normalized, case-insensitive category index
+        const categoryIndex = new Map(
+          CATEGORIES.map((c) => {
+            const label =
+              typeof c === "string" ? c : c.value ?? c.name ?? String(c);
+            return [label.trim().toLowerCase(), label];
+          })
+        );
+        const allowedPayers = new Set(["you", "friend"]);
 
-        const safeTransactions = data.transactions.filter(Boolean).map((t) => ({
-          id: stableId(t.id),
-          type: t.type === "settlement" ? "settlement" : "split",
-          friendId: stableId(t.friendId),
-          total: t.type === "split" ? Number(t.total ?? 0) : null,
-          payer:
-            t.type === "split"
-              ? t.payer === "friend"
-                ? "friend"
-                : "you"
-              : null,
-          half:
-            t.type === "split"
-              ? Number(t.half ?? Number(t.total ?? 0) / 2)
-              : Math.abs(Number(t.half ?? 0)),
-          delta: Number(t.delta ?? 0),
-          category: t.category ?? "Other",
-          note: String(t.note ?? ""),
-          createdAt: t.createdAt ?? new Date().toISOString(),
-          updatedAt: t.updatedAt ?? null,
-        }));
+        const emailIndex = new Map();
+        const safeFriends = [];
+        for (const f of data.friends) {
+          const id = stableId(f.id);
+          const name = String(f.name ?? "").trim() || "Friend";
+          const email = String(f.email ?? "").trim().toLowerCase();
+          const tag = f.tag ?? "friend";
+
+          if (email && emailIndex.has(email)) {
+            const existing = emailIndex.get(email);
+            console.warn(
+              "Merging duplicate friend by email during restore:",
+              { kept: existing, dropped: { id, name, email, tag } },
+            );
+            // Skip adding duplicate friend; stableId mapping already ensures consistent ids for references
+            continue;
+          }
+
+          const friend = { id, name, email, tag };
+          safeFriends.push(friend);
+          if (email) emailIndex.set(email, friend);
+        }
+
+        const safeTransactions = [];
+        const skippedTransactions = [];
+
+        for (const t of data.transactions.filter(Boolean)) {
+          try {
+            const normalizedType =
+              t.type === "settlement" ? "settlement" : "split";
+            const isSplit = normalizedType === "split";
+
+            const rawCategory =
+              typeof t.category === "string" ? t.category.trim() : "";
+            let category = "Other";
+            if (rawCategory) {
+              const normalizedCategory = rawCategory.toLowerCase();
+              const canonicalCategory = categoryIndex.get(normalizedCategory);
+              if (!canonicalCategory) {
+                console.warn(
+                  "Unknown category during restore, defaulting to 'Other':",
+                  rawCategory,
+                  t,
+                );
+              } else {
+                category = canonicalCategory;
+              }
+            }
+
+            let payer = null;
+            if (isSplit) {
+              const rawPayer = typeof t.payer === "string" ? t.payer : "";
+              const normPayer = rawPayer.trim().toLowerCase();
+              payer = normPayer || "you";
+              if (!allowedPayers.has(payer)) {
+                console.warn(
+                  `Unknown payer "${rawPayer}", defaulting to "you"`,
+                  t,
+                );
+                payer = "you";
+              }
+            }
+
+            const parsedTotal = isSplit ? Number(t.total) : null;
+            const safeTotal = isSplit
+              ? Number.isFinite(parsedTotal) && parsedTotal > 0
+                ? parsedTotal
+                : 0
+              : null;
+            const parsedHalf = Number(t.half);
+            const half = isSplit
+              ? Number.isFinite(parsedHalf) && parsedHalf >= 0
+                ? parsedHalf
+                : safeTotal / 2
+              : Math.abs(Number.isFinite(parsedHalf) ? parsedHalf : 0);
+            const parsedDelta = Number(t.delta);
+            const delta = Number.isFinite(parsedDelta) ? parsedDelta : 0;
+
+            safeTransactions.push({
+              id: stableId(t.id),
+              type: normalizedType,
+              friendId: stableId(t.friendId),
+              total: isSplit ? safeTotal : null,
+              payer,
+              half,
+              delta,
+              category,
+              note: String(t.note ?? ""),
+              createdAt: t.createdAt ?? new Date().toISOString(),
+              updatedAt: t.updatedAt ?? null,
+            });
+          } catch (transactionError) {
+            console.warn(
+              "Skipping transaction during restore:",
+              transactionError,
+              t,
+            );
+            skippedTransactions.push({
+              transaction: t,
+              reason:
+                transactionError instanceof Error
+                  ? transactionError.message
+                  : String(transactionError),
+            });
+          }
+        }
 
         // Εφάρμοσε στο state
         setFriends(safeFriends);
@@ -212,10 +302,23 @@ export default function App() {
           selectedId: data.selectedId ?? null,
         });
 
-        alert("Restore completed successfully!");
+        setRestoreFeedback(
+          skippedTransactions.length > 0
+            ? {
+                status: "warning",
+                message: `${skippedTransactions.length} transaction(s) were skipped during restore. Check console for details.`,
+              }
+            : {
+                status: "success",
+                message: "Restore completed successfully!",
+              },
+        );
       } catch (err) {
         console.warn("Restore failed:", err);
-        alert("Restore failed: " + err.message);
+        setRestoreFeedback({
+          status: "error",
+          message: `Restore failed: ${err.message}`,
+        });
       }
     };
     reader.readAsText(file);
@@ -223,6 +326,14 @@ export default function App() {
 
   return (
     <div className="app">
+      {restoreFeedback ? (
+        <div
+          className={`restore-feedback restore-feedback-${restoreFeedback.status}`}
+          role="status"
+        >
+          {restoreFeedback.message}
+        </div>
+      ) : null}
       <header className="header">
         <div className="brand">Bill Split</div>
         <div className="row gap-8">

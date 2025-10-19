@@ -32,6 +32,32 @@ body {
   padding: 24px;
 }
 
+.restore-feedback {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #12141b;
+}
+
+.restore-feedback-success {
+  border-color: #1f5137;
+  background: #0f3c2a;
+  color: var(--brand);
+}
+
+.restore-feedback-warning {
+  border-color: #513f1f;
+  background: #3c2c0f;
+  color: #f5d565;
+}
+
+.restore-feedback-error {
+  border-color: var(--danger);
+  background: #3c1515;
+  color: var(--danger);
+}
+
 .header {
   display: flex;
   align-items: center;

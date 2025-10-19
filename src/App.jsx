@@ -6,6 +6,7 @@ import AddFriendModal from "./components/AddFriendModal";
 import Balances from "./components/Balances";
 import Transactions from "./components/Transactions";
 import { loadState, saveState } from "./lib/storage";
+import { clearState } from "./lib/storage";
 
 const seededFriends = [
   { id: crypto.randomUUID(), name: "Valia", email: "valia@example.com" },
@@ -66,11 +67,36 @@ export default function App() {
     setSelectedId(friend.id);
   }
 
+  function handleReset() {
+    const ok = confirm(
+      "This will delete all your friends, transactions, and balances. Are you sure?"
+    );
+    if (!ok) return;
+    clearState();
+    // Hard reload to get fresh initial state
+    window.location.reload();
+  }
+
   return (
     <div className="app">
       <header className="header">
         <div className="brand">Bill Split</div>
-        <span className="badge">React + Vite</span>
+        <div className="row" style={{ gap: 8 }}>
+          <span className="badge">React + Vite</span>
+          <button
+            className="button"
+            style={{
+              background: "transparent",
+              borderColor: "var(--border)",
+              fontSize: 12,
+              padding: "6px 10px",
+            }}
+            onClick={handleReset}
+            title="Clear all data and restart"
+          >
+            Reset Data
+          </button>
+        </div>
       </header>
 
       <div className="layout">

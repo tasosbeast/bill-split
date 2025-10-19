@@ -11,23 +11,19 @@ function FriendList({ friends, selectedId, onSelect }) {
       {friends.map((f) => {
         const active = f.id === selectedId;
         return (
-          <div
+          <button
             key={f.id}
+            type="button"
             className={`list-item ${active ? "active" : ""}`}
             onClick={() => onSelect(active ? null : f.id)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ")
-                onSelect(active ? null : f.id);
-            }}
+            aria-pressed={active}
           >
             <div>
               <div className="fw-600">{f.name}</div>
               <div className="kicker">{f.email}</div>
             </div>
             <div className="kicker">{f.tag ?? "friend"}</div>
-          </div>
+          </button>
         );
       })}
     </div>

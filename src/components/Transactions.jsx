@@ -85,6 +85,8 @@ function Transactions({ friend, friendsById, items, onRequestEdit, onDelete }) {
           .map((p) => {
             if (p.id === "you") return "You";
             const f = map.get(p.id);
+            // Omit the currently selected friend from the "With" badge to avoid redundancy
+            if (f && f.id === friend.id) return null;
             return f ? f.name : null;
           })
           .filter(Boolean)

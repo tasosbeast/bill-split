@@ -7,6 +7,7 @@ import Balances from "./components/Balances";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import TransactionList from "./components/TransactionList";
 import EditTransactionModal from "./components/EditTransactionModal";
+import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 import { loadState, saveState, clearState } from "./lib/storage";
 import { CATEGORIES } from "./lib/categories";
 import { computeBalances } from "./lib/compute";
@@ -17,6 +18,7 @@ import {
   transactionIncludesFriend,
   upgradeTransactions,
 } from "./lib/transactions";
+import { DEFAULT_MONTHLY_BUDGET } from "./lib/selectors";
 
 function parseV2SplitTransaction(transaction, base, helpers) {
   const { stableId, friendIdSet } = helpers;
@@ -182,6 +184,11 @@ export default function App() {
   const [showAdd, setShowAdd] = useState(false);
   const [editTx, setEditTx] = useState(null);
   const [restoreFeedback, setRestoreFeedback] = useState(null);
+  const [activeView, setActiveView] = useState("home");
+  const preferences = useMemo(
+    () => ({ monthlyBudget: DEFAULT_MONTHLY_BUDGET }),
+    []
+  );
 
   useEffect(() => {
     saveState({ friends, selectedId, transactions });
@@ -208,6 +215,10 @@ export default function App() {
   }, [friends]);
 
   const balances = useMemo(() => computeBalances(transactions), [transactions]);
+  const storeSnapshot = useMemo(
+    () => ({ friends, transactions, balances, preferences }),
+    [friends, transactions, balances, preferences]
+  );
 
   const storeSnapshot = useMemo(
     () => ({
@@ -531,7 +542,24 @@ export default function App() {
       ) : null}
       <header className="header">
         <div className="brand">Bill Split</div>
-        <div className="row gap-8">
+        <div className="row gap-8 flex-wrap">
+          <nav className="row gap-8" aria-label="Primary navigation">
+            <button
+              type="button"
+              className={activeView === "home" ? "button" : "btn-ghost"}
+              onClick={() => setActiveView("home")}
+            >
+              Splits
+            </button>
+            <button
+              type="button"
+              className={activeView === "analytics" ? "button" : "btn-ghost"}
+              onClick={() => setActiveView("analytics")}
+            >
+              Analytics
+            </button>
+          </nav>
+
           <span className="badge">React + Vite</span>
 
           {activeView === "home" && (
@@ -582,8 +610,7 @@ export default function App() {
       {activeView === "analytics" ? (
         <AnalyticsDashboard
           state={storeSnapshot}
-          transactions={transactions}
-          onNavigateHome={navigateHome}
+          onNavigateHome={() => setActiveView("home")}
         />
       ) : (
         <div className="layout">
@@ -673,10 +700,36 @@ export default function App() {
                 />
 
                 <div className="spacer-md" aria-hidden="true" />
-                <TransactionList
+                <div className="row justify-between">
+                  <h2>Transactions</h2>
+                  <div className="row gap-8">
+                    <select
+                      className="select w-180"
+                      value={txFilter}
+                      onChange={(e) => setTxFilter(e.target.value)}
+                      title="Filter by category"
+                    >
+                      <option value="All">All</option>
+                      {CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                    {txFilter !== "All" && (
+                      <button
+                        className="btn-ghost"
+                        onClick={() => setTxFilter("All")}
+                      >
+                        Clear filter
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <Transactions
                   friend={selectedFriend}
                   friendsById={friendsById}
-                  transactions={friendTx}
+                  items={friendTx}
                   onRequestEdit={handleRequestEdit}
                   onDelete={handleDeleteTx}
                 />

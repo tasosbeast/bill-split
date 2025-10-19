@@ -1,0 +1,45 @@
+.list {
+  display: grid;
+  gap: 14px;
+}
+
+.item {
+  display: grid;
+  gap: 6px;
+}
+
+.labelRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.category {
+  font-weight: 600;
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.barTrack {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: #11131a;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  background: linear-gradient(90deg, rgba(108, 243, 167, 0.9), rgba(108, 243, 167, 0.35));
+  transition: width 0.3s ease;
+}
+
+.meta {
+  font-size: 11px;
+  color: var(--muted);
+}

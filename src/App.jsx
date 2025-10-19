@@ -15,16 +15,12 @@ const seededFriends = [
 ];
 
 export default function App() {
-  const [friends, setFriends] = useState(
-    () => loadState()?.friends ?? seededFriends
-  );
-  const [selectedId, setSelectedId] = useState(
-    () => loadState()?.selectedId ?? null
-  );
+  const boot = useRef(loadState()).current;
+  const [friends, setFriends] = useState(() => boot?.friends ?? seededFriends);
+  const [selectedId, setSelectedId] = useState(() => boot?.selectedId ?? null);
   const [transactions, setTransactions] = useState(
-    () => loadState()?.transactions ?? []
+    () => boot?.transactions ?? []
   );
-
   const [showAdd, setShowAdd] = useState(false);
   const [editTx, setEditTx] = useState(null);
   const [txFilter, setTxFilter] = useState("All");

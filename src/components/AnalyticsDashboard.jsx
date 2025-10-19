@@ -104,7 +104,14 @@ export default function AnalyticsDashboard({
     [filteredTransactions]
   );
 
-  const friendsList = Array.isArray(state?.friends) ? state.friends : [];
+  const friends = state?.friends;
+
+  const friendsList = useMemo(() => {
+    if (Array.isArray(friends)) {
+      return friends;
+    }
+    return [];
+  }, [friends]);
 
   const friendBalanceEntries = useMemo(() => {
     if (!friendBalances.length) return [];

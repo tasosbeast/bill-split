@@ -160,6 +160,7 @@ body {
 }
 
 .list-item {
+  appearance: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -167,6 +168,10 @@ body {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: #12141b;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
 }
 
 .list-item.active {

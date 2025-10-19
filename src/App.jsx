@@ -186,10 +186,17 @@ export default function App() {
     saveState({ friends, selectedId, transactions });
   }, [friends, selectedId, transactions]);
 
-  const selectedFriend = useMemo(
-    () => friends.find((f) => f.id === selectedId) || null,
-    [friends, selectedId]
-  );
+  const selectedFriend = useMemo(() => {
+    const f = friends.find((fr) => fr.id === selectedId) || null;
+    return f;
+  }, [friends, selectedId]);
+
+  // Ensure selectedId always points to an existing friend
+  useEffect(() => {
+    if (selectedId && !friends.some((f) => f.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [friends, selectedId]);
 
   const friendsById = useMemo(() => {
     const map = new Map();

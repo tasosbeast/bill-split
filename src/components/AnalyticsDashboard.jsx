@@ -15,7 +15,20 @@ function formatCurrency(value) {
   return formatEUR(roundToCents(value));
 }
 
-export default function AnalyticsDashboard({ transactions }) {
+export default function AnalyticsDashboard({ transactions, state, onNavigateHome }) {
+  const sourceTransactions = useMemo(() => {
+    if (Array.isArray(transactions)) {
+      return transactions;
+    }
+    if (state && Array.isArray(state.transactions)) {
+      return state.transactions;
+    }
+    if (Array.isArray(state)) {
+      return state;
+    }
+    return [];
+  }, [transactions, state]);
+
   const {
     filters,
     setCategory,
@@ -26,8 +39,8 @@ export default function AnalyticsDashboard({ transactions }) {
   } = useTransactionFilters();
 
   const filteredTransactions = useMemo(
-    () => applyFilters(transactions ?? []),
-    [transactions, applyFilters],
+    () => applyFilters(sourceTransactions),
+    [sourceTransactions, applyFilters],
   );
 
   const overview = useMemo(
@@ -46,10 +59,27 @@ export default function AnalyticsDashboard({ transactions }) {
     <section className="card analytics-card" aria-label="Analytics dashboard">
       <div className="analytics-card__header">
         <h2>Analytics</h2>
-        {hasActiveFilters && (
-          <button type="button" className="btn-ghost" onClick={resetFilters}>
-            Reset filters
-          </button>
+        {(onNavigateHome || hasActiveFilters) && (
+          <div className="analytics-card__actions">
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={resetFilters}
+              >
+                Reset filters
+              </button>
+            )}
+            {onNavigateHome && (
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={onNavigateHome}
+              >
+                Back to app
+              </button>
+            )}
+          </div>
         )}
       </div>
       <div className="analytics-card__filters">

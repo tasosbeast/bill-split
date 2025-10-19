@@ -178,6 +178,7 @@ export default function App() {
   const [transactions, setTransactions] = useState(() =>
     upgradeTransactions(boot?.transactions ?? [])
   );
+  const [activeView, setActiveView] = useState("home");
   const [showAdd, setShowAdd] = useState(false);
   const [editTx, setEditTx] = useState(null);
   const [restoreFeedback, setRestoreFeedback] = useState(null);
@@ -208,6 +209,16 @@ export default function App() {
 
   const balances = useMemo(() => computeBalances(transactions), [transactions]);
 
+  const storeSnapshot = useMemo(
+    () => ({
+      friends,
+      selectedId,
+      balances,
+      transactions,
+    }),
+    [friends, selectedId, balances, transactions]
+  );
+
   const friendTx = useMemo(() => {
     if (!selectedId) return [];
     return transactions
@@ -233,6 +244,10 @@ export default function App() {
   const openAdd = useCallback(() => setShowAdd(true), []);
 
   const closeAdd = useCallback(() => setShowAdd(false), []);
+
+  const openAnalytics = useCallback(() => setActiveView("analytics"), []);
+
+  const navigateHome = useCallback(() => setActiveView("home"), []);
 
   const normalizedFriendEmails = useMemo(
     () =>
@@ -519,6 +534,16 @@ export default function App() {
         <div className="row gap-8">
           <span className="badge">React + Vite</span>
 
+          {activeView === "home" && (
+            <button
+              className="button btn-ghost"
+              onClick={openAnalytics}
+              title="View analytics for all transactions"
+            >
+              Analytics
+            </button>
+          )}
+
           <button
             className="button btn-ghost"
             onClick={handleBackup}
@@ -554,107 +579,112 @@ export default function App() {
         />
       </header>
 
-      <div className="layout">
-        <section className="panel">
-          <h2>Friends</h2>
-          <div className="row stack-sm">
-            <button className="button" onClick={openAdd}>
-              + Add friend
-            </button>
-          </div>
-          <FriendList
-            friends={friends}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
+      {activeView === "analytics" ? (
+        <AnalyticsDashboard
+          state={storeSnapshot}
+          transactions={transactions}
+          onNavigateHome={navigateHome}
+        />
+      ) : (
+        <div className="layout">
+          <section className="panel">
+            <h2>Friends</h2>
+            <div className="row stack-sm">
+              <button className="button" onClick={openAdd}>
+                + Add friend
+              </button>
+            </div>
+            <FriendList
+              friends={friends}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
 
-          <div className="spacer-md" aria-hidden="true" />
-          <h2>Balances</h2>
-          <p className="kicker stack-tight">
-            Positive = they owe you | Negative = you owe them
-          </p>
-          <Balances
-            friends={friends}
-            balances={balances}
-            onJumpTo={(id) => setSelectedId(id)}
-          />
-        </section>
+            <div className="spacer-md" aria-hidden="true" />
+            <h2>Balances</h2>
+            <p className="kicker stack-tight">
+              Positive = they owe you | Negative = you owe them
+            </p>
+            <Balances
+              friends={friends}
+              balances={balances}
+              onJumpTo={(id) => setSelectedId(id)}
+            />
+          </section>
 
-        <section className="panel">
-          <h2>Split a bill</h2>
+          <section className="panel">
+            <h2>Split a bill</h2>
 
-          {!selectedFriend && (
-            <p className="kicker">Choose a friend to start.</p>
-          )}
+            {!selectedFriend && (
+              <p className="kicker">Choose a friend to start.</p>
+            )}
 
-        {selectedFriend && (
-          <>
-            <div className="row justify-between stack-sm">
-              <div className="row">
-                <div className="kicker">
-                    Splitting with <strong>{selectedFriend.name}</strong>
+            {selectedFriend && (
+              <>
+                <div className="row justify-between stack-sm">
+                  <div className="row">
+                    <div className="kicker">
+                      Splitting with <strong>{selectedFriend.name}</strong>
+                    </div>
+                    <span
+                      className={
+                        selectedBalance > 0
+                          ? "pill pill-pos"
+                          : selectedBalance < 0
+                          ? "pill pill-neg"
+                          : "pill pill-zero"
+                      }
+                      title={
+                        selectedBalance > 0
+                          ? `${selectedFriend.name} owes you`
+                          : selectedBalance < 0
+                          ? `You owe ${selectedFriend.name}`
+                          : "Settled"
+                      }
+                    >
+                      {selectedBalance > 0
+                        ? "\u2191"
+                        : selectedBalance < 0
+                        ? "\u2193"
+                        : "\u2014"}{" "}
+                      {Math.abs(selectedBalance).toLocaleString(undefined, {
+                        style: "currency",
+                        currency: "EUR",
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
                   </div>
-                  <span
-                    className={
-                      selectedBalance > 0
-                        ? "pill pill-pos"
-                        : selectedBalance < 0
-                        ? "pill pill-neg"
-                        : "pill pill-zero"
-                    }
-                    title={
-                      selectedBalance > 0
-                        ? `${selectedFriend.name} owes you`
-                        : selectedBalance < 0
-                        ? `You owe ${selectedFriend.name}`
-                        : "Settled"
-                    }
-                  >
-                    {selectedBalance > 0
-                      ? "\u2191"
-                      : selectedBalance < 0
-                      ? "\u2193"
-                      : "\u2014"}{" "}
-                    {Math.abs(selectedBalance).toLocaleString(undefined, {
-                      style: "currency",
-                      currency: "EUR",
-                      minimumFractionDigits: 2,
-                    })}
-                  </span>
+
+                  {selectedBalance !== 0 && (
+                    <button
+                      className="button btn-ghost"
+                      onClick={handleSettle}
+                      title="Zero out balance with this friend"
+                    >
+                      Settle up
+                    </button>
+                  )}
                 </div>
 
-                {selectedBalance !== 0 && (
-                  <button
-                    className="button btn-ghost"
-                    onClick={handleSettle}
-                    title="Zero out balance with this friend"
-                  >
-                    Settle up
-                  </button>
-                )}
-              </div>
+                <SplitForm
+                  friends={friends}
+                  defaultFriendId={selectedFriend?.id ?? null}
+                  onSplit={handleSplit}
+                />
 
-              <SplitForm
-                friends={friends}
-                defaultFriendId={selectedFriend?.id ?? null}
-                onSplit={handleSplit}
-              />
-
-              <div className="spacer-md" aria-hidden="true" />
-              <TransactionList
-                friend={selectedFriend}
-                friendsById={friendsById}
-                transactions={friendTx}
-                onRequestEdit={handleRequestEdit}
-                onDelete={handleDeleteTx}
-              />
-            </>
-          )}
-
-          <div className="spacer-md" aria-hidden="true" />
-          <AnalyticsDashboard transactions={transactions} />
-        </section>
-      </div>
+                <div className="spacer-md" aria-hidden="true" />
+                <TransactionList
+                  friend={selectedFriend}
+                  friendsById={friendsById}
+                  transactions={friendTx}
+                  onRequestEdit={handleRequestEdit}
+                  onDelete={handleDeleteTx}
+                />
+              </>
+            )}
+          </section>
+        </div>
+      )}
 
       {showAdd && (
         <AddFriendModal onClose={closeAdd} onCreate={handleCreateFriend} />

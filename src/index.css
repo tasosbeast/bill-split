@@ -284,6 +284,12 @@ body {
   font-size: 18px;
 }
 
+.analytics-card__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .analytics-card__filters {
   display: flex;
   flex-wrap: wrap;

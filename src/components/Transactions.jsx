@@ -70,9 +70,24 @@ export default function Transactions({
           <div key={t.id} className="list-item">
             <div>
               <div style={{ fontWeight: 600 }}>{whoPaid}</div>
+
               <div className="kicker">
                 {summary} • {when(t.createdAt)}
                 {t.updatedAt ? " • edited" : ""}
+              </div>
+
+              {/* Badges row */}
+              <div className="badges" style={{ marginTop: 6 }}>
+                {t.category && (
+                  <span className="badge-chip">
+                    <strong>Category</strong> {t.category}
+                  </span>
+                )}
+                {t.note && (
+                  <span className="badge-chip" title={t.note}>
+                    <strong>Note</strong> {t.note}
+                  </span>
+                )}
               </div>
 
               {/* Action buttons */}

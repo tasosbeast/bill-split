@@ -23,7 +23,7 @@ function FriendList({ friends, selectedId, onSelect }) {
             }}
           >
             <div>
-              <div style={{ fontWeight: 600 }}>{f.name}</div>
+              <div className="fw-600">{f.name}</div>
               <div className="kicker">{f.email}</div>
             </div>
             <div className="kicker">{f.tag ?? "friend"}</div>

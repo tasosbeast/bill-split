@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
 import "./index.css";
 import FriendList from "./components/FriendList";
 import SplitForm from "./components/SplitForm";
@@ -9,6 +15,7 @@ import EditTransactionModal from "./components/EditTransactionModal";
 import { loadState, saveState, clearState } from "./lib/storage";
 import { CATEGORIES } from "./lib/categories";
 import { computeBalances } from "./lib/compute";
+import { formatEUR } from "./lib/money";
 
 const seededFriends = [
   { id: crypto.randomUUID(), name: "Valia", email: "valia@example.com" },
@@ -25,10 +32,34 @@ export default function App() {
   const [showAdd, setShowAdd] = useState(false);
   const [editTx, setEditTx] = useState(null);
   const [txFilter, setTxFilter] = useState("All");
+  const [ragContextEnabled, setRagContextEnabled] = useState(
+    () => boot?.preferences?.ragContextEnabled ?? false
+  );
+  const [copiedRagContext, setCopiedRagContext] = useState(false);
+  const copyTimeoutRef = useRef(null);
 
   useEffect(() => {
-    saveState({ friends, selectedId, transactions });
-  }, [friends, selectedId, transactions]);
+    saveState({
+      friends,
+      selectedId,
+      transactions,
+      preferences: { ragContextEnabled },
+    });
+  }, [friends, selectedId, transactions, ragContextEnabled]);
+
+  useEffect(() => {
+    if (!ragContextEnabled) {
+      setCopiedRagContext(false);
+    }
+  }, [ragContextEnabled]);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const selectedFriend = useMemo(
     () => friends.find((f) => f.id === selectedId) || null,
@@ -36,6 +67,141 @@ export default function App() {
   );
 
   const balances = useMemo(() => computeBalances(transactions), [transactions]);
+  const friendMap = useMemo(
+    () => new Map(friends.map((f) => [f.id, f])),
+    [friends]
+  );
+
+  const ragContext = useMemo(() => {
+    if (!ragContextEnabled) return "";
+
+    const owedToYou = friends.reduce((sum, friend) => {
+      const bal = balances.get(friend.id) ?? 0;
+      return bal > 0 ? sum + bal : sum;
+    }, 0);
+
+    const youOwe = friends.reduce((sum, friend) => {
+      const bal = balances.get(friend.id) ?? 0;
+      return bal < 0 ? sum + Math.abs(bal) : sum;
+    }, 0);
+
+    const lines = [
+      "Bill Split context snapshot for retrieval-augmented generation.",
+      `Total friends: ${friends.length}.`,
+      `Outstanding balances — they owe you ${formatEUR(owedToYou)} | you owe ${formatEUR(youOwe)}.`,
+    ];
+
+    if (selectedFriend) {
+      const bal = balances.get(selectedFriend.id) ?? 0;
+      const status =
+        bal > 0
+          ? `${selectedFriend.name} owes you ${formatEUR(bal)}`
+          : bal < 0
+          ? `You owe ${selectedFriend.name} ${formatEUR(Math.abs(bal))}`
+          : `You and ${selectedFriend.name} are settled`;
+      lines.push(`Current focus: ${status}.`);
+    } else {
+      lines.push("No friend is currently selected.");
+    }
+
+    lines.push("", "Friend balances:");
+
+    if (friends.length === 0) {
+      lines.push("- No friends have been added yet.");
+    } else {
+      friends.forEach((friend) => {
+        const bal = balances.get(friend.id) ?? 0;
+        const relation =
+          bal > 0
+            ? `owes you ${formatEUR(bal)}`
+            : bal < 0
+            ? `is owed ${formatEUR(Math.abs(bal))}`
+            : "is settled";
+        const email = friend.email ? `email ${friend.email}` : "no email on file";
+        const tag = friend.tag && friend.tag !== "friend" ? ` Tag: ${friend.tag}.` : "";
+        lines.push(
+          `- ${friend.name} (${email}) ${relation}.${tag}`.trim()
+        );
+      });
+    }
+
+    lines.push("", "Recent transactions:");
+
+    const recent = transactions.slice(0, 5);
+    if (recent.length === 0) {
+      lines.push("- No transactions recorded yet.");
+    } else {
+      recent.forEach((tx) => {
+        const friend = friendMap.get(tx.friendId);
+        const friendName = friend?.name ?? "Unknown friend";
+        let dateString = "Unknown date";
+        if (tx.createdAt) {
+          const date = new Date(tx.createdAt);
+          if (!Number.isNaN(date.getTime())) {
+            dateString = date.toLocaleDateString(undefined, {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            });
+          }
+        }
+
+        if (tx.type === "settlement") {
+          const settlementDirection =
+            tx.delta < 0
+              ? `${friendName} settled by paying you ${formatEUR(Math.abs(tx.delta))}`
+              : `You settled by paying ${friendName} ${formatEUR(Math.abs(tx.delta))}`;
+          lines.push(`- [${dateString}] Settlement — ${settlementDirection}.`);
+          return;
+        }
+
+        const payer =
+          tx.payer === "you"
+            ? "You paid"
+            : tx.payer === "friend"
+            ? `${friendName} paid`
+            : "Shared";
+        const direction =
+          tx.delta > 0
+            ? `${friendName} now owes you ${formatEUR(Math.abs(tx.delta))}`
+            : tx.delta < 0
+            ? `You now owe ${friendName} ${formatEUR(Math.abs(tx.delta))}`
+            : "Even split";
+        const note = tx.note ? ` Note: ${tx.note}` : "";
+        const category = tx.category ?? "Other";
+        const total = tx.total != null ? formatEUR(tx.total) : "n/a";
+        lines.push(
+          `- [${dateString}] ${friendName} • ${category} — ${payer} ${total}. ${direction}.${note}`
+        );
+      });
+    }
+
+    return lines.join("\n");
+  }, [
+    balances,
+    friendMap,
+    friends,
+    ragContextEnabled,
+    selectedFriend,
+    transactions,
+  ]);
+
+  const handleCopyRagContext = useCallback(async () => {
+    if (!ragContext) return;
+    try {
+      await navigator.clipboard.writeText(ragContext);
+      setCopiedRagContext(true);
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+      copyTimeoutRef.current = setTimeout(() => {
+        setCopiedRagContext(false);
+      }, 2000);
+    } catch (err) {
+      console.warn("Copy failed", err);
+      alert("Copy failed. Please copy the text manually.");
+    }
+  }, [ragContext]);
 
   const friendTx = useMemo(() => {
     const base = selectedId
@@ -125,6 +291,7 @@ export default function App() {
       friends,
       selectedId,
       transactions,
+      preferences: { ragContextEnabled },
     };
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
@@ -202,14 +369,20 @@ export default function App() {
 
         // Εφάρμοσε στο state
         setFriends(safeFriends);
+        const safeRagContextEnabled = Boolean(
+          data.preferences?.ragContextEnabled
+        );
+
         setTransactions(safeTransactions);
         setSelectedId(data.selectedId ?? null);
+        setRagContextEnabled(safeRagContextEnabled);
 
         // Αποθήκευση & ενημέρωση UI
         saveState({
           friends: safeFriends,
           transactions: safeTransactions,
           selectedId: data.selectedId ?? null,
+          preferences: { ragContextEnabled: safeRagContextEnabled },
         });
 
         alert("Restore completed successfully!");
@@ -225,17 +398,11 @@ export default function App() {
     <div className="app">
       <header className="header">
         <div className="brand">Bill Split</div>
-        <div className="row" style={{ gap: 8 }}>
+        <div className="row gap-8">
           <span className="badge">React + Vite</span>
 
           <button
-            className="button"
-            style={{
-              background: "transparent",
-              borderColor: "var(--border)",
-              fontSize: 12,
-              padding: "6px 10px",
-            }}
+            className="button btn-ghost"
             onClick={handleBackup}
             title="Export all data to a JSON file"
           >
@@ -243,13 +410,7 @@ export default function App() {
           </button>
 
           <button
-            className="button"
-            style={{
-              background: "transparent",
-              borderColor: "var(--border)",
-              fontSize: 12,
-              padding: "6px 10px",
-            }}
+            className="button btn-ghost"
             onClick={() => fileInputRef.current?.click()}
             title="Import data from a JSON file"
           >
@@ -257,13 +418,7 @@ export default function App() {
           </button>
 
           <button
-            className="button"
-            style={{
-              background: "transparent",
-              borderColor: "var(--border)",
-              fontSize: 12,
-              padding: "6px 10px",
-            }}
+            className="button btn-ghost"
             onClick={handleReset}
             title="Clear all data and restart"
           >
@@ -284,7 +439,7 @@ export default function App() {
       <div className="layout">
         <section className="panel">
           <h2>Friends</h2>
-          <div className="row" style={{ marginBottom: 10 }}>
+          <div className="row stack-sm">
             <button className="button" onClick={openAdd}>
               + Add friend
             </button>
@@ -295,9 +450,9 @@ export default function App() {
             onSelect={setSelectedId}
           />
 
-          <div style={{ height: 16 }} />
+          <div className="spacer-md" aria-hidden="true" />
           <h2>Balances</h2>
-          <p className="kicker" style={{ marginBottom: 8 }}>
+          <p className="kicker stack-tight">
             Positive = they owe you | Negative = you owe them
           </p>
           <Balances
@@ -305,6 +460,46 @@ export default function App() {
             balances={balances}
             onJumpTo={(id) => setSelectedId(id)}
           />
+
+          <div className="spacer-md" aria-hidden="true" />
+          <h2>AI context</h2>
+          <label className="toggle stack-xs" htmlFor="toggle-rag-context">
+            <input
+              id="toggle-rag-context"
+              type="checkbox"
+              checked={ragContextEnabled}
+              onChange={(e) => setRagContextEnabled(e.target.checked)}
+            />
+            <span className="toggle-label">
+              Enable RAG context enrichment
+            </span>
+          </label>
+          {ragContextEnabled && (
+            <div className="rag-box">
+              <p className="kicker">
+                Copy the summary below into your AI assistant to provide
+                conversational context.
+              </p>
+              <textarea
+                className="rag-textarea"
+                value={ragContext}
+                readOnly
+                spellCheck={false}
+              />
+              <div className="row justify-between flex-wrap gap-8">
+                <button
+                  type="button"
+                  className="button btn-ghost"
+                  onClick={handleCopyRagContext}
+                >
+                  Copy summary
+                </button>
+                {copiedRagContext && (
+                  <span className="kicker copy-success">Copied!</span>
+                )}
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="panel">
@@ -316,15 +511,8 @@ export default function App() {
 
           {selectedFriend && (
             <>
-              <div
-                className="row"
-                style={{
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 12,
-                }}
-              >
-                <div className="row" style={{ alignItems: "center", gap: 10 }}>
+              <div className="row justify-between stack-sm">
+                <div className="row">
                   <div className="kicker">
                     Splitting with <strong>{selectedFriend.name}</strong>
                   </div>
@@ -359,13 +547,7 @@ export default function App() {
 
                 {selectedBalance !== 0 && (
                   <button
-                    className="button"
-                    style={{
-                      background: "transparent",
-                      borderColor: "var(--border)",
-                      fontSize: 13,
-                      padding: "6px 10px",
-                    }}
+                    className="button btn-ghost"
                     onClick={handleSettle}
                     title="Zero out balance with this friend"
                   >
@@ -376,21 +558,14 @@ export default function App() {
 
               <SplitForm friend={selectedFriend} onSplit={handleSplit} />
 
-              <div style={{ height: 16 }} />
-              <div
-                className="row"
-                style={{
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
+              <div className="spacer-md" aria-hidden="true" />
+              <div className="row justify-between">
                 <h2>Transactions</h2>
-                <div className="row" style={{ gap: 8 }}>
+                <div className="row gap-8">
                   <select
-                    className="select"
+                    className="select w-180"
                     value={txFilter}
                     onChange={(e) => setTxFilter(e.target.value)}
-                    style={{ width: 180 }}
                     title="Filter by category"
                   >
                     <option value="All">All</option>
@@ -402,7 +577,7 @@ export default function App() {
                   </select>
                   {txFilter !== "All" && (
                     <button
-                      className="button-ghost"
+                      className="btn-ghost"
                       onClick={() => setTxFilter("All")}
                     >
                       Clear filter

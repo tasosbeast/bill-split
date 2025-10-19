@@ -121,7 +121,7 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
 
           {err && <div className="error">{err}</div>}
 
-          <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
+          <div className="row justify-end gap-8">
             <button type="button" className="button" onClick={onClose}>
               Cancel
             </button>

@@ -193,13 +193,10 @@ export default function App() {
 
   // Ensure selectedId always points to an existing friend
   useEffect(() => {
-    setSelectedId((prev) => {
-      if (prev && !friends.some((f) => f.id === prev)) {
-        return null;
-      }
-      return prev;
-    });
-  }, [friends]);
+    if (selectedId && !friends.some((f) => f.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [friends, selectedId]);
 
   const friendsById = useMemo(() => {
     const map = new Map();

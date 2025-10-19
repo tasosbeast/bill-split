@@ -181,41 +181,62 @@ export default function App() {
           tag: f.tag ?? "friend",
         }));
 
-        const safeTransactions = data.transactions.filter(Boolean).map((t) => {
-          const normalizedType = t.type === "settlement" ? "settlement" : "split";
-          const isSplit = normalizedType === "split";
+        const safeTransactions = [];
+        const skippedTransactions = [];
 
-          const rawCategory = typeof t.category === "string" ? t.category.trim() : "";
-          let category = "Other";
-          if (rawCategory) {
-            if (!categorySet.has(rawCategory)) {
-              throw new Error(`Unknown category: ${rawCategory}`);
+        for (const t of data.transactions.filter(Boolean)) {
+          try {
+            const normalizedType =
+              t.type === "settlement" ? "settlement" : "split";
+            const isSplit = normalizedType === "split";
+
+            const rawCategory =
+              typeof t.category === "string" ? t.category.trim() : "";
+            let category = "Other";
+            if (rawCategory) {
+              if (!categorySet.has(rawCategory)) {
+                throw new Error(`Unknown category: ${rawCategory}`);
+              }
+              category = rawCategory;
             }
-            category = rawCategory;
-          }
 
-          const rawPayer = typeof t.payer === "string" ? t.payer.trim() : "";
-          const payer = isSplit ? (rawPayer || "you") : null;
-          if (isSplit && !allowedPayers.has(payer)) {
-            throw new Error(`Invalid payer value: ${rawPayer || t.payer}`);
-          }
+            const rawPayer =
+              typeof t.payer === "string" ? t.payer.trim() : "";
+            const payer = isSplit ? (rawPayer || "you") : null;
+            if (isSplit && !allowedPayers.has(payer)) {
+              throw new Error(`Invalid payer value: ${rawPayer || t.payer}`);
+            }
 
-          return {
-            id: stableId(t.id),
-            type: normalizedType,
-            friendId: stableId(t.friendId),
-            total: isSplit ? Number(t.total ?? 0) : null,
-            payer,
-            half: isSplit
-              ? Number(t.half ?? Number(t.total ?? 0) / 2)
-              : Math.abs(Number(t.half ?? 0)),
-            delta: Number(t.delta ?? 0),
-            category,
-            note: String(t.note ?? ""),
-            createdAt: t.createdAt ?? new Date().toISOString(),
-            updatedAt: t.updatedAt ?? null,
-          };
-        });
+            safeTransactions.push({
+              id: stableId(t.id),
+              type: normalizedType,
+              friendId: stableId(t.friendId),
+              total: isSplit ? Number(t.total ?? 0) : null,
+              payer,
+              half: isSplit
+                ? Number(t.half ?? Number(t.total ?? 0) / 2)
+                : Math.abs(Number(t.half ?? 0)),
+              delta: Number(t.delta ?? 0),
+              category,
+              note: String(t.note ?? ""),
+              createdAt: t.createdAt ?? new Date().toISOString(),
+              updatedAt: t.updatedAt ?? null,
+            });
+          } catch (transactionError) {
+            console.warn(
+              "Skipping transaction during restore:",
+              transactionError,
+              t,
+            );
+            skippedTransactions.push({
+              transaction: t,
+              reason:
+                transactionError instanceof Error
+                  ? transactionError.message
+                  : String(transactionError),
+            });
+          }
+        }
 
         // Εφάρμοσε στο state
         setFriends(safeFriends);
@@ -229,7 +250,13 @@ export default function App() {
           selectedId: data.selectedId ?? null,
         });
 
-        alert("Restore completed successfully!");
+        if (skippedTransactions.length > 0) {
+          alert(
+            `Restore completed with ${skippedTransactions.length} transaction(s) skipped. Check console for details.`,
+          );
+        } else {
+          alert("Restore completed successfully!");
+        }
       } catch (err) {
         console.warn("Restore failed:", err);
         alert("Restore failed: " + err.message);

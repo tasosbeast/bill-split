@@ -171,7 +171,11 @@ export default function App() {
           idMap.set(id, newId);
           return newId;
         }
-        const categorySet = new Set(CATEGORIES);
+        const categorySet = new Set(
+          CATEGORIES.map((c) =>
+            typeof c === "string" ? c : c.value ?? c.name ?? String(c)
+          )
+        );
         const allowedPayers = new Set(["you", "friend"]);
 
         const safeFriends = data.friends.map((f) => ({

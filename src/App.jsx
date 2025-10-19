@@ -6,6 +6,7 @@ import AddFriendModal from "./components/AddFriendModal";
 import Balances from "./components/Balances";
 import Transactions from "./components/Transactions";
 import EditTransactionModal from "./components/EditTransactionModal";
+import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 import { loadState, saveState, clearState } from "./lib/storage";
 import { CATEGORIES } from "./lib/categories";
 import { computeBalances } from "./lib/compute";
@@ -16,6 +17,7 @@ import {
   transactionIncludesFriend,
   upgradeTransactions,
 } from "./lib/transactions";
+import { DEFAULT_MONTHLY_BUDGET } from "./lib/selectors";
 
 function parseV2SplitTransaction(transaction, base, helpers) {
   const { stableId, friendIdSet } = helpers;
@@ -181,6 +183,11 @@ export default function App() {
   const [editTx, setEditTx] = useState(null);
   const [txFilter, setTxFilter] = useState("All");
   const [restoreFeedback, setRestoreFeedback] = useState(null);
+  const [activeView, setActiveView] = useState("home");
+  const preferences = useMemo(
+    () => ({ monthlyBudget: DEFAULT_MONTHLY_BUDGET }),
+    []
+  );
 
   useEffect(() => {
     saveState({ friends, selectedId, transactions });
@@ -207,6 +214,10 @@ export default function App() {
   }, [friends]);
 
   const balances = useMemo(() => computeBalances(transactions), [transactions]);
+  const storeSnapshot = useMemo(
+    () => ({ friends, transactions, balances, preferences }),
+    [friends, transactions, balances, preferences]
+  );
 
   const friendTx = useMemo(() => {
     if (!selectedId) return [];
@@ -518,7 +529,24 @@ export default function App() {
       ) : null}
       <header className="header">
         <div className="brand">Bill Split</div>
-        <div className="row gap-8">
+        <div className="row gap-8 flex-wrap">
+          <nav className="row gap-8" aria-label="Primary navigation">
+            <button
+              type="button"
+              className={activeView === "home" ? "button" : "btn-ghost"}
+              onClick={() => setActiveView("home")}
+            >
+              Splits
+            </button>
+            <button
+              type="button"
+              className={activeView === "analytics" ? "button" : "btn-ghost"}
+              onClick={() => setActiveView("analytics")}
+            >
+              Analytics
+            </button>
+          </nav>
+
           <span className="badge">React + Vite</span>
 
           <button
@@ -556,130 +584,137 @@ export default function App() {
         />
       </header>
 
-      <div className="layout">
-        <section className="panel">
-          <h2>Friends</h2>
-          <div className="row stack-sm">
-            <button className="button" onClick={openAdd}>
-              + Add friend
-            </button>
-          </div>
-          <FriendList
-            friends={friends}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
+      {activeView === "analytics" ? (
+        <AnalyticsDashboard
+          state={storeSnapshot}
+          onNavigateHome={() => setActiveView("home")}
+        />
+      ) : (
+        <div className="layout">
+          <section className="panel">
+            <h2>Friends</h2>
+            <div className="row stack-sm">
+              <button className="button" onClick={openAdd}>
+                + Add friend
+              </button>
+            </div>
+            <FriendList
+              friends={friends}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
 
-          <div className="spacer-md" aria-hidden="true" />
-          <h2>Balances</h2>
-          <p className="kicker stack-tight">
-            Positive = they owe you | Negative = you owe them
-          </p>
-          <Balances
-            friends={friends}
-            balances={balances}
-            onJumpTo={(id) => setSelectedId(id)}
-          />
-        </section>
+            <div className="spacer-md" aria-hidden="true" />
+            <h2>Balances</h2>
+            <p className="kicker stack-tight">
+              Positive = they owe you | Negative = you owe them
+            </p>
+            <Balances
+              friends={friends}
+              balances={balances}
+              onJumpTo={(id) => setSelectedId(id)}
+            />
+          </section>
 
-        <section className="panel">
-          <h2>Split a bill</h2>
+          <section className="panel">
+            <h2>Split a bill</h2>
 
-          {!selectedFriend && (
-            <p className="kicker">Choose a friend to start.</p>
-          )}
+            {!selectedFriend && (
+              <p className="kicker">Choose a friend to start.</p>
+            )}
 
-          {selectedFriend && (
-            <>
-              <div className="row justify-between stack-sm">
-                <div className="row">
-                  <div className="kicker">
-                    Splitting with <strong>{selectedFriend.name}</strong>
-                  </div>
-                  <span
-                    className={
-                      selectedBalance > 0
-                        ? "pill pill-pos"
-                        : selectedBalance < 0
-                        ? "pill pill-neg"
-                        : "pill pill-zero"
-                    }
-                    title={
-                      selectedBalance > 0
-                        ? `${selectedFriend.name} owes you`
-                        : selectedBalance < 0
-                        ? `You owe ${selectedFriend.name}`
-                        : "Settled"
-                    }
-                  >
-                    {selectedBalance > 0
-                      ? "\u2191"
-                      : selectedBalance < 0
-                      ? "\u2193"
-                      : "\u2014"}{" "}
-                    {Math.abs(selectedBalance).toLocaleString(undefined, {
-                      style: "currency",
-                      currency: "EUR",
-                      minimumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
-
-                {selectedBalance !== 0 && (
-                  <button
-                    className="button btn-ghost"
-                    onClick={handleSettle}
-                    title="Zero out balance with this friend"
-                  >
-                    Settle up
-                  </button>
-                )}
-              </div>
-
-              <SplitForm
-                friends={friends}
-                defaultFriendId={selectedFriend?.id ?? null}
-                onSplit={handleSplit}
-              />
-
-              <div className="spacer-md" aria-hidden="true" />
-              <div className="row justify-between">
-                <h2>Transactions</h2>
-                <div className="row gap-8">
-                  <select
-                    className="select w-180"
-                    value={txFilter}
-                    onChange={(e) => setTxFilter(e.target.value)}
-                    title="Filter by category"
-                  >
-                    <option value="All">All</option>
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                  {txFilter !== "All" && (
-                    <button
-                      className="btn-ghost"
-                      onClick={() => setTxFilter("All")}
+            {selectedFriend && (
+              <>
+                <div className="row justify-between stack-sm">
+                  <div className="row">
+                    <div className="kicker">
+                      Splitting with <strong>{selectedFriend.name}</strong>
+                    </div>
+                    <span
+                      className={
+                        selectedBalance > 0
+                          ? "pill pill-pos"
+                          : selectedBalance < 0
+                          ? "pill pill-neg"
+                          : "pill pill-zero"
+                      }
+                      title={
+                        selectedBalance > 0
+                          ? `${selectedFriend.name} owes you`
+                          : selectedBalance < 0
+                          ? `You owe ${selectedFriend.name}`
+                          : "Settled"
+                      }
                     >
-                      Clear filter
+                      {selectedBalance > 0
+                        ? "\u2191"
+                        : selectedBalance < 0
+                        ? "\u2193"
+                        : "\u2014"}{" "}
+                      {Math.abs(selectedBalance).toLocaleString(undefined, {
+                        style: "currency",
+                        currency: "EUR",
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+
+                  {selectedBalance !== 0 && (
+                    <button
+                      className="button btn-ghost"
+                      onClick={handleSettle}
+                      title="Zero out balance with this friend"
+                    >
+                      Settle up
                     </button>
                   )}
                 </div>
-              </div>
-              <Transactions
-                friend={selectedFriend}
-                friendsById={friendsById}
-                items={friendTx}
-                onRequestEdit={handleRequestEdit}
-                onDelete={handleDeleteTx}
-              />
-            </>
-          )}
-        </section>
-      </div>
+
+                <SplitForm
+                  friends={friends}
+                  defaultFriendId={selectedFriend?.id ?? null}
+                  onSplit={handleSplit}
+                />
+
+                <div className="spacer-md" aria-hidden="true" />
+                <div className="row justify-between">
+                  <h2>Transactions</h2>
+                  <div className="row gap-8">
+                    <select
+                      className="select w-180"
+                      value={txFilter}
+                      onChange={(e) => setTxFilter(e.target.value)}
+                      title="Filter by category"
+                    >
+                      <option value="All">All</option>
+                      {CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                    {txFilter !== "All" && (
+                      <button
+                        className="btn-ghost"
+                        onClick={() => setTxFilter("All")}
+                      >
+                        Clear filter
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <Transactions
+                  friend={selectedFriend}
+                  friendsById={friendsById}
+                  items={friendTx}
+                  onRequestEdit={handleRequestEdit}
+                  onDelete={handleDeleteTx}
+                />
+              </>
+            )}
+          </section>
+        </div>
+      )}
 
       {showAdd && (
         <AddFriendModal onClose={closeAdd} onCreate={handleCreateFriend} />

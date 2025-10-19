@@ -159,6 +159,28 @@ export function computeCategoryBreakdown(transactions) {
     .sort((a, b) => b.total - a.total);
 }
 
+export function computeFriendBalances(transactions) {
+  const totals = new Map();
+
+  for (const tx of transactions || []) {
+    if (!tx || typeof tx !== "object") continue;
+    const effects = getTransactionEffects(tx);
+    for (const effect of effects) {
+      const friendId = typeof effect?.friendId === "string" ? effect.friendId : null;
+      if (!friendId) continue;
+      const delta = Number(effect?.delta);
+      if (!Number.isFinite(delta) || delta === 0) continue;
+      const current = totals.get(friendId) || 0;
+      totals.set(friendId, roundToCents(current + delta));
+    }
+  }
+
+  return Array.from(totals.entries())
+    .map(([friendId, balance]) => ({ friendId, balance }))
+    .filter((entry) => entry.balance !== 0)
+    .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
+}
+
 export function computeMonthlyTrend(transactions, months = 6) {
   const buckets = new Map();
 

@@ -5,6 +5,7 @@ import { DEFAULT_MONTHLY_BUDGET } from "../lib/selectors";
 import AnalyticsCard from "./AnalyticsCard";
 import AnalyticsCategoryList from "./AnalyticsCategoryList";
 import AnalyticsTrendChart from "./AnalyticsTrendChart";
+import AnalyticsFriendBalances from "./AnalyticsFriendBalances";
 import {
   CategoryFilter,
   DateRangeFilter,
@@ -16,6 +17,7 @@ import {
   computeCategoryTotals,
   computeMonthlyTrend,
   computeBudgetStatus,
+  computeFriendBalances,
 } from "../lib/analytics";
 
 function formatCurrency(value) {
@@ -77,10 +79,10 @@ export default function AnalyticsDashboard({
     [filteredTransactions]
   );
 
-  const topCategories = useMemo(
-    () => computeCategoryTotals(filteredTransactions),
-    [filteredTransactions]
-  );
+  const topCategories = useMemo(() => {
+    const totals = computeCategoryTotals(filteredTransactions);
+    return totals.slice(0, 6);
+  }, [filteredTransactions]);
 
   const categoryBreakdown = useMemo(
     () => computeCategoryBreakdown(filteredTransactions),
@@ -96,6 +98,32 @@ export default function AnalyticsDashboard({
     () => computeBudgetStatus(filteredTransactions, budget),
     [filteredTransactions, budget]
   );
+
+  const friendBalances = useMemo(
+    () => computeFriendBalances(filteredTransactions),
+    [filteredTransactions]
+  );
+
+  const friendsList = Array.isArray(state?.friends) ? state.friends : [];
+
+  const friendBalanceEntries = useMemo(() => {
+    if (!friendBalances.length) return [];
+    const entries = [];
+    for (const entry of friendBalances) {
+      const friend =
+        friendsList.find((f) => f && f.id === entry.friendId) || null;
+      const name =
+        friend?.name?.trim() ||
+        friend?.email?.trim() ||
+        entry.friendId;
+      entries.push({
+        friendId: entry.friendId,
+        balance: entry.balance,
+        name,
+      });
+    }
+    return entries;
+  }, [friendBalances, friendsList]);
 
   const netAccent = overview.netBalance >= 0 ? "brand" : "danger";
   const budgetAccent =
@@ -206,6 +234,13 @@ export default function AnalyticsDashboard({
               className="analytics-view__visual-card"
             >
               <AnalyticsCategoryList categories={topCategories} />
+            </AnalyticsCard>
+            <AnalyticsCard
+              title="Friend balances"
+              description="Who currently owes whom the most."
+              className="analytics-view__visual-card"
+            >
+              <AnalyticsFriendBalances entries={friendBalanceEntries} />
             </AnalyticsCard>
           </div>
 

@@ -17,8 +17,13 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
 
   function validate() {
     if (!isSplit) return "Only split transactions can be edited.";
-    const num = parseFloat(bill);
-    if (isNaN(num) || num <= 0) return "Enter a valid total amount.";
+    const trimmed = bill.trim();
+    if (!trimmed) return "Enter a valid total amount.";
+    if (!/^\d+(\.\d{0,2})?$/.test(trimmed)) {
+      return "Enter a valid total amount.";
+    }
+    const num = Number(trimmed);
+    if (!Number.isFinite(num) || num <= 0) return "Enter a valid total amount.";
     if (payer !== "you" && payer !== "friend") return "Invalid payer.";
     return "";
   }
@@ -28,8 +33,8 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
     const v = validate();
     if (v) return setErr(v);
 
-    const rawTotal = parseFloat(bill);
-    const total = roundToCents(rawTotal);
+    const sanitized = bill.trim();
+    const total = roundToCents(Number(sanitized));
     if (total <= 0) {
       setErr("Enter a valid total amount.");
       return;

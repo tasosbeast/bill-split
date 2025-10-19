@@ -11,12 +11,21 @@ export default function SplitForm({ friend, onSplit }) {
     if (isNaN(total) || total <= 0) return;
 
     const half = total / 2;
-    const result =
-      payer === "you"
-        ? `${friend.name} owes you €${half.toFixed(2)}`
-        : `You owe ${friend.name} €${half.toFixed(2)}`;
 
-    onSplit(result);
+    // delta > 0  => friend owes YOU
+    // delta < 0  => YOU owe friend
+    const delta = payer === "you" ? half : -half;
+
+    onSplit({
+      id: crypto.randomUUID(),
+      friendId: friend.id,
+      total,
+      payer, // 'you' | 'friend'
+      half,
+      delta, // signed amount (receivable/payable)
+      createdAt: new Date().toISOString(),
+    });
+
     setBill("");
     setPayer("you");
   }

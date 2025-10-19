@@ -208,11 +208,18 @@ export default function App() {
               category = categoryIndex.get(normalizedCategory);
             }
 
-            const rawPayer =
-              typeof t.payer === "string" ? t.payer.trim() : "";
-            const payer = isSplit ? (rawPayer || "you").toLowerCase() : null;
-            if (isSplit && !allowedPayers.has(payer)) {
-              throw new Error(`Invalid payer value: ${rawPayer || t.payer}`);
+            let payer = null;
+            if (isSplit) {
+              const rawPayer = typeof t.payer === "string" ? t.payer : "";
+              const normPayer = rawPayer.trim().toLowerCase();
+              payer = normPayer || "you";
+              if (!allowedPayers.has(payer)) {
+                console.warn(
+                  `Unknown payer "${rawPayer}", defaulting to "you"`,
+                  t,
+                );
+                payer = "you";
+              }
             }
 
             const parsedTotal = isSplit ? Number(t.total) : null;

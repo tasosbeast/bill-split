@@ -124,37 +124,43 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
   function splitEvenly() {
     if (!canSplitEvenly) return;
     setParticipants((prev) => {
-      const parsedPrev = prev.map((p) => ({
-        id: p.id,
-        value: parseAmount(p.amount),
-      }));
+      const parsedPrev = prev.map((p) => {
+        const value = parseAmount(p.amount);
+        return {
+          id: p.id,
+          cents: value === null ? null : Math.round(value * 100),
+        };
+      });
 
-      const locked = parsedPrev.filter((p) => p.value !== null);
-      const lockedSum = roundToCents(
-        locked.reduce((acc, p) => acc + (p.value || 0), 0)
+      const totalCents = Math.round(totalNumber * 100);
+      const lockedSumCents = parsedPrev.reduce(
+        (acc, p) => acc + (p.cents ?? 0),
+        0
       );
 
-      const remaining = roundToCents(totalNumber - lockedSum);
-      const editable = parsedPrev.filter((p) => p.value === null);
-      const n = editable.length;
+      const editableCount = parsedPrev.reduce(
+        (count, p) => (p.cents === null ? count + 1 : count),
+        0
+      );
 
-      if (n === 0 || remaining < 0) {
+      const remainingCents = totalCents - lockedSumCents;
+      if (editableCount === 0 || remainingCents < 0) {
         return prev;
       }
 
-      const perPerson = roundToCents(remaining / n);
-      let remainder = roundToCents(remaining - perPerson * n);
+      const perPerson = Math.floor(remainingCents / editableCount);
+      let remainder = remainingCents - perPerson * editableCount;
 
-      return prev.map((p) => {
-        const existing = parseAmount(p.amount);
-        if (existing !== null) {
+      return prev.map((p, index) => {
+        if (parsedPrev[index].cents !== null) {
           return p;
         }
-        const add = perPerson + (remainder > 0 ? 0.01 : 0);
+        const extra = remainder > 0 ? 1 : 0;
         if (remainder > 0) {
-          remainder = roundToCents(remainder - 0.01);
+          remainder -= 1;
         }
-        return { ...p, amount: add.toFixed(2) };
+        const cents = perPerson + extra;
+        return { ...p, amount: (cents / 100).toFixed(2) };
       });
     });
   }

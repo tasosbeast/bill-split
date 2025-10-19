@@ -1,6 +1,7 @@
 import PropTypes from "prop-types";
 import { useState } from "react";
 import Modal from "./Modal";
+import { CATEGORIES } from "../lib/categories";
 
 export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
   // Μόνο split επιτρέπεται να επεξεργαστεί
@@ -8,6 +9,10 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
   const [bill, setBill] = useState(isSplit ? String(tx.total ?? "") : "");
   const [payer, setPayer] = useState(isSplit ? tx.payer : "you");
   const [err, setErr] = useState("");
+  const [category, setCategory] = useState(
+    isSplit ? tx.category || "Other" : tx.category || "Other"
+  );
+  const [note, setNote] = useState(tx.note || "");
 
   function validate() {
     if (!isSplit) return "Only split transactions can be edited.";
@@ -33,6 +38,8 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
       half,
       payer,
       delta,
+      category,
+      note: note.trim() || "",
       updatedAt: new Date().toISOString(),
     };
     onSave(updated);
@@ -80,6 +87,36 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
             <div className="helper">
               Editing recalculates the half and the signed balance impact.
             </div>
+          </div>
+
+          <div>
+            <label className="kicker">Category</label>
+            <select
+              className="select"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              disabled={!isSplit}
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="kicker" htmlFor="edit-note">
+              Note
+            </label>
+            <input
+              id="edit-note"
+              className="input"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Describe the expense"
+              disabled={!isSplit}
+            />
           </div>
 
           {err && <div className="error">{err}</div>}

@@ -17,6 +17,154 @@ import {
   upgradeTransactions,
 } from "./lib/transactions";
 
+function parseV2SplitTransaction(transaction, base, helpers) {
+  const { stableId, friendIdSet } = helpers;
+  const sanitized = [];
+  const seen = new Set();
+
+  for (const part of transaction.participants) {
+    if (!part || typeof part !== "object") continue;
+    let pid = part.id;
+    if (typeof pid === "string") pid = pid.trim();
+    if (!pid) continue;
+    if (pid !== "you") {
+      pid = stableId(pid);
+      if (!friendIdSet.has(pid)) {
+        console.warn("Skipping participant with unknown friend id during restore");
+        continue;
+      }
+    }
+    if (seen.has(pid)) continue;
+    const amount = roundToCents(part.amount ?? 0);
+    sanitized.push({ id: pid === "you" ? "you" : pid, amount });
+    seen.add(pid);
+  }
+
+  if (!sanitized.find((p) => p.id === "you")) {
+    sanitized.unshift({ id: "you", amount: 0 });
+  }
+
+  const friendParts = sanitized.filter((p) => p.id !== "you");
+  if (friendParts.length === 0) {
+    throw new Error("Split is missing friend participants");
+  }
+
+  const rawTotal = Number(transaction.total);
+  let total =
+    Number.isFinite(rawTotal) && rawTotal > 0 ? roundToCents(rawTotal) : null;
+  const friendsSum = roundToCents(
+    friendParts.reduce((acc, p) => acc + p.amount, 0)
+  );
+  const youIndex = sanitized.findIndex((p) => p.id === "you");
+  const yourShare = roundToCents(
+    total !== null ? total - friendsSum : Math.max(-friendsSum, 0)
+  );
+  if (yourShare < 0) {
+    throw new Error("Participant shares exceed total amount");
+  }
+  sanitized[youIndex].amount = yourShare;
+  const computedTotal = roundToCents(friendsSum + yourShare);
+  if (total === null) {
+    total = computedTotal;
+  }
+  if (Math.abs(computedTotal - total) > 0.05) {
+    throw new Error("Participant shares do not match total");
+  }
+
+  const rawPayer =
+    typeof transaction.payer === "string" ? transaction.payer.trim() : "you";
+  let payer = "you";
+  if (rawPayer === "you" || !rawPayer) {
+    payer = "you";
+  } else if (rawPayer === "friend" && friendParts.length === 1) {
+    payer = friendParts[0].id;
+  } else {
+    const mapped = stableId(rawPayer);
+    if (friendParts.some((p) => p.id === mapped)) {
+      payer = mapped;
+    }
+  }
+  if (friendParts.length > 1 && payer !== "you") {
+    payer = "you";
+  }
+
+  return buildSplitTransaction({
+    ...base,
+    total,
+    payer,
+    participants: sanitized,
+  });
+}
+
+function parseV1SplitTransaction(transaction, base, helpers) {
+  const { stableId, friendIdSet } = helpers;
+  const friendId =
+    typeof transaction.friendId === "string"
+      ? stableId(transaction.friendId)
+      : null;
+  if (!friendId || !friendIdSet.has(friendId)) {
+    throw new Error("Split references an unknown friend");
+  }
+
+  const rawTotal = Number(transaction.total);
+  const total =
+    Number.isFinite(rawTotal) && rawTotal > 0 ? roundToCents(rawTotal) : 0;
+  if (total <= 0) throw new Error("Split total must be positive");
+
+  const rawHalf = Number(transaction.half);
+  const friendShare =
+    Number.isFinite(rawHalf) && rawHalf >= 0
+      ? roundToCents(rawHalf)
+      : roundToCents(total / 2);
+  const yourShare = roundToCents(Math.max(total - friendShare, 0));
+
+  const rawPayer =
+    typeof transaction.payer === "string" ? transaction.payer.trim() : "you";
+  const payer = rawPayer === "friend" ? friendId : "you";
+
+  return buildSplitTransaction({
+    ...base,
+    total,
+    payer,
+    participants: [
+      { id: "you", amount: yourShare },
+      { id: friendId, amount: friendShare },
+    ],
+  });
+}
+
+function parseSettlementTransaction(transaction, base, helpers) {
+  const { stableId, friendIdSet } = helpers;
+  const friendId =
+    typeof transaction.friendId === "string"
+      ? stableId(transaction.friendId)
+      : null;
+  if (!friendId || !friendIdSet.has(friendId)) {
+    throw new Error("Settlement references an unknown friend");
+  }
+
+  const rawDelta = Number(transaction.delta);
+  const delta = Number.isFinite(rawDelta) ? roundToCents(rawDelta) : 0;
+
+  return {
+    id: base.id,
+    type: "settlement",
+    friendId,
+    total: null,
+    payer: null,
+    participants: [
+      { id: "you", amount: delta < 0 ? Math.abs(delta) : 0 },
+      { id: friendId, amount: delta > 0 ? delta : 0 },
+    ],
+    effects: [{ friendId, delta, share: Math.abs(delta) }],
+    friendIds: [friendId],
+    category: base.category,
+    note: base.note,
+    createdAt: base.createdAt,
+    updatedAt: base.updatedAt,
+  };
+}
+
 const seededFriends = [
   { id: crypto.randomUUID(), name: "Valia", email: "valia@example.com" },
   { id: crypto.randomUUID(), name: "Nikos", email: "nikos@example.com" },
@@ -246,9 +394,18 @@ export default function App() {
         const friendIdSet = new Set(safeFriends.map((f) => f.id));
 
         for (const t of data.transactions.filter(Boolean)) {
+          const debugContext = {};
           try {
             const normalizedType =
               t.type === "settlement" ? "settlement" : "split";
+            debugContext.type = normalizedType;
+            debugContext.format =
+              normalizedType === "split"
+                ? Array.isArray(t.participants)
+                  ? "v2"
+                  : "v1"
+                : "settlement";
+
             const rawCategory =
               typeof t.category === "string" ? t.category.trim() : "";
             let category = "Other";
@@ -259,7 +416,6 @@ export default function App() {
                 console.warn(
                   "Unknown category during restore, defaulting to 'Other':",
                   rawCategory,
-                  t,
                 );
               } else {
                 category = canonicalCategory;
@@ -267,170 +423,32 @@ export default function App() {
             }
 
             const baseId = stableId(t.id);
+            debugContext.id = baseId;
             const createdAt = t.createdAt ?? new Date().toISOString();
             const updatedAt = t.updatedAt ?? null;
             const note = String(t.note ?? "");
 
+            const base = { id: baseId, category, note, createdAt, updatedAt };
+            const helpers = { stableId, friendIdSet };
+
+            let parsedTx;
             if (normalizedType === "split") {
-              if (Array.isArray(t.participants)) {
-                const sanitized = [];
-                const seen = new Set();
-                for (const part of t.participants) {
-                  if (!part || typeof part !== "object") continue;
-                  let pid = part.id;
-                  if (typeof pid === "string") pid = pid.trim();
-                  if (!pid) continue;
-                  if (pid !== "you") {
-                    pid = stableId(pid);
-                    if (!friendIdSet.has(pid)) {
-                    console.warn(
-                      "Skipping participant with unknown friend id during restore",
-                    );
-                      continue;
-                    }
-                  }
-                  if (seen.has(pid)) continue;
-                  const amount = roundToCents(part.amount ?? 0);
-                  sanitized.push({ id: pid === "you" ? "you" : pid, amount });
-                  seen.add(pid);
-                }
-
-                if (!sanitized.find((p) => p.id === "you")) {
-                  sanitized.unshift({ id: "you", amount: 0 });
-                }
-
-                const friendParts = sanitized.filter((p) => p.id !== "you");
-                if (friendParts.length === 0) {
-                  throw new Error("Split is missing friend participants");
-                }
-
-                const rawTotal = Number(t.total);
-                let total =
-                  Number.isFinite(rawTotal) && rawTotal > 0
-                    ? roundToCents(rawTotal)
-                    : null;
-                const friendsSum = roundToCents(
-                  friendParts.reduce((acc, p) => acc + p.amount, 0)
-                );
-                const youIndex = sanitized.findIndex((p) => p.id === "you");
-                const yourShare = roundToCents(
-                  total !== null ? total - friendsSum : Math.max(-friendsSum, 0)
-                );
-                if (yourShare < 0) {
-                  throw new Error("Participant shares exceed total amount");
-                }
-                sanitized[youIndex].amount = yourShare;
-                const computedTotal = roundToCents(friendsSum + yourShare);
-                if (total === null) {
-                  total = computedTotal;
-                }
-                if (Math.abs(computedTotal - total) > 0.05) {
-                  throw new Error("Participant shares do not match total");
-                }
-
-                const rawPayer = typeof t.payer === "string" ? t.payer.trim() : "you";
-                let payer = "you";
-                if (rawPayer === "you" || !rawPayer) {
-                  payer = "you";
-                } else if (rawPayer === "friend" && friendParts.length === 1) {
-                  payer = friendParts[0].id;
-                } else {
-                  const mapped = stableId(rawPayer);
-                  if (friendParts.some((p) => p.id === mapped)) {
-                    payer = mapped;
-                  }
-                }
-                if (friendParts.length > 1 && payer !== "you") {
-                  payer = "you";
-                }
-
-                const splitTx = buildSplitTransaction({
-                  id: baseId,
-                  total,
-                  payer,
-                  participants: sanitized,
-                  category,
-                  note,
-                  createdAt,
-                  updatedAt,
-                });
-
-                safeTransactions.push(splitTx);
-              } else {
-                const friendId =
-                  typeof t.friendId === "string" ? stableId(t.friendId) : null;
-                if (!friendId || !friendIdSet.has(friendId)) {
-                  throw new Error("Split references an unknown friend");
-                }
-
-                const rawTotal = Number(t.total);
-                const total =
-                  Number.isFinite(rawTotal) && rawTotal > 0
-                    ? roundToCents(rawTotal)
-                    : 0;
-                if (total <= 0) throw new Error("Split total must be positive");
-
-                const rawHalf = Number(t.half);
-                const friendShare =
-                  Number.isFinite(rawHalf) && rawHalf >= 0
-                    ? roundToCents(rawHalf)
-                    : roundToCents(total / 2);
-                const yourShare = roundToCents(Math.max(total - friendShare, 0));
-
-                const rawPayer = typeof t.payer === "string" ? t.payer.trim() : "you";
-                const payer = rawPayer === "friend" ? friendId : "you";
-
-                const splitTx = buildSplitTransaction({
-                  id: baseId,
-                  total,
-                  payer,
-                  participants: [
-                    { id: "you", amount: yourShare },
-                    { id: friendId, amount: friendShare },
-                  ],
-                  category,
-                  note,
-                  createdAt,
-                  updatedAt,
-                });
-
-                safeTransactions.push(splitTx);
-              }
+              parsedTx = Array.isArray(t.participants)
+                ? parseV2SplitTransaction(t, base, helpers)
+                : parseV1SplitTransaction(t, base, helpers);
             } else {
-              const friendId =
-                typeof t.friendId === "string" ? stableId(t.friendId) : null;
-              if (!friendId || !friendIdSet.has(friendId)) {
-                throw new Error("Settlement references an unknown friend");
-              }
-              const rawDelta = Number(t.delta);
-              const delta = Number.isFinite(rawDelta) ? roundToCents(rawDelta) : 0;
-
-              safeTransactions.push({
-                id: baseId,
-                type: "settlement",
-                friendId,
-                total: null,
-                payer: null,
-                participants: [
-                  { id: "you", amount: delta < 0 ? Math.abs(delta) : 0 },
-                  { id: friendId, amount: delta > 0 ? delta : 0 },
-                ],
-                effects: [
-                  { friendId, delta, share: Math.abs(delta) },
-                ],
-                friendIds: [friendId],
-                category,
-                note,
-                createdAt,
-                updatedAt,
-              });
+              parsedTx = parseSettlementTransaction(t, base, helpers);
             }
+
+            safeTransactions.push(parsedTx);
           } catch (transactionError) {
-            console.warn(
-              "Skipping transaction during restore:",
-              transactionError,
-              t,
-            );
+            console.warn("Skipping transaction during restore:", {
+              error:
+                transactionError instanceof Error
+                  ? transactionError.message
+                  : String(transactionError),
+              context: debugContext,
+            });
             skippedTransactions.push({
               transaction: t,
               reason:

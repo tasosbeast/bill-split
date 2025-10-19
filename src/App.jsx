@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import "./index.css";
 import FriendList from "./components/FriendList";
 import SplitForm from "./components/SplitForm";
@@ -8,6 +8,7 @@ import Transactions from "./components/Transactions";
 import EditTransactionModal from "./components/EditTransactionModal";
 import { loadState, saveState, clearState } from "./lib/storage";
 import { CATEGORIES } from "./lib/categories";
+import { computeBalances } from "./lib/compute";
 
 const seededFriends = [
   { id: crypto.randomUUID(), name: "Valia", email: "valia@example.com" },
@@ -34,13 +35,7 @@ export default function App() {
     [friends, selectedId]
   );
 
-  const balances = useMemo(() => {
-    const m = new Map();
-    for (const t of transactions) {
-      m.set(t.friendId, (m.get(t.friendId) || 0) + t.delta);
-    }
-    return m;
-  }, [transactions]);
+  const balances = useMemo(() => computeBalances(transactions), [transactions]);
 
   const friendTx = useMemo(() => {
     const base = selectedId

@@ -224,7 +224,7 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
             <button type="button" className="button" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="button" disabled={!simpleEditable}>
+            <button type="submit" className="button" disabled={!isSplit}>
               Save
             </button>
           </div>

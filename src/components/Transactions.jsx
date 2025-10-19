@@ -68,16 +68,18 @@ export default function Transactions({
 
         return (
           <div key={t.id} className="list-item">
-            <div>
-              <div style={{ fontWeight: 600 }}>{whoPaid}</div>
+            <div className="tx">
+              {/* Title row */}
+              <div className="tx-title">{whoPaid}</div>
 
-              <div className="kicker">
+              {/* Meta line */}
+              <div className="tx-meta">
                 {summary} • {when(t.createdAt)}
                 {t.updatedAt ? " • edited" : ""}
               </div>
 
-              {/* Badges row */}
-              <div className="badges" style={{ marginTop: 6 }}>
+              {/* Badges */}
+              <div className="tx-badges">
                 {t.category && (
                   <span className="badge-chip">
                     <strong>Category</strong> {t.category}
@@ -90,8 +92,8 @@ export default function Transactions({
                 )}
               </div>
 
-              {/* Action buttons */}
-              <div className="actions" style={{ marginTop: 8 }}>
+              {/* Actions */}
+              <div className="tx-actions actions">
                 {!isSettlement && (
                   <button
                     className="button-ghost"
@@ -111,6 +113,7 @@ export default function Transactions({
               </div>
             </div>
 
+            {/* Amount column stays right-aligned */}
             <div className={cls} aria-label={sr}>
               <span aria-hidden="true" style={{ marginRight: 6 }}>
                 {arrow}

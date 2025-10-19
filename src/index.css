@@ -289,3 +289,42 @@ body {
 .row + .list {
   margin-top: 6px;
 }
+
+/* Transaction row layout */
+.tx {
+  display: grid;
+  gap: 6px; /* vertical rhythm inside a row */
+}
+
+.tx-title {
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.tx-meta {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.tx-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+/* Slightly larger chip padding so they don't feel cramped */
+.badge-chip {
+  padding: 4px 9px;
+}
+
+/* Add separation before actions to avoid crowding */
+.tx-actions {
+  margin-top: 10px;
+}
+
+/* Give each list item a touch more padding */
+.list-item {
+  padding: 12px 14px;
+}

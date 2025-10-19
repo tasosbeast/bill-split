@@ -4,7 +4,8 @@ import FriendList from "./components/FriendList";
 import SplitForm from "./components/SplitForm";
 import AddFriendModal from "./components/AddFriendModal";
 import Balances from "./components/Balances";
-import Transactions from "./components/Transactions";
+import AnalyticsDashboard from "./components/AnalyticsDashboard";
+import TransactionList from "./components/TransactionList";
 import EditTransactionModal from "./components/EditTransactionModal";
 import { loadState, saveState, clearState } from "./lib/storage";
 import { CATEGORIES } from "./lib/categories";
@@ -179,7 +180,6 @@ export default function App() {
   );
   const [showAdd, setShowAdd] = useState(false);
   const [editTx, setEditTx] = useState(null);
-  const [txFilter, setTxFilter] = useState("All");
   const [restoreFeedback, setRestoreFeedback] = useState(null);
 
   useEffect(() => {
@@ -210,7 +210,7 @@ export default function App() {
 
   const friendTx = useMemo(() => {
     if (!selectedId) return [];
-    const base = transactions
+    return transactions
       .map((t) => {
         if (!transactionIncludesFriend(t, selectedId)) return null;
         const effects = getTransactionEffects(t);
@@ -218,9 +218,7 @@ export default function App() {
         return effect ? { ...t, effect } : null;
       })
       .filter(Boolean);
-    if (txFilter === "All") return base;
-    return base.filter((t) => (t.category ?? "Other") === txFilter);
-  }, [transactions, selectedId, txFilter]);
+  }, [transactions, selectedId]);
 
   // Current balance for selected friend (for pill & settle button visibility)
   const selectedBalance = balances.get(selectedId) ?? 0;
@@ -589,11 +587,11 @@ export default function App() {
             <p className="kicker">Choose a friend to start.</p>
           )}
 
-          {selectedFriend && (
-            <>
-              <div className="row justify-between stack-sm">
-                <div className="row">
-                  <div className="kicker">
+        {selectedFriend && (
+          <>
+            <div className="row justify-between stack-sm">
+              <div className="row">
+                <div className="kicker">
                     Splitting with <strong>{selectedFriend.name}</strong>
                   </div>
                   <span
@@ -643,41 +641,18 @@ export default function App() {
               />
 
               <div className="spacer-md" aria-hidden="true" />
-              <div className="row justify-between">
-                <h2>Transactions</h2>
-                <div className="row gap-8">
-                  <select
-                    className="select w-180"
-                    value={txFilter}
-                    onChange={(e) => setTxFilter(e.target.value)}
-                    title="Filter by category"
-                  >
-                    <option value="All">All</option>
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                  {txFilter !== "All" && (
-                    <button
-                      className="btn-ghost"
-                      onClick={() => setTxFilter("All")}
-                    >
-                      Clear filter
-                    </button>
-                  )}
-                </div>
-              </div>
-              <Transactions
+              <TransactionList
                 friend={selectedFriend}
                 friendsById={friendsById}
-                items={friendTx}
+                transactions={friendTx}
                 onRequestEdit={handleRequestEdit}
                 onDelete={handleDeleteTx}
               />
             </>
           )}
+
+          <div className="spacer-md" aria-hidden="true" />
+          <AnalyticsDashboard transactions={transactions} />
         </section>
       </div>
 

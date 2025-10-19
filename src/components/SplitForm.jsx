@@ -273,8 +273,13 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
       </div>
 
       <div>
-        <div className="row justify-between">
-          <label className="kicker">Participants</label>
+        <div className="participants-heading">
+          <div>
+            <div className="fw-600">Participants</div>
+            <div className="helper">
+              Enter how much each person is covering in euros.
+            </div>
+          </div>
           <button
             type="button"
             className="btn-ghost"
@@ -285,7 +290,7 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
           </button>
         </div>
 
-        <div className="list list-gap-sm">
+        <div className="participants-grid">
           {participants.map((p) => {
             const friend = friendsById.get(p.id);
             const label =
@@ -294,26 +299,14 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
               p.id === YOU_ID
                 ? "Leave blank to cover whatever remains"
                 : friend?.email;
+            const inputId = `participant-${p.id}`;
             return (
-              <div
-                key={p.id}
-                className="list-item"
-                style={{ cursor: "default" }}
-              >
-                <div>
-                  <div className="fw-600">{label}</div>
-                  {subtitle && <div className="kicker">{subtitle}</div>}
-                </div>
-                <div className="row gap-8">
-                  <input
-                    className="input"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={p.amount}
-                    onChange={(e) => updateParticipant(p.id, e.target.value)}
-                    placeholder={p.id === YOU_ID ? "auto" : "0.00"}
-                  />
+              <div key={p.id} className="participant-card">
+                <div className="participant-header">
+                  <div>
+                    <div className="fw-600">{label}</div>
+                    {subtitle && <div className="kicker">{subtitle}</div>}
+                  </div>
                   {p.id !== YOU_ID && (
                     <button
                       type="button"
@@ -325,29 +318,53 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
                     </button>
                   )}
                 </div>
+
+                <div className="participant-input">
+                  <label className="kicker" htmlFor={inputId}>
+                    {p.id === YOU_ID
+                      ? "Your share (€)"
+                      : `${label}'s share (€)`}
+                  </label>
+                  <input
+                    id={inputId}
+                    className="input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={p.amount}
+                    onChange={(e) => updateParticipant(p.id, e.target.value)}
+                    placeholder={p.id === YOU_ID ? "auto" : "0.00"}
+                  />
+                </div>
               </div>
             );
           })}
         </div>
 
         {selectableFriends.length > 0 && (
-          <select
-            className="select"
-            value={addFriendId}
-            onChange={handleAddFriend}
-          >
-            <option value="">Add friend…</option>
-            {selectableFriends.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
+          <div className="add-participant">
+            <label className="kicker" htmlFor="add-participant">
+              Add another person
+            </label>
+            <select
+              id="add-participant"
+              className="select"
+              value={addFriendId}
+              onChange={handleAddFriend}
+            >
+              <option value="">Select a friend</option>
+              {selectableFriends.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
 
         {totalNumber !== null && (
-          <div className="helper">
-            Enter each share so they add up to {formatEUR(totalNumber)}.
+          <div className="helper participants-helper">
+            Make sure everyone’s shares add up to {formatEUR(totalNumber)}.
             Current sum: {formatEUR(sumOfInputs)}
           </div>
         )}

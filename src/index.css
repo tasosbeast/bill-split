@@ -367,6 +367,50 @@ body {
   margin-top: 6px;
 }
 
+.participants-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.participants-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.participant-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #12141b;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.participant-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.participant-input {
+  display: grid;
+  gap: 6px;
+}
+
+.add-participant {
+  margin-top: 16px;
+  display: grid;
+  gap: 6px;
+}
+
+.participants-helper {
+  margin-top: 12px;
+}
+
 /* Transaction row layout */
 .tx {
   display: grid;

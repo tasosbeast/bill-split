@@ -211,16 +211,29 @@ export default function App() {
               throw new Error(`Invalid payer value: ${rawPayer || t.payer}`);
             }
 
+            const parsedTotal = isSplit ? Number(t.total) : null;
+            const safeTotal = isSplit
+              ? Number.isFinite(parsedTotal) && parsedTotal > 0
+                ? parsedTotal
+                : 0
+              : null;
+            const parsedHalf = Number(t.half);
+            const half = isSplit
+              ? Number.isFinite(parsedHalf) && parsedHalf >= 0
+                ? parsedHalf
+                : safeTotal / 2
+              : Math.abs(Number.isFinite(parsedHalf) ? parsedHalf : 0);
+            const parsedDelta = Number(t.delta);
+            const delta = Number.isFinite(parsedDelta) ? parsedDelta : 0;
+
             safeTransactions.push({
               id: stableId(t.id),
               type: normalizedType,
               friendId: stableId(t.friendId),
-              total: isSplit ? Number(t.total ?? 0) : null,
+              total: isSplit ? safeTotal : null,
               payer,
-              half: isSplit
-                ? Number(t.half ?? Number(t.total ?? 0) / 2)
-                : Math.abs(Number(t.half ?? 0)),
-              delta: Number(t.delta ?? 0),
+              half,
+              delta,
               category,
               note: String(t.note ?? ""),
               createdAt: t.createdAt ?? new Date().toISOString(),

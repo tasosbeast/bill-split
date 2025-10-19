@@ -206,7 +206,7 @@ export default function App() {
 
             const rawPayer =
               typeof t.payer === "string" ? t.payer.trim() : "";
-            const payer = isSplit ? (rawPayer || "you") : null;
+            const payer = isSplit ? (rawPayer || "you").toLowerCase() : null;
             if (isSplit && !allowedPayers.has(payer)) {
               throw new Error(`Invalid payer value: ${rawPayer || t.payer}`);
             }

@@ -43,6 +43,11 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
     [participants]
   );
 
+  const friendParticipants = useMemo(
+    () => participants.filter((p) => p.id !== YOU_ID),
+    [participants]
+  );
+
   useEffect(() => {
     setParticipants(() => {
       const next = [{ id: YOU_ID, amount: "" }];
@@ -56,6 +61,17 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
     setAddFriendId("");
   }, [defaultFriendId]);
 
+  useEffect(() => {
+    if (friendParticipants.length > 1) {
+      if (payer !== YOU_ID) {
+        setPayer(YOU_ID);
+      }
+      if (error === "Group splits must be paid by you.") {
+        setError("");
+      }
+    }
+  }, [friendParticipants, payer, error]);
+
   const selectableFriends = useMemo(
     () => friends.filter((f) => !participantIds.has(f.id)),
     [friends, participantIds]
@@ -68,6 +84,7 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
   }, [bill]);
 
   const totalParticipants = participants.length;
+  const isGroupSplit = friendParticipants.length > 1;
 
   const sumOfInputs = useMemo(() => {
     let sum = 0;
@@ -120,7 +137,7 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
   function normalizeParticipants(total) {
     const rawYou = participants.find((p) => p.id === YOU_ID);
     const youAmountInput = parseAmount(rawYou?.amount ?? "");
-    const friendEntries = participants.filter((p) => p.id !== YOU_ID);
+    const friendEntries = friendParticipants;
 
     if (friendEntries.length === 0) {
       setError("Add at least one friend to split the bill.");
@@ -189,6 +206,7 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
     }
 
     if (friendIds.length > 1 && nextPayer !== YOU_ID) {
+      // This check is now primarily a safeguard. The UI should prevent this state.
       setError("Group splits must be paid by you.");
       return;
     }
@@ -329,6 +347,7 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
           className="select"
           value={payer}
           onChange={(e) => setPayer(e.target.value)}
+          disabled={isGroupSplit}
         >
           <option value={YOU_ID}>You</option>
           {participants
@@ -342,7 +361,7 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
               );
             })}
         </select>
-        {participants.filter((p) => p.id !== YOU_ID).length > 1 && (
+        {isGroupSplit && (
           <div className="helper">
             Group splits can currently only be paid by you.
           </div>

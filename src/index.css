@@ -221,3 +221,37 @@ body {
 .button[title="Zero out balance with this friend"]:hover {
   color: var(--text);
 }
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.button-ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.button-ghost:hover {
+  color: var(--text);
+  filter: brightness(1.1);
+}
+
+.button-danger {
+  background: #231518;
+  border: 1px solid #3b1f25;
+  color: #ffb3b3;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.button-danger:hover {
+  filter: brightness(1.05);
+}

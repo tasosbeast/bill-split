@@ -1,16 +1,45 @@
-# React + Vite
+# Bill Split
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This project is a Vite-powered React application for tracking shared expenses between friends. The instructions below explain how to install dependencies, run automated checks, and start the development server so you can visually inspect your changes.
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- [Node.js](https://nodejs.org/) 18 or later (which includes `npm`).
 
-## React Compiler
+## Installation
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Install the project dependencies once you have cloned the repository:
 
-## Expanding the ESLint configuration
+```bash
+npm install
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Available scripts
+
+Run the linter to ensure the codebase passes the automated quality checks:
+
+```bash
+npm run lint
+```
+
+Start the development server and open the application in your browser to inspect UI changes:
+
+```bash
+npm run dev
+```
+
+By default, Vite prints the local and network URLs to the terminal (typically `http://localhost:5173`). Open the displayed URL in your browser to view the updated application. Hot Module Replacement (HMR) is enabled, so edits you make will refresh automatically without restarting the server.
+
+## Building for production
+
+Generate an optimized production build:
+
+```bash
+npm run build
+```
+
+Preview the production build locally:
+
+```bash
+npm run preview
+```

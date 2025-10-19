@@ -39,7 +39,8 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
     const share2 = roundToCents(total - share1);
 
     // The person who paid the bill gets the benefit of the smaller share.
-    const friendShare = payer === "you" ? Math.min(share1, share2) : Math.max(share1, share2);
+    const friendShare =
+      payer === "you" ? Math.min(share1, share2) : Math.max(share1, share2);
     const delta = roundToCents(payer === "you" ? friendShare : -friendShare);
 
     const updated = {

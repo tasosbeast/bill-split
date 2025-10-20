@@ -1,16 +1,12 @@
 import { useCallback, useMemo, useState, Suspense, lazy } from "react";
 import { CATEGORIES } from "../../lib/categories";
-import { useFriendSelection } from "../../hooks/useFriendSelection";
+import { useLegacyFriendManagement } from "../../hooks/useLegacyFriendManagement";
 import { useLegacyTransactions } from "../../hooks/useLegacyTransactions";
 import FriendsPanel from "../../components/legacy/FriendsPanel";
 import TransactionsPanel from "../../components/legacy/TransactionsPanel";
 import AnalyticsPanel from "../../components/legacy/AnalyticsPanel";
 import RestoreSnapshotModal from "../../components/legacy/RestoreSnapshotModal";
-import type {
-  LegacyFriend,
-  StoredTransaction,
-  UISnapshot,
-} from "../../types/legacySnapshot";
+import type { StoredTransaction, UISnapshot } from "../../types/legacySnapshot";
 import type { FriendTransaction } from "../../hooks/useLegacyTransactions";
 
 const AddFriendModal = lazy(() => import("../../components/AddFriendModal"));
@@ -47,11 +43,13 @@ export default function LegacyAppShell(): JSX.Element {
     createFriend,
     selectFriend,
     ensureSettle,
-  } = useFriendSelection();
+    showAddModal,
+    openAddModal,
+    closeAddModal,
+  } = useLegacyFriendManagement();
   const { transactions } = snapshot;
   const { setTransactions, replaceSnapshot, reset: resetSnapshot } = updaters;
   const [activeView, setActiveView] = useState<"home" | "analytics">("home");
-  const [showAdd, setShowAdd] = useState(false);
   const [editTx, setEditTx] = useState<EditableTransaction | null>(null);
   const [restoreFeedback, setRestoreFeedback] = useState<RestoreFeedback>(null);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
@@ -96,22 +94,11 @@ export default function LegacyAppShell(): JSX.Element {
     [addTransaction]
   );
 
-  const openAdd = useCallback(() => setShowAdd(true), []);
-  const closeAdd = useCallback(() => setShowAdd(false), []);
-
   const openAnalytics = useCallback(() => setActiveView("analytics"), []);
   const navigateHome = useCallback(() => setActiveView("home"), []);
 
   const openRestoreModal = useCallback(() => setShowRestoreModal(true), []);
   const closeRestoreModal = useCallback(() => setShowRestoreModal(false), []);
-
-  const handleCreateFriend = useCallback(
-    (friend: LegacyFriend) => {
-      const outcome = createFriend(friend);
-      if (!outcome.ok) return;
-    },
-    [createFriend]
-  );
 
   const handleSettle = useCallback(() => {
     const guard = ensureSettle();
@@ -296,7 +283,7 @@ export default function LegacyAppShell(): JSX.Element {
             friends={friends}
             selectedFriendId={selectedId}
             balances={balances}
-            onAddFriend={openAdd}
+            onAddFriend={openAddModal}
             onSelectFriend={selectFriend}
           />
 
@@ -327,9 +314,9 @@ export default function LegacyAppShell(): JSX.Element {
         </Suspense>
       )}
 
-      {showAdd && (
+      {showAddModal && (
         <Suspense fallback={null}>
-          <AddFriendModal onClose={closeAdd} onCreate={handleCreateFriend} />
+          <AddFriendModal onClose={closeAddModal} onCreate={createFriend} />
         </Suspense>
       )}
 

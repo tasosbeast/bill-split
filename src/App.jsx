@@ -1,25 +1,14 @@
-import {
-  useMemo,
-  useState,
-  useRef,
-  useCallback,
-  Suspense,
-  lazy,
-} from "react";
+import { useMemo, useState, useCallback, Suspense, lazy } from "react";
 import "./index.css";
 import { CATEGORIES } from "./lib/categories";
-import {
-  getTransactionEffects,
-  transactionIncludesFriend,
-} from "./lib/transactions";
+import { getTransactionEffects, transactionIncludesFriend } from "./lib/transactions";
 import { useFriendSelection } from "./hooks/useFriendSelection";
+import FriendsPanel from "./components/legacy/FriendsPanel";
+import TransactionsPanel from "./components/legacy/TransactionsPanel";
+import AnalyticsPanel from "./components/legacy/AnalyticsPanel";
+import RestoreSnapshotModal from "./components/legacy/RestoreSnapshotModal";
 
-const FriendList = lazy(() => import("./components/FriendList"));
-const Balances = lazy(() => import("./components/Balances"));
 const AddFriendModal = lazy(() => import("./components/AddFriendModal"));
-const SplitForm = lazy(() => import("./components/SplitForm"));
-const Transactions = lazy(() => import("./components/Transactions"));
-const AnalyticsDashboard = lazy(() => import("./components/AnalyticsDashboard"));
 const EditTransactionModal = lazy(() => import("./components/EditTransactionModal"));
 
 export default function App() {
@@ -43,6 +32,7 @@ export default function App() {
   const [showAdd, setShowAdd] = useState(false);
   const [editTx, setEditTx] = useState(null);
   const [restoreFeedback, setRestoreFeedback] = useState(null);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
 
   const storeSnapshot = useMemo(
     () => ({
@@ -67,9 +57,6 @@ export default function App() {
       .filter(Boolean);
   }, [transactions, selectedId, txFilter]);
 
-  // Hidden input ref για Restore
-  const fileInputRef = useRef(null);
-
   function handleSplit(tx) {
     setTransactions((prev) => [tx, ...prev]);
   }
@@ -81,6 +68,10 @@ export default function App() {
   const openAnalytics = useCallback(() => setActiveView("analytics"), []);
 
   const navigateHome = useCallback(() => setActiveView("home"), []);
+
+  const openRestoreModal = useCallback(() => setShowRestoreModal(true), []);
+
+  const closeRestoreModal = useCallback(() => setShowRestoreModal(false), []);
 
   const handleCreateFriend = useCallback(
     (friend) => {
@@ -174,19 +165,12 @@ export default function App() {
     URL.revokeObjectURL(url);
   }
 
-  function handleRestore(e) {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // επιτρέπει επανα-επιλογή ίδιου αρχείου αργότερα
-    if (!file) return;
-
-    setRestoreFeedback(null);
-    const reader = new FileReader();
-    reader.onload = async () => {
+  const handleRestoreFile = useCallback(
+    async (file) => {
+      setRestoreFeedback(null);
       try {
-        if (typeof reader.result !== "string") {
-          throw new Error("Unexpected restore payload format");
-        }
-        const data = JSON.parse(reader.result);
+        const raw = await file.text();
+        const data = JSON.parse(raw);
         const { restoreSnapshot } = await import("./lib/restoreSnapshot");
         const {
           friends: safeFriends,
@@ -213,15 +197,20 @@ export default function App() {
               }
         );
       } catch (err) {
-        console.warn("Restore failed:", err);
+        const error =
+          err instanceof Error
+            ? err
+            : new Error("Restore failed: unexpected payload");
+        console.warn("Restore failed:", error);
         setRestoreFeedback({
           status: "error",
-          message: `Restore failed: ${err.message}`,
+          message: `Restore failed: ${error.message}`,
         });
+        throw error;
       }
-    };
-    reader.readAsText(file);
-  }
+    },
+    [replaceSnapshot]
+  );
 
   return (
     <div className="app">
@@ -275,7 +264,7 @@ export default function App() {
 
           <button
             className="button btn-ghost"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={openRestoreModal}
             title="Import data from a JSON file"
           >
             Restore
@@ -289,188 +278,44 @@ export default function App() {
             Reset Data
           </button>
         </div>
-
-        {/* Hidden file input for Restore */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/json"
-          style={{ display: "none" }}
-          onChange={handleRestore}
-        />
       </header>
 
       {activeView === "analytics" ? (
-        <Suspense
-          fallback={
-            <section className="panel" aria-busy="true" aria-live="polite">
-              <h2>Analytics</h2>
-              <p className="kicker">Loading analytics dashboard…</p>
-            </section>
-          }
-        >
-          <AnalyticsDashboard
-            state={storeSnapshot}
-            onNavigateHome={navigateHome}
-          />
-        </Suspense>
+        <AnalyticsPanel state={storeSnapshot} onNavigateHome={navigateHome} />
       ) : (
         <div className="layout">
-          <section className="panel">
-            <h2>Friends</h2>
-            <div className="row stack-sm">
-              <button className="button" onClick={openAdd}>
-                + Add friend
-              </button>
-            </div>
-            <Suspense
-              fallback={
-                <div className="kicker" aria-live="polite">
-                  Loading friends…
-                </div>
-              }
-            >
-              <FriendList
-                friends={friends}
-                selectedId={selectedId}
-                onSelect={selectFriend}
-              />
-            </Suspense>
-
-            <div className="spacer-md" aria-hidden="true" />
-            <h2>Balances</h2>
-            <p className="kicker stack-tight">
-              Positive = they owe you | Negative = you owe them
-            </p>
-            <Suspense
-              fallback={
-                <div className="kicker" aria-live="polite">
-                  Loading balances…
-                </div>
-              }
-            >
-              <Balances
-                friends={friends}
-                balances={balances}
-                onJumpTo={selectFriend}
-              />
-            </Suspense>
-          </section>
-
-          <section className="panel">
-            <h2>Split a bill</h2>
-
-            {!selectedFriend && (
-              <p className="kicker">Choose a friend to start.</p>
-            )}
-
-            {selectedFriend && (
-              <>
-                <div className="row justify-between stack-sm">
-                  <div className="row">
-                    <div className="kicker">
-                      Splitting with <strong>{selectedFriend.name}</strong>
-                    </div>
-                    <span
-                      className={
-                        selectedBalance > 0
-                          ? "pill pill-pos"
-                          : selectedBalance < 0
-                          ? "pill pill-neg"
-                          : "pill pill-zero"
-                      }
-                      title={
-                        selectedBalance > 0
-                          ? `${selectedFriend.name} owes you`
-                          : selectedBalance < 0
-                          ? `You owe ${selectedFriend.name}`
-                          : "Settled"
-                      }
-                    >
-                      {selectedBalance > 0
-                        ? "\u2191"
-                        : selectedBalance < 0
-                        ? "\u2193"
-                        : "\u2014"}{" "}
-                      {Math.abs(selectedBalance).toLocaleString(undefined, {
-                        style: "currency",
-                        currency: "EUR",
-                        minimumFractionDigits: 2,
-                      })}
-                    </span>
-                  </div>
-
-                  {selectedBalance !== 0 && (
-                    <button
-                      className="button btn-ghost"
-                      onClick={handleSettle}
-                      title="Zero out balance with this friend"
-                    >
-                      Settle up
-                    </button>
-                  )}
-                </div>
-
-                <Suspense
-                  fallback={
-                    <div className="kicker" aria-live="polite">
-                      Loading split form…
-                    </div>
-                  }
-                >
-                  <SplitForm
-                    friends={friends}
-                    defaultFriendId={selectedFriend?.id ?? null}
-                    onSplit={handleSplit}
-                  />
-                </Suspense>
-
-                <div className="spacer-md" aria-hidden="true" />
-                <div className="row justify-between">
-                  <h2>Transactions</h2>
-                  <div className="row gap-8">
-                    <select
-                      className="select w-180"
-                      value={txFilter}
-                      onChange={(e) => setTxFilter(e.target.value)}
-                      title="Filter by category"
-                    >
-                      <option value="All">All</option>
-                      {CATEGORIES.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                    {txFilter !== "All" && (
-                      <button
-                        className="btn-ghost"
-                        onClick={() => setTxFilter("All")}
-                      >
-                        Clear filter
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <Suspense
-                  fallback={
-                    <div className="kicker" aria-live="polite">
-                      Loading transactions…
-                    </div>
-                  }
-                >
-                  <Transactions
-                    friend={selectedFriend}
-                    friendsById={friendsById}
-                    items={friendTx}
-                    onRequestEdit={handleRequestEdit}
-                    onDelete={handleDeleteTx}
-                  />
-                </Suspense>
-              </>
-            )}
-          </section>
+          <FriendsPanel
+            friends={friends}
+            selectedFriendId={selectedId}
+            balances={balances}
+            onAddFriend={openAdd}
+            onSelectFriend={selectFriend}
+          />
+          <TransactionsPanel
+            friends={friends}
+            selectedFriend={selectedFriend}
+            selectedBalance={selectedBalance}
+            friendsById={friendsById}
+            transactions={friendTx}
+            txFilter={txFilter}
+            categories={CATEGORIES}
+            onSplit={handleSplit}
+            onSettle={handleSettle}
+            onFilterChange={setTxFilter}
+            onClearFilter={() => setTxFilter("All")}
+            onRequestEdit={handleRequestEdit}
+            onDeleteTransaction={handleDeleteTx}
+          />
         </div>
+      )}
+
+      {showRestoreModal && (
+        <Suspense fallback={null}>
+          <RestoreSnapshotModal
+            onClose={closeRestoreModal}
+            onRestore={handleRestoreFile}
+          />
+        </Suspense>
       )}
 
       {showAdd && (

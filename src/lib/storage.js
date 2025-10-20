@@ -1,5 +1,28 @@
 const KEY = "bill-split@v1";
 
+const isProdBuild = (() => {
+  if (
+    typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    Object.prototype.hasOwnProperty.call(import.meta.env, "PROD")
+  ) {
+    return Boolean(import.meta.env.PROD);
+  }
+  if (typeof globalThis !== "undefined" && globalThis.process?.env?.NODE_ENV) {
+    return globalThis.process.env.NODE_ENV === "production";
+  }
+  return false;
+})();
+
+const shouldLogWarnings = !isProdBuild;
+
+function logStorageWarning(message) {
+  if (!shouldLogWarnings) {
+    return;
+  }
+  console.warn(`[storage] ${message}`);
+}
+
 function createEmptySnapshot() {
   return { friends: [], selectedId: null, transactions: [] };
 }
@@ -117,12 +140,12 @@ export function loadState() {
     const { snapshot, changed } = sanitizeSnapshot(parsed);
     if (!snapshot) {
       if (changed) {
-        console.warn("Stored UI snapshot was invalid. Falling back to defaults.");
+        logStorageWarning("Stored UI snapshot was invalid. Falling back to defaults.");
       }
       return null;
     }
     if (changed) {
-      console.warn("Stored UI snapshot contained invalid data and was sanitized.");
+      logStorageWarning("Stored UI snapshot contained invalid data and was sanitized.");
     }
     return snapshot;
   } catch {
@@ -136,7 +159,7 @@ export function saveState(snapshot) {
     const payload = sanitized ?? createEmptySnapshot();
     localStorage.setItem(KEY, JSON.stringify(payload));
   } catch {
-    console.warn("Could not save state to localStorage");
+    logStorageWarning("Could not save state to localStorage");
   }
 }
 
@@ -144,6 +167,6 @@ export function clearState() {
   try {
     localStorage.removeItem(KEY);
   } catch {
-    console.warn("Could not clear state from localStorage");
+    logStorageWarning("Could not clear state from localStorage");
   }
 }

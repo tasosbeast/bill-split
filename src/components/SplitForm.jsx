@@ -253,13 +253,22 @@ export default function SplitForm({
       nextPayer = YOU_ID;
     }
 
-    return buildSplitTransaction({
+    const transaction = buildSplitTransaction({
       total: rawTotal,
       payer: nextPayer,
       participants: normalizedParticipants,
       category,
       note: note.trim(),
     });
+
+    if (draft?.templateId) {
+      transaction.templateId = draft.templateId;
+    }
+    if (draft?.templateName) {
+      transaction.templateName = draft.templateName;
+    }
+
+    return transaction;
   }
 
   function handleSubmit(e) {
@@ -547,6 +556,11 @@ SplitForm.propTypes = {
         amount: PropTypes.number,
       })
     ),
+    recurrence: PropTypes.shape({
+      frequency: PropTypes.oneOf(["monthly", "weekly", "yearly"]).isRequired,
+      nextOccurrence: PropTypes.string.isRequired,
+      reminderDaysBefore: PropTypes.number,
+    }),
   }),
   resetSignal: PropTypes.number,
 };

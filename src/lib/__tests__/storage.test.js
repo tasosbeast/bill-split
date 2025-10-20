@@ -44,6 +44,7 @@ describe("storage", () => {
       friends: [],
       selectedId: null,
       transactions: [],
+      templates: [],
     });
     expect(warnSpy).toHaveBeenCalledTimes(1);
     expect(warnSpy.mock.calls[0][0]).toMatch(/sanitized|defaults/i);
@@ -57,6 +58,7 @@ describe("storage", () => {
       ],
       selectedId: "alice",
       transactions: [{ id: "t1", type: "split" }],
+      templates: [],
     };
     localStorage.setItem(KEY, JSON.stringify(payload));
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -78,6 +80,7 @@ describe("storage", () => {
       friends: [],
       selectedId: null,
       transactions: [],
+      templates: [],
     });
   });
 

@@ -1,6 +1,11 @@
 import { memo, Suspense, lazy } from "react";
 import type { LegacyFriend } from "../../types/legacySnapshot";
 import type { Transaction } from "../../types/transaction";
+import type {
+  TransactionTemplate,
+  SplitDraftPreset,
+} from "../../types/transactionTemplate";
+import TransactionTemplatesPanel from "../TransactionTemplatesPanel";
 
 const SplitForm = lazy(() => import("../SplitForm"));
 const Transactions = lazy(() => import("../Transactions"));
@@ -22,11 +27,17 @@ interface TransactionsPanelProps {
   txFilter: string;
   categories: string[];
   onSplit: (transaction: Transaction) => void;
+  onAutomation?: (transaction: Transaction, automation: unknown) => void;
   onSettle: () => void;
   onFilterChange: (value: string) => void;
   onClearFilter: () => void;
   onRequestEdit: (transaction: FriendTransaction) => void;
   onDeleteTransaction: (id: string) => void;
+  templates: TransactionTemplate[];
+  onUseTemplate: (template: TransactionTemplate) => void;
+  onGenerateRecurring: (template: TransactionTemplate) => void;
+  onDeleteTemplate: (templateId: string) => void;
+  draft: SplitDraftPreset | null;
 }
 
 function formatCurrency(value: number): string {
@@ -46,11 +57,17 @@ function TransactionsPanel({
   txFilter,
   categories,
   onSplit,
+  onAutomation,
   onSettle,
   onFilterChange,
   onClearFilter,
   onRequestEdit,
   onDeleteTransaction,
+  templates,
+  onUseTemplate,
+  onGenerateRecurring,
+  onDeleteTemplate,
+  draft,
 }: TransactionsPanelProps) {
   return (
     <section className="panel">
@@ -101,6 +118,13 @@ function TransactionsPanel({
             )}
           </div>
 
+          <TransactionTemplatesPanel
+            templates={templates}
+            onUseTemplate={onUseTemplate}
+            onGenerateRecurring={onGenerateRecurring}
+            onDeleteTemplate={onDeleteTemplate}
+          />
+
           <Suspense
             fallback={
               <div className="kicker" aria-live="polite">
@@ -112,6 +136,8 @@ function TransactionsPanel({
               friends={friends}
               defaultFriendId={selectedFriend.id}
               onSplit={onSplit}
+              onAutomation={onAutomation}
+              draft={draft ?? undefined}
             />
           </Suspense>
 

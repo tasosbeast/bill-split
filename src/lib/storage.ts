@@ -2,6 +2,7 @@ import type {
   UISnapshot,
   LegacyFriend,
   StoredTransaction,
+  StoredSnapshotTemplate,
 } from "../types/legacySnapshot";
 
 const KEY = "bill-split@v1";
@@ -10,6 +11,7 @@ const EMPTY_SNAPSHOT: UISnapshot = {
   friends: [],
   selectedId: null,
   transactions: [],
+  templates: [],
 };
 
 function getNodeEnv(): string | undefined {
@@ -138,6 +140,168 @@ function sanitizeTransactions(input: unknown): {
   return { transactions, changed };
 }
 
+function sanitizeTemplateParticipant(
+  value: unknown
+): { id: string; amount: number } | null {
+  if (!isRecord(value)) return null;
+  const id =
+    typeof value.id === "string" && value.id.trim().length > 0
+      ? value.id.trim()
+      : null;
+  if (!id) return null;
+  const amountValue = Number(value.amount);
+  const amount =
+    Number.isFinite(amountValue) && amountValue >= 0 ? amountValue : 0;
+  return { id, amount };
+}
+
+function isAllowedRecurrenceFrequency(
+  value: unknown
+): value is NonNullable<StoredSnapshotTemplate["recurrence"]>["frequency"] {
+  return value === "weekly" || value === "monthly" || value === "yearly";
+}
+
+function sanitizeTemplateRecurrence(
+  value: unknown
+): StoredSnapshotTemplate["recurrence"] | null {
+  if (!isRecord(value)) return null;
+  const frequency = value.frequency;
+  if (!isAllowedRecurrenceFrequency(frequency)) {
+    return null;
+  }
+  const nextOccurrence = value.nextOccurrence;
+  if (typeof nextOccurrence !== "string" || !nextOccurrence.trim()) {
+    return null;
+  }
+  const reminderValue = value.reminderDaysBefore;
+  let reminderDaysBefore: number | null = null;
+  if (reminderValue !== undefined) {
+    const parsed = Number(reminderValue);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      reminderDaysBefore = Math.floor(parsed);
+    }
+  }
+  return {
+    frequency,
+    nextOccurrence: nextOccurrence.trim(),
+    reminderDaysBefore,
+  };
+}
+
+function sanitizeTemplate(
+  value: unknown
+): { template: StoredSnapshotTemplate | null; changed: boolean } {
+  if (!isRecord(value)) return { template: null, changed: value !== undefined };
+  const record = value;
+  const id =
+    typeof record.id === "string" && record.id.trim().length > 0
+      ? record.id.trim()
+      : null;
+  const name =
+    typeof record.name === "string" && record.name.trim().length > 0
+      ? record.name.trim()
+      : null;
+  if (!id || !name) {
+    return { template: null, changed: true };
+  }
+  const totalValue = Number(record.total);
+  const total =
+    Number.isFinite(totalValue) && totalValue >= 0 ? totalValue : 0;
+  const payer =
+    typeof record.payer === "string" && record.payer.trim().length > 0
+      ? record.payer.trim()
+      : "you";
+  const category =
+    typeof record.category === "string" && record.category.trim().length > 0
+      ? record.category.trim()
+      : "Other";
+  const note =
+    typeof record.note === "string" && record.note.trim().length > 0
+      ? record.note.trim()
+      : null;
+  const createdAt =
+    typeof record.createdAt === "string" && record.createdAt.trim().length > 0
+      ? record.createdAt.trim()
+      : new Date().toISOString();
+  const updatedAt =
+    typeof record.updatedAt === "string" && record.updatedAt.trim().length > 0
+      ? record.updatedAt.trim()
+      : null;
+
+  const participantsSource = Array.isArray(record.participants)
+    ? record.participants
+    : [];
+  const participants: StoredSnapshotTemplate["participants"] = [];
+  let participantChanged = !Array.isArray(record.participants);
+  const seen = new Set<string>();
+  for (const entry of participantsSource) {
+    const sanitized = sanitizeTemplateParticipant(entry);
+    if (!sanitized) {
+      participantChanged = true;
+      continue;
+    }
+    if (seen.has(sanitized.id)) {
+      participantChanged = true;
+      continue;
+    }
+    participants.push(sanitized);
+    seen.add(sanitized.id);
+  }
+  if (!participants.find((p) => p.id === "you")) {
+    participants.unshift({ id: "you", amount: 0 });
+    participantChanged = true;
+  }
+
+  const recurrence = sanitizeTemplateRecurrence(record.recurrence);
+  const recurrenceChanged =
+    record.recurrence !== undefined && record.recurrence !== recurrence;
+
+  const template: StoredSnapshotTemplate = {
+    ...record,
+    id,
+    name,
+    total,
+    payer,
+    category,
+    note,
+    createdAt,
+    updatedAt,
+    participants,
+    recurrence: recurrence ?? null,
+  };
+
+  return {
+    template,
+    changed: participantChanged || recurrenceChanged,
+  };
+}
+
+function sanitizeTemplates(input: unknown): {
+  templates: StoredSnapshotTemplate[];
+  changed: boolean;
+} {
+  if (input === undefined) {
+    return { templates: [], changed: false };
+  }
+  if (!Array.isArray(input)) {
+    return { templates: [], changed: true };
+  }
+  const templates: StoredSnapshotTemplate[] = [];
+  let changed = false;
+  for (const entry of input) {
+    const { template, changed: templateChanged } = sanitizeTemplate(entry);
+    if (!template) {
+      changed = true;
+      continue;
+    }
+    templates.push(template);
+    if (templateChanged) {
+      changed = true;
+    }
+  }
+  return { templates, changed };
+}
+
 function sanitizeSnapshot(
   raw: unknown
 ): { snapshot: UISnapshot | null; changed: boolean } {
@@ -148,6 +312,9 @@ function sanitizeSnapshot(
   const { friends, changed: friendsChanged } = sanitizeFriends(raw.friends);
   const { transactions, changed: transactionsChanged } = sanitizeTransactions(
     raw.transactions
+  );
+  const { templates, changed: templatesChanged } = sanitizeTemplates(
+    raw.templates
   );
 
   const friendIds = new Set(friends.map((friend) => friend.id));
@@ -165,8 +332,9 @@ function sanitizeSnapshot(
   }
 
   return {
-    snapshot: { friends, selectedId, transactions },
-    changed: friendsChanged || transactionsChanged || selectedChanged,
+    snapshot: { friends, selectedId, transactions, templates },
+    changed:
+      friendsChanged || transactionsChanged || templatesChanged || selectedChanged,
   };
 }
 

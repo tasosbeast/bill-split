@@ -296,4 +296,101 @@ describe("useFriendSelection", () => {
 
     unmount();
   });
+
+  it("removes a friend and related transactions when balances are settled", () => {
+    const { updaters, mocks } = createUpdaters();
+    const friend: LegacyFriend = {
+      id: "friend-1",
+      name: "Alex",
+      email: "alex@example.com",
+    };
+    const snapshot: UISnapshot = {
+      friends: [friend],
+      selectedId: "friend-1",
+      transactions: [
+        {
+          id: "tx-1",
+          type: "split",
+          friendIds: ["friend-1"],
+          participants: [],
+          effects: [{ friendId: "friend-1", delta: 10, share: 10 }],
+        },
+      ] as unknown as UISnapshot["transactions"],
+    };
+
+    useLegacySnapshotMock.mockReturnValue({
+      snapshot,
+      updaters,
+    });
+    computeBalancesMock.mockReturnValue(new Map<string, number>([["friend-1", 0]]));
+
+    const { result, unmount } = renderHook(() => useFriendSelection());
+
+    let outcome: ReturnType<UseFriendSelectionResult["removeFriend"]>;
+    act(() => {
+      outcome = result.current.removeFriend("friend-1");
+    });
+
+    expect(outcome).toEqual({ ok: true });
+    expect(mocks.setFriends).toHaveBeenCalledTimes(1);
+    const nextFriends = mocks.setFriends.mock.calls[0]?.[0];
+    expect(typeof nextFriends).toBe("function");
+    const evaluatedFriends = (nextFriends as (friends: LegacyFriend[]) => LegacyFriend[])(snapshot.friends);
+    expect(evaluatedFriends).toEqual([]);
+
+    expect(mocks.setTransactions).toHaveBeenCalledTimes(1);
+    const nextTransactions = mocks.setTransactions.mock.calls[0]?.[0];
+    expect(typeof nextTransactions).toBe("function");
+    const evaluatedTransactions = (
+      nextTransactions as (txs: UISnapshot["transactions"]) => UISnapshot["transactions"]
+    )(snapshot.transactions);
+    expect(evaluatedTransactions).toEqual([]);
+
+    expect(mocks.setSelectedId).toHaveBeenCalledWith(null);
+
+    unmount();
+  });
+
+  it("blocks friend removal when an outstanding balance exists", () => {
+    const { updaters, mocks } = createUpdaters();
+    const friend: LegacyFriend = {
+      id: "friend-1",
+      name: "Alex",
+      email: "alex@example.com",
+    };
+    const snapshot: UISnapshot = {
+      friends: [friend],
+      selectedId: "friend-1",
+      transactions: [] as UISnapshot["transactions"],
+    };
+
+    useLegacySnapshotMock.mockReturnValue({
+      snapshot,
+      updaters,
+    });
+    computeBalancesMock.mockReturnValue(
+      new Map<string, number>([["friend-1", 12.5]])
+    );
+
+    const alertSpy = vi
+      .spyOn(window, "alert")
+      .mockImplementation(() => undefined);
+
+    const { result, unmount } = renderHook(() => useFriendSelection());
+
+    let outcome: ReturnType<UseFriendSelectionResult["removeFriend"]>;
+    act(() => {
+      outcome = result.current.removeFriend("friend-1");
+    });
+
+    expect(outcome).toEqual({ ok: false, reason: "outstanding-balance" });
+    expect(alertSpy).toHaveBeenCalledWith(
+      "Settle any outstanding balance with this friend before removing them."
+    );
+    expect(mocks.setFriends).not.toHaveBeenCalled();
+    expect(mocks.setTransactions).not.toHaveBeenCalled();
+
+    alertSpy.mockRestore();
+    unmount();
+  });
 });

@@ -42,6 +42,7 @@ export default function LegacyAppShell(): JSX.Element {
     balances,
     selectedBalance,
     createFriend,
+    removeFriend,
     selectFriend,
     ensureSettle,
     showAddModal,
@@ -112,6 +113,19 @@ export default function LegacyAppShell(): JSX.Element {
       removeTransaction(id);
     },
     [removeTransaction]
+  );
+
+  const handleRemoveFriend = useCallback(
+    (friendId: string) => {
+      const friend = friendsById.get(friendId);
+      if (!friend) return;
+      const confirmation = confirm(
+        `Remove ${friend.name}? Their saved transactions with you will also be deleted.`
+      );
+      if (!confirmation) return;
+      removeFriend(friendId);
+    },
+    [friendsById, removeFriend]
   );
 
   const handleRequestEdit = useCallback((transaction: FriendTransaction) => {
@@ -282,12 +296,13 @@ export default function LegacyAppShell(): JSX.Element {
       ) : (
         <div className="layout">
           <FriendsPanel
-            friends={friends}
-            selectedFriendId={selectedId}
-            balances={balances}
-            onAddFriend={openAddModal}
-            onSelectFriend={selectFriend}
-          />
+          friends={friends}
+          selectedFriendId={selectedId}
+          balances={balances}
+          onAddFriend={openAddModal}
+          onSelectFriend={selectFriend}
+          onRemoveFriend={handleRemoveFriend}
+        />
 
           <TransactionsPanel
             friends={friends}

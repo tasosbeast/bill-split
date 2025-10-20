@@ -9,6 +9,7 @@ export interface LegacyFriendManagementResult extends FriendSelectionResult {
   openAddModal: () => void;
   closeAddModal: () => void;
   createFriend: (friend: LegacyFriend) => ReturnType<FriendSelectionResult["createFriend"]>;
+  removeFriend: FriendSelectionResult["removeFriend"];
 }
 
 export function useLegacyFriendManagement(): LegacyFriendManagementResult {
@@ -36,6 +37,7 @@ export function useLegacyFriendManagement(): LegacyFriendManagementResult {
       openAddModal,
       closeAddModal,
       createFriend,
+      removeFriend: selection.removeFriend,
     }),
     [selection, showAddModal, openAddModal, closeAddModal, createFriend]
   );

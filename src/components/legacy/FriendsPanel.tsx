@@ -10,6 +10,7 @@ interface FriendsPanelProps {
   balances: Map<string, number>;
   onAddFriend: () => void;
   onSelectFriend: (friendId: string | null) => void;
+  onRemoveFriend: (friendId: string) => void;
 }
 
 function FriendsPanel({
@@ -18,6 +19,7 @@ function FriendsPanel({
   balances,
   onAddFriend,
   onSelectFriend,
+  onRemoveFriend,
 }: FriendsPanelProps) {
   return (
     <section className="panel">
@@ -37,7 +39,9 @@ function FriendsPanel({
         <FriendList
           friends={friends}
           selectedId={selectedFriendId}
+          balances={balances}
           onSelect={onSelectFriend}
+          onRemove={onRemoveFriend}
         />
       </Suspense>
 

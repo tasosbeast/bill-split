@@ -7,6 +7,7 @@ const createFriendMock = vi.fn<
   (friend: LegacyFriend) => { ok: boolean; reason?: string }
 >();
 const ensureSettleMock = vi.fn();
+const removeFriendMock = vi.fn();
 
 const baseSelection = {
   snapshot: {
@@ -30,6 +31,7 @@ const baseSelection = {
   createFriend: createFriendMock,
   selectFriend: vi.fn(),
   ensureSettle: ensureSettleMock,
+  removeFriend: removeFriendMock,
 } as const;
 
 vi.mock("../useFriendSelection", () => ({
@@ -121,6 +123,18 @@ describe("useLegacyFriendManagement", () => {
     });
 
     expect(result.current.showAddModal).toBe(true);
+
+    unmount();
+  });
+
+  it("exposes removeFriend from the underlying selection hook", () => {
+    const { result, unmount } = renderHook(() => useLegacyFriendManagement());
+    expect(result.current.removeFriend).toBe(removeFriendMock);
+
+    act(() => {
+      result.current.removeFriend("friend-1");
+    });
+    expect(removeFriendMock).toHaveBeenCalledWith("friend-1");
 
     unmount();
   });

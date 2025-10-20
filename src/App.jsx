@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useMemo,
   useState,
   useRef,
@@ -8,14 +7,13 @@ import {
   lazy,
 } from "react";
 import "./index.css";
-import { loadState, saveState, clearState } from "./lib/storage";
 import { CATEGORIES } from "./lib/categories";
 import { computeBalances } from "./lib/compute";
 import {
   getTransactionEffects,
   transactionIncludesFriend,
-  upgradeTransactions,
 } from "./lib/transactions";
+import { useLegacySnapshot } from "./hooks/useLegacySnapshot";
 
 const FriendList = lazy(() => import("./components/FriendList"));
 const Balances = lazy(() => import("./components/Balances"));
@@ -25,38 +23,25 @@ const Transactions = lazy(() => import("./components/Transactions"));
 const AnalyticsDashboard = lazy(() => import("./components/AnalyticsDashboard"));
 const EditTransactionModal = lazy(() => import("./components/EditTransactionModal"));
 
-const seededFriends = [
-  { id: crypto.randomUUID(), name: "Valia", email: "valia@example.com" },
-  { id: crypto.randomUUID(), name: "Nikos", email: "nikos@example.com" },
-];
-
 export default function App() {
-  const boot = useRef(loadState()).current;
-  const [friends, setFriends] = useState(() => boot?.friends ?? seededFriends);
-  const [selectedId, setSelectedId] = useState(() => boot?.selectedId ?? null);
-  const [transactions, setTransactions] = useState(() =>
-    upgradeTransactions(boot?.transactions ?? [])
-  );
+  const { snapshot, updaters } = useLegacySnapshot();
+  const { friends, selectedId, transactions } = snapshot;
+  const {
+    setFriends,
+    setSelectedId,
+    setTransactions,
+    replaceSnapshot,
+    reset: resetSnapshot,
+  } = updaters;
   const [activeView, setActiveView] = useState("home");
   const [txFilter, setTxFilter] = useState("All");
   const [showAdd, setShowAdd] = useState(false);
   const [editTx, setEditTx] = useState(null);
   const [restoreFeedback, setRestoreFeedback] = useState(null);
 
-  useEffect(() => {
-    saveState({ friends, selectedId, transactions });
-  }, [friends, selectedId, transactions]);
-
   const selectedFriend = useMemo(() => {
     const f = friends.find((fr) => fr.id === selectedId) || null;
     return f;
-  }, [friends, selectedId]);
-
-  // Ensure selectedId always points to an existing friend
-  useEffect(() => {
-    if (selectedId && !friends.some((f) => f.id === selectedId)) {
-      setSelectedId(null);
-    }
   }, [friends, selectedId]);
 
   const friendsById = useMemo(() => {
@@ -125,7 +110,7 @@ export default function App() {
       setFriends((prev) => [...prev, friend]);
       setSelectedId(friend.id);
     },
-    [normalizedFriendEmails]
+    [normalizedFriendEmails, setFriends, setSelectedId]
   );
 
   function handleSettle() {
@@ -155,22 +140,28 @@ export default function App() {
     };
     setTransactions((prev) => [tx, ...prev]);
   }
-  const handleDeleteTx = useCallback((id) => {
-    const ok = confirm("Delete this transaction permanently?");
-    if (!ok) return;
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  const handleDeleteTx = useCallback(
+    (id) => {
+      const ok = confirm("Delete this transaction permanently?");
+      if (!ok) return;
+      setTransactions((prev) => prev.filter((t) => t.id !== id));
+    },
+    [setTransactions]
+  );
   // NEW: open edit modal
   const handleRequestEdit = useCallback((tx) => {
     setEditTx(tx);
   }, []);
 
   // NEW: save edited transaction
-  const handleSaveEditedTx = useCallback((updated) => {
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === updated.id ? updated : t))
-    );
-  }, []);
+  const handleSaveEditedTx = useCallback(
+    (updated) => {
+      setTransactions((prev) =>
+        prev.map((t) => (t.id === updated.id ? updated : t))
+      );
+    },
+    [setTransactions]
+  );
 
   // Reset data (dev helper already added previously)
   function handleReset() {
@@ -178,7 +169,7 @@ export default function App() {
       "This will delete all your friends, transactions, and balances. Are you sure?"
     );
     if (!ok) return;
-    clearState();
+    resetSnapshot();
     window.location.reload();
   }
 
@@ -227,14 +218,10 @@ export default function App() {
           skippedTransactions,
         } = restoreSnapshot(data);
 
-        setFriends(safeFriends);
-        setTransactions(restoredTransactions);
-        setSelectedId(normalizedSelectedId);
-
-        saveState({
+        replaceSnapshot({
           friends: safeFriends,
-          transactions: restoredTransactions,
           selectedId: normalizedSelectedId,
+          transactions: restoredTransactions,
         });
 
         setRestoreFeedback(

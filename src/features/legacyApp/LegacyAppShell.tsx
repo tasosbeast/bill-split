@@ -1,7 +1,15 @@
-import { useCallback, useMemo, useState, Suspense, lazy, useEffect } from "react";
+import {
+  useCallback,
+  useMemo,
+  useState,
+  Suspense,
+  lazy,
+  useEffect,
+} from "react";
 import { CATEGORIES } from "../../lib/categories";
 import { useLegacyFriendManagement } from "../../hooks/useLegacyFriendManagement";
 import { useLegacyTransactions } from "../../hooks/useLegacyTransactions";
+import { useTransactionTemplates } from "../../hooks/useTransactionTemplates";
 import FriendsPanel from "../../components/legacy/FriendsPanel";
 import TransactionsPanel from "../../components/legacy/TransactionsPanel";
 import AnalyticsPanel from "../../components/legacy/AnalyticsPanel";
@@ -9,6 +17,7 @@ import RestoreSnapshotModal from "../../components/legacy/RestoreSnapshotModal";
 import type { StoredTransaction, UISnapshot } from "../../types/legacySnapshot";
 import type { FriendTransaction } from "../../hooks/useLegacyTransactions";
 import { setTransactions as syncTransactionsStore } from "../../state/transactionsStore";
+import type { SplitDraftPreset } from "../../types/transactionTemplate";
 
 const AddFriendModal = lazy(() => import("../../components/AddFriendModal"));
 const EditTransactionModal = lazy(
@@ -21,16 +30,7 @@ type RestoreFeedback =
   | { status: "error"; message: string }
   | null;
 
-type FriendTransaction = StoredTransaction & {
-  effect?: {
-    friendId: string;
-    delta: number;
-    share: number;
-  } | null;
-};
-
 type EditableTransaction = FriendTransaction;
-
 export default function LegacyAppShell(): JSX.Element {
   const {
     snapshot,
@@ -49,12 +49,14 @@ export default function LegacyAppShell(): JSX.Element {
     openAddModal,
     closeAddModal,
   } = useLegacyFriendManagement();
-  const { transactions } = snapshot;
-  const { setTransactions, replaceSnapshot, reset: resetSnapshot } = updaters;
+  const { transactions, templates } = snapshot;
+  const { setTransactions, setTemplates, replaceSnapshot, reset: resetSnapshot } =
+    updaters;
   const [activeView, setActiveView] = useState<"home" | "analytics">("home");
   const [editTx, setEditTx] = useState<EditableTransaction | null>(null);
   const [restoreFeedback, setRestoreFeedback] = useState<RestoreFeedback>(null);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [draftPreset, setDraftPreset] = useState<SplitDraftPreset | null>(null);
 
   const { state: transactionsState, handlers: transactionHandlers } =
     useLegacyTransactions({
@@ -75,6 +77,17 @@ export default function LegacyAppShell(): JSX.Element {
     addSettlement,
   } = transactionHandlers;
 
+  const {
+    handleAutomation,
+    handleApplyTemplate,
+    handleDeleteTemplate,
+    handleGenerateFromTemplate,
+  } = useTransactionTemplates({
+    setTemplates,
+    addTransaction,
+    setDraftPreset,
+  });
+
   const storeSnapshot = useMemo<
     Pick<UISnapshot, "friends" | "selectedId" | "transactions"> & {
       balances: Map<string, number>;
@@ -92,6 +105,7 @@ export default function LegacyAppShell(): JSX.Element {
   const handleSplit = useCallback(
     (tx: StoredTransaction) => {
       addTransaction(tx);
+      setDraftPreset(null);
     },
     [addTransaction]
   );
@@ -155,6 +169,7 @@ export default function LegacyAppShell(): JSX.Element {
       friends,
       selectedId,
       transactions,
+      templates,
     };
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
@@ -170,7 +185,7 @@ export default function LegacyAppShell(): JSX.Element {
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
-  }, [friends, selectedId, transactions]);
+  }, [friends, selectedId, transactions, templates]);
 
   useEffect(() => {
     syncTransactionsStore(transactions);
@@ -187,6 +202,7 @@ export default function LegacyAppShell(): JSX.Element {
           friends: safeFriends,
           transactions: restoredTransactions,
           selectedId: normalizedSelectedId,
+          templates: restoredTemplates,
           skippedTransactions,
         } = restoreSnapshot(data);
 
@@ -194,6 +210,7 @@ export default function LegacyAppShell(): JSX.Element {
           friends: safeFriends,
           selectedId: normalizedSelectedId,
           transactions: restoredTransactions,
+          templates: restoredTemplates,
         });
 
         setRestoreFeedback(
@@ -296,13 +313,13 @@ export default function LegacyAppShell(): JSX.Element {
       ) : (
         <div className="layout">
           <FriendsPanel
-          friends={friends}
-          selectedFriendId={selectedId}
-          balances={balances}
-          onAddFriend={openAddModal}
-          onSelectFriend={selectFriend}
-          onRemoveFriend={handleRemoveFriend}
-        />
+            friends={friends}
+            selectedFriendId={selectedId}
+            balances={balances}
+            onAddFriend={openAddModal}
+            onSelectFriend={selectFriend}
+            onRemoveFriend={handleRemoveFriend}
+          />
 
           <TransactionsPanel
             friends={friends}
@@ -313,11 +330,17 @@ export default function LegacyAppShell(): JSX.Element {
             txFilter={txFilter}
             categories={CATEGORIES}
             onSplit={handleSplit}
+            onAutomation={handleAutomation}
             onSettle={handleSettle}
             onFilterChange={setTxFilter}
             onClearFilter={clearFilter}
             onRequestEdit={handleRequestEdit}
             onDeleteTransaction={handleDeleteTx}
+            templates={templates}
+            onUseTemplate={handleApplyTemplate}
+            onGenerateRecurring={handleGenerateFromTemplate}
+            onDeleteTemplate={handleDeleteTemplate}
+            draft={draftPreset}
           />
         </div>
       )}

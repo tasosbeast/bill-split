@@ -1,4 +1,5 @@
 import type { Transaction } from "./transaction";
+import type { TransactionTemplate } from "./transactionTemplate";
 
 export interface LegacyFriend {
   id: string;
@@ -9,10 +10,15 @@ export interface LegacyFriend {
 
 export type StoredTransaction = Transaction & Record<string, unknown>;
 
+export interface StoredSnapshotTemplate
+  extends TransactionTemplate,
+    Record<string, unknown> {}
+
 export interface UISnapshot {
   friends: LegacyFriend[];
   selectedId: string | null;
   transactions: StoredTransaction[];
+  templates: StoredSnapshotTemplate[];
 }
 
 export interface RestoreSnapshotResult extends UISnapshot {

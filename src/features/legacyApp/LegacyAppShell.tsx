@@ -9,7 +9,10 @@ import {
 import { CATEGORIES } from "../../lib/categories";
 import { useLegacyFriendManagement } from "../../hooks/useLegacyFriendManagement";
 import { useLegacyTransactions } from "../../hooks/useLegacyTransactions";
-import { useTransactionTemplates } from "../../hooks/useTransactionTemplates";
+import {
+  useTransactionTemplates,
+  type SplitAutomationRequest,
+} from "../../hooks/useTransactionTemplates";
 import FriendsPanel from "../../components/legacy/FriendsPanel";
 import TransactionsPanel from "../../components/legacy/TransactionsPanel";
 import AnalyticsPanel from "../../components/legacy/AnalyticsPanel";
@@ -23,6 +26,9 @@ const AddFriendModal = lazy(() => import("../../components/AddFriendModal"));
 const EditTransactionModal = lazy(
   () => import("../../components/EditTransactionModal")
 );
+const TemplateComposerModal = lazy(
+  () => import("../../components/TemplateComposerModal")
+);
 
 type RestoreFeedback =
   | { status: "success"; message: string }
@@ -31,6 +37,10 @@ type RestoreFeedback =
   | null;
 
 type EditableTransaction = FriendTransaction;
+type TemplateRequestIntent = {
+  mode: "template" | "recurring";
+  includeSplit: boolean;
+};
 export default function LegacyAppShell(): JSX.Element {
   const {
     snapshot,
@@ -57,6 +67,10 @@ export default function LegacyAppShell(): JSX.Element {
   const [restoreFeedback, setRestoreFeedback] = useState<RestoreFeedback>(null);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [draftPreset, setDraftPreset] = useState<SplitDraftPreset | null>(null);
+  const [pendingTemplate, setPendingTemplate] = useState<
+    { transaction: StoredTransaction; intent: TemplateRequestIntent } | null
+  >(null);
+  const [splitFormResetSignal, setSplitFormResetSignal] = useState(0);
 
   const { state: transactionsState, handlers: transactionHandlers } =
     useLegacyTransactions({
@@ -106,8 +120,30 @@ export default function LegacyAppShell(): JSX.Element {
     (tx: StoredTransaction) => {
       addTransaction(tx);
       setDraftPreset(null);
+      setSplitFormResetSignal((prev) => prev + 1);
     },
-    [addTransaction]
+    [addTransaction, setDraftPreset, setSplitFormResetSignal]
+  );
+
+  const handleRequestTemplate = useCallback(
+    (transaction: StoredTransaction, intent: TemplateRequestIntent) => {
+      setPendingTemplate({ transaction, intent });
+    },
+    []
+  );
+
+  const closeTemplateModal = useCallback(() => setPendingTemplate(null), []);
+
+  const handleTemplateModalSave = useCallback(
+    (automation: SplitAutomationRequest) => {
+      if (!pendingTemplate) return;
+      handleAutomation(pendingTemplate.transaction, automation);
+      if (pendingTemplate.intent.includeSplit) {
+        handleSplit(pendingTemplate.transaction);
+      }
+      setPendingTemplate(null);
+    },
+    [pendingTemplate, handleAutomation, handleSplit]
   );
 
   const openRestoreModal = useCallback(() => setShowRestoreModal(true), []);
@@ -330,7 +366,6 @@ export default function LegacyAppShell(): JSX.Element {
             txFilter={txFilter}
             categories={CATEGORIES}
             onSplit={handleSplit}
-            onAutomation={handleAutomation}
             onSettle={handleSettle}
             onFilterChange={setTxFilter}
             onClearFilter={clearFilter}
@@ -341,6 +376,8 @@ export default function LegacyAppShell(): JSX.Element {
             onGenerateRecurring={handleGenerateFromTemplate}
             onDeleteTemplate={handleDeleteTemplate}
             draft={draftPreset}
+            onRequestTemplate={handleRequestTemplate}
+            splitFormResetSignal={splitFormResetSignal}
           />
         </div>
       )}
@@ -369,6 +406,17 @@ export default function LegacyAppShell(): JSX.Element {
             }
             onClose={() => setEditTx(null)}
             onSave={handleSaveEditedTx}
+          />
+        </Suspense>
+      )}
+
+      {pendingTemplate && (
+        <Suspense fallback={null}>
+          <TemplateComposerModal
+            transaction={pendingTemplate.transaction}
+            intent={pendingTemplate.intent}
+            onClose={closeTemplateModal}
+            onSave={handleTemplateModalSave}
           />
         </Suspense>
       )}

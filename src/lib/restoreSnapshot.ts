@@ -4,13 +4,11 @@ import {
   buildSplitTransaction,
   upgradeTransactions,
 } from "./transactions";
-import type {
-  Transaction,
-  TransactionParticipant,
-} from "../types/transaction";
+import type { TransactionParticipant } from "../types/transaction";
 import type {
   LegacyFriend,
   RestoreSnapshotResult,
+  StoredTransaction,
 } from "../types/legacySnapshot";
 
 type TransactionBase = {
@@ -28,11 +26,13 @@ type ParseHelpers = {
 
 type RawTransaction = Record<string, unknown>;
 
+type ParsedTransaction = StoredTransaction;
+
 function parseV2SplitTransaction(
   transaction: RawTransaction,
   base: TransactionBase,
   helpers: ParseHelpers
-): Transaction {
+): ParsedTransaction {
   const { stableId, friendIdSet } = helpers;
   const sanitized: TransactionParticipant[] = [];
   const seen = new Set<string>();
@@ -126,14 +126,14 @@ function parseV2SplitTransaction(
     payer,
     participants: sanitized,
   } as unknown as Parameters<typeof buildSplitTransaction>[0];
-  return buildSplitTransaction(splitInput) as Transaction;
+  return buildSplitTransaction(splitInput) as ParsedTransaction;
 }
 
 function parseV1SplitTransaction(
   transaction: RawTransaction,
   base: TransactionBase,
   helpers: ParseHelpers
-): Transaction {
+): ParsedTransaction {
   const { stableId, friendIdSet } = helpers;
   const friendIdValue = transaction.friendId;
   const friendId =
@@ -174,14 +174,14 @@ function parseV1SplitTransaction(
       { id: friendId, amount: friendShare },
     ],
   } as unknown as Parameters<typeof buildSplitTransaction>[0];
-  return buildSplitTransaction(splitInput) as Transaction;
+  return buildSplitTransaction(splitInput) as ParsedTransaction;
 }
 
 function parseSettlementTransaction(
   transaction: RawTransaction,
   base: TransactionBase,
   helpers: ParseHelpers
-): Transaction {
+): ParsedTransaction {
   const { stableId, friendIdSet } = helpers;
   const rawFriendId = transaction.friendId;
   const friendId =
@@ -322,7 +322,7 @@ export function restoreSnapshot(data: unknown): RestoreSnapshotResult {
   }
 
   const friendIdSet = new Set(safeFriends.map((friend) => friend.id));
-  const safeTransactions: Transaction[] = [];
+  const safeTransactions: ParsedTransaction[] = [];
   const skippedTransactions: RestoreSnapshotResult["skippedTransactions"] = [];
 
   for (const rawTx of data.transactions) {
@@ -375,7 +375,7 @@ export function restoreSnapshot(data: unknown): RestoreSnapshotResult {
       const base: TransactionBase = { id: baseId, category, note, createdAt, updatedAt };
       const helpers: ParseHelpers = { stableId, friendIdSet };
 
-      let parsed: Transaction;
+      let parsed: ParsedTransaction;
       if (normalizedType === "split") {
         parsed = Array.isArray(rawTx.participants)
           ? parseV2SplitTransaction(rawTx, base, helpers)
@@ -401,7 +401,9 @@ export function restoreSnapshot(data: unknown): RestoreSnapshotResult {
     }
   }
 
-  const upgradedTransactions = upgradeTransactions(safeTransactions) as Transaction[];
+  const upgradedTransactions = upgradeTransactions(
+    safeTransactions
+  ) as ParsedTransaction[];
   const normalizedSelectedId =
     typeof data.selectedId === "string"
       ? stableId(data.selectedId)

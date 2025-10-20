@@ -26,9 +26,6 @@ function baseData() {
   };
 }
 
-type Snapshot = ReturnType<typeof baseData>;
-type RawTransactionEntry = Snapshot["transactions"][number];
-
 describe("restoreSnapshot", () => {
   beforeEach(() => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -70,23 +67,26 @@ describe("restoreSnapshot", () => {
 
   it("defaults unknown categories to 'Other' and reports the warning", () => {
     const data = baseData();
-    const replacement: RawTransactionEntry = {
-      id: "tx-unknown",
-      type: "split",
-      total: 10,
-      payer: "you",
-      participants: [
-        { id: "you", amount: 5 },
-        { id: "friend-1", amount: 5 },
+    const payload = {
+      ...data,
+      transactions: [
+        {
+          id: "tx-unknown",
+          type: "split",
+          total: 10,
+          payer: "you",
+          participants: [
+            { id: "you", amount: 5 },
+            { id: "friend-1", amount: 5 },
+          ],
+          note: "",
+          category: "mystery-category",
+          createdAt: "2024-05-01T00:00:00.000Z",
+        },
       ],
-      note: "",
-      category: "mystery-category",
-      createdAt: "2024-05-01T00:00:00.000Z",
-    };
-    data.transactions = [replacement];
-
+    } as unknown;
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const result = restoreSnapshot(data);
+    const result = restoreSnapshot(payload);
 
     expect(result.transactions[0].category).toBe("Other");
     expect(warnSpy).toHaveBeenCalledWith(
@@ -103,56 +103,83 @@ describe("restoreSnapshot", () => {
 
     expect(result.friends).toHaveLength(1);
     expect(result.friends[0].id).toBe("friend-1");
-    expect(warnSpy).toHaveBeenCalledWith(
-      "Merging duplicate friend by email during restore:",
-      expect.objectContaining({
-        kept: expect.any(Object),
-        dropped: expect.objectContaining({ id: "friend-2" }),
-      }),
-    );
+    const calls: unknown[][] = warnSpy.mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    const lastCall = calls[calls.length - 1];
+    expect(Array.isArray(lastCall)).toBe(true);
+    if (!Array.isArray(lastCall)) {
+      return;
+    }
+
+    const message: unknown = lastCall[0];
+    const details: unknown = lastCall[1];
+    expect(typeof message).toBe("string");
+    if (typeof message === "string") {
+      expect(message).toBe("Merging duplicate friend by email during restore:");
+    }
+    expect(details && typeof details === "object").toBe(true);
+    if (details && typeof details === "object") {
+      const record = details as Record<string, unknown>;
+      const dropped = record.dropped;
+      expect(dropped && typeof dropped === "object").toBe(true);
+      if (dropped && typeof dropped === "object") {
+        const droppedRecord = dropped as Record<string, unknown>;
+        expect(droppedRecord.id).toBe("friend-2");
+      }
+    }
   });
 
   it("tracks skipped transactions with context when entries are invalid", () => {
     const data = baseData();
-    const invalid: RawTransactionEntry = {
-      id: "tx-invalid",
-      type: "split",
-      total: 20,
-      payer: "you",
-      participants: [{ id: "you", amount: 10 }],
-      note: "",
-      category: "Food",
-      createdAt: "2024-05-02T00:00:00.000Z",
-    };
-    const valid: RawTransactionEntry = {
-      id: "tx-valid",
-      type: "split",
-      total: 12,
-      payer: "you",
-      participants: [
-        { id: "you", amount: 6 },
-        { id: "friend-1", amount: 6 },
+    const payload = {
+      ...data,
+      transactions: [
+        null,
+        {
+          id: "tx-invalid",
+          type: "split",
+          total: 20,
+          payer: "you",
+          participants: [{ id: "you", amount: 10 }],
+          note: "",
+          category: "Food",
+          createdAt: "2024-05-02T00:00:00.000Z",
+        },
+        {
+          id: "tx-valid",
+          type: "split",
+          total: 12,
+          payer: "you",
+          participants: [
+            { id: "you", amount: 6 },
+            { id: "friend-1", amount: 6 },
+          ],
+          note: "",
+          category: "Food",
+          createdAt: "2024-05-03T00:00:00.000Z",
+        },
       ],
-      note: "",
-      category: "Food",
-      createdAt: "2024-05-03T00:00:00.000Z",
-    };
-    data.transactions = [null as unknown, invalid, valid] as unknown as Snapshot["transactions"];
+    } as unknown;
 
-    const result = restoreSnapshot(data);
+    const result = restoreSnapshot(payload);
 
     expect(result.transactions).toHaveLength(1);
     expect(result.transactions[0].id).toBe("tx-valid");
 
-    expect(result.skippedTransactions).toEqual([
-      {
-        transaction: null,
-        reason: "Transaction entry was not an object",
-      },
-      {
-        transaction: expect.objectContaining({ id: "tx-invalid" }),
-        reason: "Split is missing friend participants",
-      },
-    ]);
+    expect(result.skippedTransactions).toHaveLength(2);
+    const notObject = result.skippedTransactions.find(
+      (entry) => entry.reason === "Transaction entry was not an object",
+    );
+    expect(notObject?.transaction).toBeNull();
+    const invalidSplit = result.skippedTransactions.find(
+      (entry) => entry.reason === "Split is missing friend participants",
+    );
+    expect(invalidSplit).toBeTruthy();
+    const invalidTx = invalidSplit?.transaction;
+    expect(invalidTx && typeof invalidTx === "object").toBe(true);
+    if (invalidTx && typeof invalidTx === "object") {
+      const txRecord = invalidTx as Record<string, unknown>;
+      expect(txRecord.id).toBe("tx-invalid");
+    }
   });
 });

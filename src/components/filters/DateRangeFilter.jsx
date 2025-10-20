@@ -27,6 +27,9 @@ export function DateRangeFilter({
     <fieldset className="filter-field" disabled={disabled}>
       <legend className="filter-label">{label}</legend>
       <div className="row gap-8">
+        <label className="sr-only" htmlFor={`${idPrefix}-start`}>
+          {`${label} start`}
+        </label>
         <input
           id={`${idPrefix}-start`}
           className="input"
@@ -37,6 +40,9 @@ export function DateRangeFilter({
         <span aria-hidden="true" className="filter-separator">
           –
         </span>
+        <label className="sr-only" htmlFor={`${idPrefix}-end`}>
+          {`${label} end`}
+        </label>
         <input
           id={`${idPrefix}-end`}
           className="input"

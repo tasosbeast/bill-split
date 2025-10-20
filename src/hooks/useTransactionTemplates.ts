@@ -21,11 +21,30 @@ export interface SplitAutomationRequest {
   template?: SplitAutomationTemplateRequest | null;
 }
 
+let fallbackTemplateCounter = 0;
+
 function generateTemplateId(): string {
-  if (typeof crypto?.randomUUID === "function") {
-    return crypto.randomUUID();
+  const cryptoRef =
+    typeof globalThis !== "undefined"
+      ? (globalThis as typeof globalThis & { crypto?: Crypto }).crypto
+      : undefined;
+
+  if (typeof cryptoRef?.randomUUID === "function") {
+    return cryptoRef.randomUUID();
   }
-  return `template-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  if (typeof cryptoRef?.getRandomValues === "function") {
+    const bytes = cryptoRef.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  fallbackTemplateCounter = (fallbackTemplateCounter + 1) & 0xffff;
+  const timestamp = Date.now().toString(16).padStart(12, "0");
+  const counter = fallbackTemplateCounter.toString(16).padStart(4, "0");
+  return `template-${timestamp}${counter}`;
 }
 
 function cloneParticipants(

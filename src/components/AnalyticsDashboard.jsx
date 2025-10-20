@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { formatEUR } from "../lib/money";
 import { CATEGORIES } from "../lib/categories";
-import { DEFAULT_MONTHLY_BUDGET } from "../lib/selectors";
+import { selectMonthlyBudget } from "../lib/selectors";
 import AnalyticsCard from "./AnalyticsCard";
 import AnalyticsCategoryList from "./AnalyticsCategoryList";
 import AnalyticsTrendChart from "./AnalyticsTrendChart";
@@ -22,20 +22,6 @@ import {
 
 function formatCurrency(value) {
   return formatEUR(value ?? 0);
-}
-
-function selectMonthlyBudget(state) {
-  const preferencesBudget = Number(state?.preferences?.monthlyBudget);
-  if (Number.isFinite(preferencesBudget) && preferencesBudget > 0) {
-    return preferencesBudget;
-  }
-
-  const directBudget = Number(state?.monthlyBudget);
-  if (Number.isFinite(directBudget) && directBudget > 0) {
-    return directBudget;
-  }
-
-  return DEFAULT_MONTHLY_BUDGET;
 }
 
 export default function AnalyticsDashboard({

@@ -13,13 +13,15 @@ export function selectBalances(state) {
 }
 
 export function selectMonthlyBudget(state) {
-  const preferencesBudget = state?.preferences?.monthlyBudget;
-  const directBudget = state?.monthlyBudget;
-  const budget =
-    Number.isFinite(preferencesBudget) && preferencesBudget > 0
-      ? preferencesBudget
-      : Number.isFinite(directBudget) && directBudget > 0
-      ? directBudget
-      : DEFAULT_MONTHLY_BUDGET;
-  return budget;
+  const preferencesBudget = Number(state?.preferences?.monthlyBudget);
+  if (Number.isFinite(preferencesBudget) && preferencesBudget > 0) {
+    return preferencesBudget;
+  }
+
+  const directBudget = Number(state?.monthlyBudget);
+  if (Number.isFinite(directBudget) && directBudget > 0) {
+    return directBudget;
+  }
+
+  return DEFAULT_MONTHLY_BUDGET;
 }

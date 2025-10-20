@@ -6,20 +6,6 @@ import { buildSplitTransaction } from "../lib/transactions";
 
 const YOU_ID = "you";
 
-const FREQUENCY_OPTIONS = [
-  { value: "monthly", label: "Monthly" },
-  { value: "weekly", label: "Weekly" },
-  { value: "yearly", label: "Yearly" },
-];
-
-function todayIso() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 function formatParticipantAmount(amount) {
   const numeric = Number(amount);
   if (!Number.isFinite(numeric) || numeric <= 0) return "";
@@ -63,8 +49,9 @@ export default function SplitForm({
   friends,
   defaultFriendId,
   onSplit,
-  onAutomation,
+  onRequestTemplate,
   draft,
+  resetSignal,
 }) {
   const [bill, setBill] = useState("");
   const [payer, setPayer] = useState(YOU_ID);
@@ -101,19 +88,6 @@ export default function SplitForm({
   );
 
   useEffect(() => {
-    if (draft) return;
-    setParticipants(createDefaultParticipants(defaultFriendId));
-    setPayer(YOU_ID);
-    setError("");
-    setAddFriendId("");
-    setSaveAsTemplate(false);
-    setTemplateName("");
-    setScheduleRecurring(false);
-    setNextOccurrence("");
-    setReminderDays("2");
-  }, [defaultFriendId, draft]);
-
-  useEffect(() => {
     if (!draft) return;
     setBill(draft.total ? String(draft.total) : "");
     setCategory(draft.category || "Other");
@@ -122,40 +96,18 @@ export default function SplitForm({
     setParticipants(normalizeDraftParticipants(draft.participants));
     setError("");
     setAddFriendId("");
-    const hasTemplate = Boolean(draft.templateId || draft.templateName);
-    setSaveAsTemplate(hasTemplate);
-    const fallbackName = draft.templateName || draft.note || `${draft.category || "Split"}`;
-    setTemplateName(fallbackName);
-    if (draft.recurrence) {
-      setScheduleRecurring(true);
-      setFrequency(draft.recurrence.frequency);
-      setNextOccurrence(draft.recurrence.nextOccurrence);
-      setReminderDays(
-        draft.recurrence.reminderDaysBefore !== undefined &&
-          draft.recurrence.reminderDaysBefore !== null
-          ? String(draft.recurrence.reminderDaysBefore)
-          : "2"
-      );
-    } else {
-      setScheduleRecurring(false);
-      setFrequency("monthly");
-      setNextOccurrence("");
-      setReminderDays("2");
-    }
   }, [draft]);
 
   useEffect(() => {
-    if (scheduleRecurring && !nextOccurrence) {
-      setNextOccurrence(todayIso());
-    }
-  }, [scheduleRecurring, nextOccurrence]);
-
-  useEffect(() => {
-    if ((saveAsTemplate || scheduleRecurring) && !templateName.trim()) {
-      const fallback = note.trim() || `${category} split`;
-      setTemplateName(fallback);
-    }
-  }, [saveAsTemplate, scheduleRecurring, templateName, note, category]);
+    if (draft) return;
+    setBill("");
+    setCategory("Other");
+    setPayer(YOU_ID);
+    setNote("");
+    setParticipants(createDefaultParticipants(defaultFriendId));
+    setError("");
+    setAddFriendId("");
+  }, [defaultFriendId, resetSignal, draft]);
 
   const selectableFriends = useMemo(
     () => friends.filter((f) => !participantIds.has(f.id)),
@@ -291,26 +243,14 @@ export default function SplitForm({
     ];
   }
 
-  function handleSubmit(e) {
-    e.preventDefault();
-    setError("");
-
-    const rawTotal = parseAmount(bill);
-    if (rawTotal === null || rawTotal <= 0) {
-      setError("Enter a valid total amount.");
-      return;
-    }
-
-    const normalizedParticipants = normalizeParticipants(rawTotal);
-    if (!normalizedParticipants) return;
-
+  function buildTransactionPayload(rawTotal, normalizedParticipants) {
     const friendIds = normalizedParticipants
       .map((p) => p.id)
       .filter((id) => id !== YOU_ID);
 
     if (friendIds.length === 0) {
       setError("Add at least one friend to split the bill.");
-      return;
+      return null;
     }
 
     const allowedPayers = new Set([YOU_ID, ...friendIds]);
@@ -363,6 +303,35 @@ export default function SplitForm({
       templateName: automationRequest?.template?.name ?? undefined,
     });
 
+    if (draft?.templateId) {
+      transaction.templateId = draft.templateId;
+    }
+    if (draft?.templateName) {
+      transaction.templateName = draft.templateName;
+    }
+
+    return transaction;
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+
+    const rawTotal = parseAmount(bill);
+    if (rawTotal === null || rawTotal <= 0) {
+      setError("Enter a valid total amount.");
+      return;
+    }
+
+    const normalizedParticipants = normalizeParticipants(rawTotal);
+    if (!normalizedParticipants) return;
+
+    const transaction = buildTransactionPayload(
+      rawTotal,
+      normalizedParticipants
+    );
+    if (!transaction) return;
+
     onSplit(transaction);
     if (automationRequest && typeof onAutomation === "function") {
       onAutomation(transaction, automationRequest);
@@ -381,6 +350,28 @@ export default function SplitForm({
     setFrequency("monthly");
     setNextOccurrence("");
     setReminderDays("2");
+  }
+
+  function handleRequestTemplate(intent) {
+    if (!onRequestTemplate) return;
+    setError("");
+
+    const rawTotal = parseAmount(bill);
+    if (rawTotal === null || rawTotal <= 0) {
+      setError("Enter a valid total amount before saving a template.");
+      return;
+    }
+
+    const normalizedParticipants = normalizeParticipants(rawTotal);
+    if (!normalizedParticipants) return;
+
+    const transaction = buildTransactionPayload(
+      rawTotal,
+      normalizedParticipants
+    );
+    if (!transaction) return;
+
+    onRequestTemplate(transaction, intent);
   }
 
   return (
@@ -527,8 +518,11 @@ export default function SplitForm({
       </div>
 
       <div>
-        <label className="kicker">Category</label>
+        <label className="kicker" htmlFor="category">
+          Category
+        </label>
         <select
+          id="category"
           className="select"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
@@ -543,14 +537,15 @@ export default function SplitForm({
 
       <div>
         <label className="kicker" htmlFor="note">
-          Note (optional)
+          Note
         </label>
-        <input
+        <textarea
           id="note"
           className="input"
+          rows="2"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="e.g. Groceries, rent, museum tickets…"
+          placeholder="Optional description"
         />
       </div>
 
@@ -666,9 +661,33 @@ export default function SplitForm({
 
       {error && <div className="error">{error}</div>}
 
-      <button className="button" type="submit">
-        Save split
-      </button>
+      <div className="row gap-8 flex-wrap">
+        <button className="button" type="submit">
+          Save split
+        </button>
+        {onRequestTemplate && (
+          <>
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() =>
+                handleRequestTemplate({ mode: "template", includeSplit: true })
+              }
+            >
+              Save split & template
+            </button>
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() =>
+                handleRequestTemplate({ mode: "recurring", includeSplit: true })
+              }
+            >
+              Schedule recurring split
+            </button>
+          </>
+        )}
+      </div>
     </form>
   );
 }
@@ -683,7 +702,7 @@ SplitForm.propTypes = {
   ).isRequired,
   defaultFriendId: PropTypes.string,
   onSplit: PropTypes.func.isRequired,
-  onAutomation: PropTypes.func,
+  onRequestTemplate: PropTypes.func,
   draft: PropTypes.shape({
     id: PropTypes.string.isRequired,
     templateId: PropTypes.string,
@@ -704,4 +723,5 @@ SplitForm.propTypes = {
       reminderDaysBefore: PropTypes.number,
     }),
   }),
+  resetSignal: PropTypes.number,
 };

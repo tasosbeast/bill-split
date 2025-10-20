@@ -9,6 +9,10 @@ import {
 import { CATEGORIES } from "../../lib/categories";
 import { useLegacyFriendManagement } from "../../hooks/useLegacyFriendManagement";
 import { useLegacyTransactions } from "../../hooks/useLegacyTransactions";
+import {
+  useTransactionTemplates,
+  type SplitAutomationRequest,
+} from "../../hooks/useTransactionTemplates";
 import FriendsPanel from "../../components/legacy/FriendsPanel";
 import TransactionsPanel from "../../components/legacy/TransactionsPanel";
 import AnalyticsPanel from "../../components/legacy/AnalyticsPanel";
@@ -16,18 +20,14 @@ import RestoreSnapshotModal from "../../components/legacy/RestoreSnapshotModal";
 import type { StoredTransaction, UISnapshot } from "../../types/legacySnapshot";
 import type { FriendTransaction } from "../../hooks/useLegacyTransactions";
 import { setTransactions as syncTransactionsStore } from "../../state/transactionsStore";
-import type {
-  TransactionTemplate,
-  TransactionTemplateRecurrence,
-  SplitDraftPreset,
-  RecurrenceFrequency,
-} from "../../types/transactionTemplate";
-import { roundToCents } from "../../lib/money";
-import { buildSplitTransaction } from "../../lib/transactions";
+import type { SplitDraftPreset } from "../../types/transactionTemplate";
 
 const AddFriendModal = lazy(() => import("../../components/AddFriendModal"));
 const EditTransactionModal = lazy(
   () => import("../../components/EditTransactionModal")
+);
+const TemplateComposerModal = lazy(
+  () => import("../../components/TemplateComposerModal")
 );
 
 type RestoreFeedback =
@@ -36,126 +36,11 @@ type RestoreFeedback =
   | { status: "error"; message: string }
   | null;
 
-type FriendTransaction = StoredTransaction & {
-  effect?: {
-    friendId: string;
-    delta: number;
-    share: number;
-  } | null;
-};
-
 type EditableTransaction = FriendTransaction;
-
-interface SplitAutomationTemplateRequest {
-  templateId?: string | null;
-  name: string;
-  recurrence?: TransactionTemplateRecurrence | null;
-}
-
-interface SplitAutomationRequest {
-  template?: SplitAutomationTemplateRequest | null;
-}
-
-function generateTemplateId(): string {
-  if (typeof crypto?.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `template-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function cloneParticipants(
-  participants: StoredTransaction["participants"] | undefined
-): StoredTransaction["participants"] {
-  if (!Array.isArray(participants)) return [];
-  return participants.map((participant) => ({
-    id: participant.id,
-    amount: roundToCents(participant.amount ?? 0),
-  }));
-}
-
-function templateFromTransaction(
-  transaction: StoredTransaction,
-  request: SplitAutomationTemplateRequest,
-  existing?: TransactionTemplate | null
-): TransactionTemplate {
-  const timestamp = new Date().toISOString();
-  const participants = cloneParticipants(transaction.participants);
-  return {
-    id: existing?.id ?? request.templateId ?? generateTemplateId(),
-    name: request.name,
-    total: roundToCents(transaction.total ?? 0),
-    payer: transaction.payer ?? "you",
-    category: transaction.category ?? "Other",
-    note: transaction.note ?? null,
-    participants,
-    createdAt: existing?.createdAt ?? timestamp,
-    updatedAt: existing ? timestamp : null,
-    recurrence: request.recurrence ?? null,
-  };
-}
-
-function buildDraftFromTemplate(
-  template: TransactionTemplate
-): SplitDraftPreset {
-  const participants = cloneParticipants(template.participants);
-  return {
-    id: `template-${template.id}-${template.updatedAt ?? template.createdAt}`,
-    templateId: template.id,
-    templateName: template.name,
-    total: template.total,
-    payer: template.payer,
-    category: template.category,
-    note: template.note ?? "",
-    participants,
-    recurrence: template.recurrence ?? null,
-  };
-}
-
-function addInterval(
-  dateString: string,
-  frequency: RecurrenceFrequency
-): string {
-  const [yearStr, monthStr, dayStr] = dateString.split("-");
-  const year = Number(yearStr);
-  const month = Number(monthStr) - 1;
-  const day = Number(dayStr);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
-    return dateString;
-  }
-  const date = new Date(Date.UTC(year, month, day));
-  if (Number.isNaN(date.getTime())) {
-    return dateString;
-  }
-  if (frequency === "weekly") {
-    date.setUTCDate(date.getUTCDate() + 7);
-  } else if (frequency === "monthly") {
-    const originalDate = date.getUTCDate();
-    date.setUTCMonth(date.getUTCMonth() + 1);
-    if (date.getUTCDate() !== originalDate) {
-      date.setUTCDate(0);
-    }
-  } else {
-    const originalDate = date.getUTCDate();
-    date.setUTCFullYear(date.getUTCFullYear() + 1);
-    if (date.getUTCDate() !== originalDate) {
-      date.setUTCDate(0);
-    }
-  }
-  const nextYear = date.getUTCFullYear();
-  const nextMonth = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const nextDay = String(date.getUTCDate()).padStart(2, "0");
-  return `${nextYear}-${nextMonth}-${nextDay}`;
-}
-
-function advanceNextOccurrence(
-  recurrence: TransactionTemplateRecurrence
-): TransactionTemplateRecurrence {
-  return {
-    ...recurrence,
-    nextOccurrence: addInterval(recurrence.nextOccurrence, recurrence.frequency),
-  };
-}
-
+type TemplateRequestIntent = {
+  mode: "template" | "recurring";
+  includeSplit: boolean;
+};
 export default function LegacyAppShell(): JSX.Element {
   const {
     snapshot,
@@ -182,6 +67,10 @@ export default function LegacyAppShell(): JSX.Element {
   const [restoreFeedback, setRestoreFeedback] = useState<RestoreFeedback>(null);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [draftPreset, setDraftPreset] = useState<SplitDraftPreset | null>(null);
+  const [pendingTemplate, setPendingTemplate] = useState<
+    { transaction: StoredTransaction; intent: TemplateRequestIntent } | null
+  >(null);
+  const [splitFormResetSignal, setSplitFormResetSignal] = useState(0);
 
   const { state: transactionsState, handlers: transactionHandlers } =
     useLegacyTransactions({
@@ -202,6 +91,17 @@ export default function LegacyAppShell(): JSX.Element {
     addSettlement,
   } = transactionHandlers;
 
+  const {
+    handleAutomation,
+    handleApplyTemplate,
+    handleDeleteTemplate,
+    handleGenerateFromTemplate,
+  } = useTransactionTemplates({
+    setTemplates,
+    addTransaction,
+    setDraftPreset,
+  });
+
   const storeSnapshot = useMemo<
     Pick<UISnapshot, "friends" | "selectedId" | "transactions"> & {
       balances: Map<string, number>;
@@ -220,8 +120,30 @@ export default function LegacyAppShell(): JSX.Element {
     (tx: StoredTransaction) => {
       addTransaction(tx);
       setDraftPreset(null);
+      setSplitFormResetSignal((prev) => prev + 1);
     },
-    [addTransaction]
+    [addTransaction, setDraftPreset, setSplitFormResetSignal]
+  );
+
+  const handleRequestTemplate = useCallback(
+    (transaction: StoredTransaction, intent: TemplateRequestIntent) => {
+      setPendingTemplate({ transaction, intent });
+    },
+    []
+  );
+
+  const closeTemplateModal = useCallback(() => setPendingTemplate(null), []);
+
+  const handleTemplateModalSave = useCallback(
+    (automation: SplitAutomationRequest) => {
+      if (!pendingTemplate) return;
+      handleAutomation(pendingTemplate.transaction, automation);
+      if (pendingTemplate.intent.includeSplit) {
+        handleSplit(pendingTemplate.transaction);
+      }
+      setPendingTemplate(null);
+    },
+    [pendingTemplate, handleAutomation, handleSplit]
   );
 
   const handleAutomation = useCallback(
@@ -513,6 +435,8 @@ export default function LegacyAppShell(): JSX.Element {
             onGenerateRecurring={handleGenerateFromTemplate}
             onDeleteTemplate={handleDeleteTemplate}
             draft={draftPreset}
+            onRequestTemplate={handleRequestTemplate}
+            splitFormResetSignal={splitFormResetSignal}
           />
         </div>
       )}
@@ -541,6 +465,17 @@ export default function LegacyAppShell(): JSX.Element {
             }
             onClose={() => setEditTx(null)}
             onSave={handleSaveEditedTx}
+          />
+        </Suspense>
+      )}
+
+      {pendingTemplate && (
+        <Suspense fallback={null}>
+          <TemplateComposerModal
+            transaction={pendingTemplate.transaction}
+            intent={pendingTemplate.intent}
+            onClose={closeTemplateModal}
+            onSave={handleTemplateModalSave}
           />
         </Suspense>
       )}

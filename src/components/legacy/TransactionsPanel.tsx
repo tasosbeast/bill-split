@@ -1,5 +1,5 @@
 import { memo, Suspense, lazy } from "react";
-import type { LegacyFriend } from "../../types/legacySnapshot";
+import type { LegacyFriend, StoredTransaction } from "../../types/legacySnapshot";
 import type { Transaction } from "../../types/transaction";
 import type {
   TransactionTemplate,
@@ -38,6 +38,11 @@ interface TransactionsPanelProps {
   onGenerateRecurring: (template: TransactionTemplate) => void;
   onDeleteTemplate: (templateId: string) => void;
   draft: SplitDraftPreset | null;
+  onRequestTemplate: (
+    transaction: StoredTransaction,
+    intent: { mode: "template" | "recurring"; includeSplit: boolean }
+  ) => void;
+  splitFormResetSignal: number;
 }
 
 function formatCurrency(value: number): string {
@@ -68,6 +73,8 @@ function TransactionsPanel({
   onGenerateRecurring,
   onDeleteTemplate,
   draft,
+  onRequestTemplate,
+  splitFormResetSignal,
 }: TransactionsPanelProps) {
   return (
     <section className="panel">
@@ -136,8 +143,9 @@ function TransactionsPanel({
               friends={friends}
               defaultFriendId={selectedFriend.id}
               onSplit={onSplit}
-              onAutomation={onAutomation}
+              onRequestTemplate={onRequestTemplate}
               draft={draft ?? undefined}
+              resetSignal={splitFormResetSignal}
             />
           </Suspense>
 

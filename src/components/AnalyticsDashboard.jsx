@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { formatEUR } from "../lib/money";
 import { CATEGORIES } from "../lib/categories";
 import { selectMonthlyBudget } from "../lib/selectors";
@@ -19,6 +19,14 @@ import {
   computeBudgetStatus,
   computeFriendBalances,
 } from "../lib/analytics";
+import AnalyticsBudgetSummary from "./AnalyticsBudgetSummary";
+import BudgetManager from "./BudgetManager";
+import { useTransactionsStoreState } from "../hooks/useTransactionsStore";
+import {
+  selectBudgetAggregates,
+  selectBudgetTotals,
+  selectBudgets,
+} from "../state/transactionsStore";
 
 function formatCurrency(value) {
   return formatEUR(value ?? 0);
@@ -42,7 +50,8 @@ export default function AnalyticsDashboard({
     return [];
   }, [transactions, state]);
 
-  const budget = useMemo(() => selectMonthlyBudget(state), [state]);
+  const legacyBudget = useMemo(() => selectMonthlyBudget(state), [state]);
+  const [showBudgetManager, setShowBudgetManager] = useState(false);
 
   const {
     filters,
@@ -80,10 +89,66 @@ export default function AnalyticsDashboard({
     [filteredTransactions]
   );
 
-  const budgetStatus = useMemo(
-    () => computeBudgetStatus(filteredTransactions, budget),
-    [filteredTransactions, budget]
+  const storeSnapshot = useTransactionsStoreState();
+  const budgetAggregates = useMemo(() => {
+    void storeSnapshot.transactions.length;
+    void Object.keys(storeSnapshot.budgets).length;
+    return selectBudgetAggregates();
+  }, [storeSnapshot]);
+  const budgetTotals = useMemo(() => {
+    void storeSnapshot.transactions.length;
+    void Object.keys(storeSnapshot.budgets).length;
+    return selectBudgetTotals();
+  }, [storeSnapshot]);
+  const budgets = useMemo(() => {
+    void Object.keys(storeSnapshot.budgets).length;
+    return selectBudgets();
+  }, [storeSnapshot]);
+
+  const configuredBudgetCount = useMemo(
+    () => budgetAggregates.filter((entry) => entry.budget !== null).length,
+    [budgetAggregates]
   );
+  const hasConfiguredBudgets = configuredBudgetCount > 0;
+
+  const budgetStatus = useMemo(() => {
+    if (hasConfiguredBudgets) {
+      const {
+        totalBudgeted,
+        totalSpentAgainstBudget,
+        totalRemaining,
+        totalOverBudget,
+      } = budgetTotals;
+      const utilization =
+        totalBudgeted > 0 ? totalSpentAgainstBudget / totalBudgeted : 0;
+      let status = "on-track";
+      if (totalBudgeted > 0) {
+        if (totalSpentAgainstBudget >= totalBudgeted) {
+          status = "over";
+        } else if (utilization >= 0.9) {
+          status = "warning";
+        }
+      }
+      return {
+        source: "category",
+        budget: totalBudgeted,
+        spent: totalSpentAgainstBudget,
+        remaining: totalRemaining,
+        utilization,
+        status,
+        totalOverBudget,
+        configuredCount: configuredBudgetCount,
+      };
+    }
+    const fallback = computeBudgetStatus(filteredTransactions, legacyBudget);
+    return { ...fallback, source: "legacy" };
+  }, [
+    configuredBudgetCount,
+    hasConfiguredBudgets,
+    budgetTotals,
+    filteredTransactions,
+    legacyBudget,
+  ]);
 
   const friendBalances = useMemo(
     () => computeFriendBalances(filteredTransactions),
@@ -125,6 +190,32 @@ export default function AnalyticsDashboard({
       : budgetStatus.status === "warning"
       ? "Close to limit"
       : "On track";
+  const budgetDescription =
+    budgetStatus.source === "category"
+      ? `${formatCurrency(budgetStatus.spent)} of ${formatCurrency(
+          budgetStatus.budget
+        )} allocated across ${budgetStatus.configuredCount} category${
+          budgetStatus.configuredCount === 1 ? "" : "ies"
+        }`
+      : `${formatCurrency(budgetStatus.spent)} of ${formatCurrency(
+          budgetStatus.budget
+        )} spent this month`;
+  const utilizationPercent = Math.round((budgetStatus.utilization ?? 0) * 100);
+  const budgetFooter =
+    budgetStatus.source === "category"
+      ? budgetStatus.status === "over" && budgetStatus.totalOverBudget > 0
+        ? `${budgetStatusLabel} | Over by ${formatCurrency(
+            budgetStatus.totalOverBudget
+          )} | ${budgetStatus.configuredCount} category${
+            budgetStatus.configuredCount === 1 ? "" : "ies"
+          }`
+        : `${budgetStatusLabel} | ${utilizationPercent}% used | ${
+            budgetStatus.configuredCount
+          } category${budgetStatus.configuredCount === 1 ? "" : "ies"}`
+      : `${budgetStatusLabel} | ${utilizationPercent}% of monthly budget`;
+
+  const openBudgetManager = useCallback(() => setShowBudgetManager(true), []);
+  const closeBudgetManager = useCallback(() => setShowBudgetManager(false), []);
 
   return (
     <section className="analytics-view" aria-label="Analytics dashboard">
@@ -198,13 +289,14 @@ export default function AnalyticsDashboard({
               title="Budget status"
               value={formatCurrency(budgetStatus.remaining)}
               accent={budgetAccent}
-              description={`${formatCurrency(
-                budgetStatus.spent
-              )} of ${formatCurrency(budgetStatus.budget)} spent`}
-              footer={`${budgetStatusLabel} | ${Math.round(
-                budgetStatus.utilization * 100
-              )}% of monthly budget`}
-            />
+              description={budgetDescription}
+              footer={budgetFooter}
+            >
+              <AnalyticsBudgetSummary
+                aggregates={budgetAggregates}
+                onManageBudgets={openBudgetManager}
+              />
+            </AnalyticsCard>
           </div>
 
           <div className="analytics-view__visuals">
@@ -266,6 +358,14 @@ export default function AnalyticsDashboard({
           </AnalyticsCard>
         </>
       )}
+      {showBudgetManager ? (
+        <BudgetManager
+          onClose={closeBudgetManager}
+          categories={CATEGORIES}
+          aggregates={budgetAggregates}
+          budgets={budgets}
+        />
+      ) : null}
     </section>
   );
 }

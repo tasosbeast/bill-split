@@ -1,10 +1,7 @@
 import { useCallback, useMemo, useState, Suspense, lazy } from "react";
 import { CATEGORIES } from "../../lib/categories";
-import {
-  getTransactionEffects,
-  transactionIncludesFriend,
-} from "../../lib/transactions";
 import { useFriendSelection } from "../../hooks/useFriendSelection";
+import { useLegacyTransactions } from "../../hooks/useLegacyTransactions";
 import FriendsPanel from "../../components/legacy/FriendsPanel";
 import TransactionsPanel from "../../components/legacy/TransactionsPanel";
 import AnalyticsPanel from "../../components/legacy/AnalyticsPanel";
@@ -14,7 +11,7 @@ import type {
   StoredTransaction,
   UISnapshot,
 } from "../../types/legacySnapshot";
-import type { TransactionEffect } from "../../types/transaction";
+import type { FriendTransaction } from "../../hooks/useLegacyTransactions";
 
 const AddFriendModal = lazy(() => import("../../components/AddFriendModal"));
 const EditTransactionModal = lazy(
@@ -54,11 +51,29 @@ export default function LegacyAppShell(): JSX.Element {
   const { transactions } = snapshot;
   const { setTransactions, replaceSnapshot, reset: resetSnapshot } = updaters;
   const [activeView, setActiveView] = useState<"home" | "analytics">("home");
-  const [txFilter, setTxFilter] = useState<string>("All");
   const [showAdd, setShowAdd] = useState(false);
   const [editTx, setEditTx] = useState<EditableTransaction | null>(null);
   const [restoreFeedback, setRestoreFeedback] = useState<RestoreFeedback>(null);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
+
+  const { state: transactionsState, handlers: transactionHandlers } =
+    useLegacyTransactions({
+      transactions,
+      selectedFriendId: selectedId,
+      setTransactions,
+    });
+  const {
+    filter: txFilter,
+    transactionsForSelectedFriend,
+  } = transactionsState;
+  const {
+    setFilter: setTxFilter,
+    clearFilter,
+    addTransaction,
+    updateTransaction,
+    removeTransaction,
+    addSettlement,
+  } = transactionHandlers;
 
   const storeSnapshot = useMemo<
     Pick<UISnapshot, "friends" | "selectedId" | "transactions"> & {
@@ -74,25 +89,11 @@ export default function LegacyAppShell(): JSX.Element {
     [friends, selectedId, balances, transactions]
   );
 
-  const friendTransactions = useMemo<FriendTransaction[]>(() => {
-    if (!selectedId) return [];
-    return transactions
-      .map((transaction) => {
-        if (!transactionIncludesFriend(transaction, selectedId)) return null;
-        if (txFilter !== "All" && transaction.category !== txFilter) return null;
-        const effects = getTransactionEffects(transaction) as TransactionEffect[];
-        const effect =
-          effects.find((entry) => entry.friendId === selectedId) ?? null;
-        return effect ? ({ ...transaction, effect } as FriendTransaction) : null;
-      })
-      .filter((entry): entry is FriendTransaction => Boolean(entry));
-  }, [transactions, selectedId, txFilter]);
-
   const handleSplit = useCallback(
     (tx: StoredTransaction) => {
-      setTransactions((prev) => [tx, ...prev]);
+      addTransaction(tx);
     },
-    [setTransactions]
+    [addTransaction]
   );
 
   const openAdd = useCallback(() => setShowAdd(true), []);
@@ -116,37 +117,16 @@ export default function LegacyAppShell(): JSX.Element {
     const guard = ensureSettle();
     if (!guard.allowed) return;
     const { friendId, balance: bal } = guard;
-
-    const settlement: StoredTransaction = {
-      id: crypto.randomUUID(),
-      type: "settlement",
-      friendId,
-      total: null,
-      payer: null,
-      participants: [
-        { id: "you", amount: Math.max(-bal, 0) },
-        { id: friendId, amount: Math.max(bal, 0) },
-      ],
-      effects: [
-        {
-          friendId,
-          delta: -bal,
-          share: Math.abs(bal),
-        },
-      ],
-      friendIds: [friendId],
-      createdAt: new Date().toISOString(),
-    } as StoredTransaction;
-    setTransactions((prev) => [settlement, ...prev]);
-  }, [ensureSettle, setTransactions]);
+    addSettlement(friendId, bal);
+  }, [addSettlement, ensureSettle]);
 
   const handleDeleteTx = useCallback(
     (id: string) => {
       const ok = confirm("Delete this transaction permanently?");
       if (!ok) return;
-      setTransactions((prev) => prev.filter((transaction) => transaction.id !== id));
+      removeTransaction(id);
     },
-    [setTransactions]
+    [removeTransaction]
   );
 
   const handleRequestEdit = useCallback((transaction: FriendTransaction) => {
@@ -155,13 +135,9 @@ export default function LegacyAppShell(): JSX.Element {
 
   const handleSaveEditedTx = useCallback(
     (updated: StoredTransaction) => {
-      setTransactions((prev) =>
-        prev.map((transaction) =>
-          transaction.id === updated.id ? updated : transaction
-        )
-      );
+      updateTransaction(updated);
     },
-    [setTransactions]
+    [updateTransaction]
   );
 
   const handleReset = useCallback(() => {
@@ -329,13 +305,13 @@ export default function LegacyAppShell(): JSX.Element {
             selectedFriend={selectedFriend}
             selectedBalance={selectedBalance}
             friendsById={friendsById}
-            transactions={friendTransactions}
+            transactions={transactionsForSelectedFriend}
             txFilter={txFilter}
             categories={CATEGORIES}
             onSplit={handleSplit}
             onSettle={handleSettle}
             onFilterChange={setTxFilter}
-            onClearFilter={() => setTxFilter("All")}
+            onClearFilter={clearFilter}
             onRequestEdit={handleRequestEdit}
             onDeleteTransaction={handleDeleteTx}
           />

@@ -1,9 +1,12 @@
 import { describe, expect, beforeEach, it } from "vitest";
 import {
+  clearAllBudgets,
   selectBudgetAggregates,
   selectBudgetForCategory,
   selectBudgetTotals,
   selectBudgets,
+  selectCategorySpendForMonth,
+  selectPreviousMonthCategorySpend,
   setCategoryBudget,
   setTransactions,
   resetTransactionsStore,
@@ -126,5 +129,46 @@ describe("transactionsStore budgets", () => {
 
     const persisted = loadTransactionsState();
     expect(persisted?.budgets).toEqual({ Food: 25, Drinks: 15 });
+  });
+
+  it("clears all budgets at once", () => {
+    setCategoryBudget("Food", 10);
+    setCategoryBudget("Travel", 25);
+    expect(selectBudgets()).toEqual({ Food: 10, Travel: 25 });
+    clearAllBudgets();
+    expect(selectBudgets()).toEqual({});
+  });
+
+  it("derives category spend per month and previous month snapshots", () => {
+    const mayDate = new Date(Date.UTC(2024, 4, 10, 12)).toISOString();
+    const juneDate = new Date(Date.UTC(2024, 5, 5, 9)).toISOString();
+    const aprilDate = new Date(Date.UTC(2024, 3, 28, 15)).toISOString();
+
+    setTransactions([
+      sampleTransaction("t1", "Food", 20, { createdAt: mayDate }),
+      sampleTransaction("t2", "Food", 30, { createdAt: juneDate }),
+      sampleTransaction("t3", "Drinks", 15, { createdAt: mayDate }),
+      sampleTransaction("t4", "Travel", 40, { createdAt: aprilDate }),
+      sampleTransaction("t5", "Travel", 10, { createdAt: juneDate }),
+    ]);
+
+    expect(selectCategorySpendForMonth("2024-05")).toEqual({
+      Food: 20,
+      Drinks: 15,
+    });
+
+    expect(selectCategorySpendForMonth("2024-06")).toEqual({
+      Food: 30,
+      Travel: 10,
+    });
+
+    expect(
+      selectPreviousMonthCategorySpend(new Date("2024-06-18T00:00:00Z"))
+    ).toEqual({
+      Food: 20,
+      Drinks: 15,
+    });
+
+    expect(selectPreviousMonthCategorySpend(new Date("2024-01-01"))).toEqual({});
   });
 });

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, Suspense, lazy } from "react";
+import { useCallback, useMemo, useState, Suspense, lazy, useEffect } from "react";
 import { CATEGORIES } from "../../lib/categories";
 import { useLegacyFriendManagement } from "../../hooks/useLegacyFriendManagement";
 import { useLegacyTransactions } from "../../hooks/useLegacyTransactions";
@@ -8,6 +8,7 @@ import AnalyticsPanel from "../../components/legacy/AnalyticsPanel";
 import RestoreSnapshotModal from "../../components/legacy/RestoreSnapshotModal";
 import type { StoredTransaction, UISnapshot } from "../../types/legacySnapshot";
 import type { FriendTransaction } from "../../hooks/useLegacyTransactions";
+import { setTransactions as syncTransactionsStore } from "../../state/transactionsStore";
 
 const AddFriendModal = lazy(() => import("../../components/AddFriendModal"));
 const EditTransactionModal = lazy(
@@ -159,6 +160,10 @@ export default function LegacyAppShell(): JSX.Element {
     anchor.remove();
     URL.revokeObjectURL(url);
   }, [friends, selectedId, transactions]);
+
+  useEffect(() => {
+    syncTransactionsStore(transactions);
+  }, [transactions]);
 
   const handleRestoreFile = useCallback(
     async (file: File) => {

@@ -1,0 +1,138 @@
+.manager {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.actionButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.helperText {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tableWrapper {
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  background: rgba(22, 24, 31, 0.96);
+  backdrop-filter: blur(6px);
+  z-index: 1;
+}
+
+.table th,
+.table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.table tbody tr:last-of-type th,
+.table tbody tr:last-of-type td {
+  border-bottom: none;
+}
+
+.numeric {
+  text-align: right;
+}
+
+.inputGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.currency {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.input {
+  width: 120px;
+  background: #11131a;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px rgba(108, 243, 167, 0.15);
+}
+
+.status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.progress {
+  width: 120px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  width: 0;
+  background: var(--brand);
+  transition: width 0.2s ease;
+}
+
+.progressBarOver {
+  background: var(--danger);
+}
+
+.overBudget th,
+.overBudget td {
+  background: rgba(255, 107, 107, 0.06);
+}
+
+@media (max-width: 720px) {
+  .tableWrapper {
+    max-height: 360px;
+  }
+
+  .table {
+    min-width: 100%;
+  }
+
+  .input {
+    width: 100px;
+  }
+
+  .progress {
+    width: 100px;
+  }
+}

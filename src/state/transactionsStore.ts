@@ -251,6 +251,108 @@ export function selectBudgetForCategory(category: string): number | null {
   return typeof value === "number" ? value : null;
 }
 
+export function clearAllBudgets(): void {
+  withState((previous) => ({
+    ...previous,
+    budgets: {},
+  }));
+}
+
+function getTransactionTimestamp(
+  transaction: TransactionRecord
+): string | null {
+  const record = transaction as Record<string, unknown>;
+  const createdAt = record.createdAt;
+  const updatedAt = record.updatedAt;
+
+  const normalize = (value: unknown): string | null => {
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value.toISOString();
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return new Date(value).toISOString();
+    }
+    return null;
+  };
+
+  return normalize(createdAt) ?? normalize(updatedAt);
+}
+
+function getMonthKeyFromDate(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+function getMonthKeyForTransaction(
+  transaction: TransactionRecord
+): string | null {
+  const timestamp = getTransactionTimestamp(transaction);
+  if (!timestamp) return null;
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return null;
+  return getMonthKeyFromDate(date);
+}
+
+function computeCategorySpendingByMonth(
+  transactions: readonly TransactionRecord[]
+): Map<string, Map<string, number>> {
+  const monthly = new Map<string, Map<string, number>>();
+  for (const transaction of transactions) {
+    const monthKey = getMonthKeyForTransaction(transaction);
+    if (!monthKey) continue;
+    const category = normalizeCategoryName(transaction.category);
+    const amount = getShareForYou(transaction);
+    if (amount <= 0) continue;
+    if (!monthly.has(monthKey)) {
+      monthly.set(monthKey, new Map());
+    }
+    const monthMap = monthly.get(monthKey)!;
+    const current = monthMap.get(category) ?? 0;
+    monthMap.set(category, roundToCents(current + amount));
+  }
+  return monthly;
+}
+
+export function selectCategorySpendForMonth(
+  monthKey: string
+): Record<string, number> {
+  if (typeof monthKey !== "string" || monthKey.trim().length === 0) {
+    return {};
+  }
+  const monthly = computeCategorySpendingByMonth(state.transactions);
+  const map = monthly.get(monthKey);
+  if (!map) {
+    return {};
+  }
+  const result: Record<string, number> = {};
+  for (const [category, amount] of map.entries()) {
+    result[category] = amount;
+  }
+  return result;
+}
+
+function getPreviousMonthKey(reference: Date): string {
+  const year = reference.getUTCFullYear();
+  const month = reference.getUTCMonth();
+  const prevMonthDate = new Date(Date.UTC(year, month - 1, 1));
+  return getMonthKeyFromDate(prevMonthDate);
+}
+
+export function selectPreviousMonthCategorySpend(
+  referenceDate: Date = new Date()
+): Record<string, number> {
+  const safeDate =
+    referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime())
+      ? referenceDate
+      : new Date();
+  const monthKey = getPreviousMonthKey(safeDate);
+  return selectCategorySpendForMonth(monthKey);
+}
+
 export function selectBudgetAggregates(): BudgetAggregate[] {
   const categories = new Set<string>();
   for (const transaction of state.transactions) {

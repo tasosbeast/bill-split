@@ -369,9 +369,8 @@ function parseTemplates(
       participants.unshift({ id: "you", amount: 0 });
     }
 
-    const recurrence = sanitizeTemplateRecurrenceRaw(record.recurrence);
-
     const record = entry;
+    const recurrence = sanitizeTemplateRecurrenceRaw(record.recurrence);
     const template: StoredSnapshotTemplate = {
       ...record,
       id,

@@ -146,6 +146,64 @@ export default function LegacyAppShell(): JSX.Element {
     [pendingTemplate, handleAutomation, handleSplit]
   );
 
+  const handleAutomation = useCallback(
+    (transaction: StoredTransaction, automation: SplitAutomationRequest | null) => {
+      if (!automation || !automation.template) return;
+      const templateRequest = automation.template;
+      const existing = templateRequest?.templateId
+        ? templates.find((entry) => entry.id === templateRequest.templateId) ?? null
+        : null;
+      const record = templateFromTransaction(transaction, templateRequest, existing ?? undefined);
+      setTemplates((prev) => {
+        const next = [...prev];
+        const index = next.findIndex((entry) => entry.id === record.id);
+        if (index >= 0) {
+          next[index] = record;
+        } else {
+          next.unshift(record);
+        }
+        return next;
+      });
+    },
+    [setTemplates, templates]
+  );
+
+  const handleApplyTemplate = useCallback((template: TransactionTemplate) => {
+    setDraftPreset(buildDraftFromTemplate(template));
+  }, []);
+
+  const handleDeleteTemplate = useCallback(
+    (templateId: string) => {
+      setTemplates((prev) => prev.filter((entry) => entry.id !== templateId));
+      setDraftPreset((prev) => (prev?.templateId === templateId ? null : prev));
+    },
+    [setTemplates]
+  );
+
+  const handleGenerateFromTemplate = useCallback(
+    (template: TransactionTemplate) => {
+      const transaction = buildSplitTransaction({
+        total: template.total,
+        payer: template.payer,
+        participants: template.participants,
+        category: template.category,
+        note: template.note ?? template.name,
+        templateId: template.id,
+        templateName: template.name,
+      }) as StoredTransaction;
+      addTransaction(transaction);
+      if (template.recurrence) {
+        const nextRecurrence = advanceNextOccurrence(template.recurrence);
+        setTemplates((prev) =>
+          prev.map((entry) =>
+            entry.id === template.id ? { ...entry, recurrence: nextRecurrence } : entry
+          )
+        );
+      }
+    },
+    [addTransaction, setTemplates]
+  );
+
   const openRestoreModal = useCallback(() => setShowRestoreModal(true), []);
   const closeRestoreModal = useCallback(() => setShowRestoreModal(false), []);
 
@@ -366,6 +424,7 @@ export default function LegacyAppShell(): JSX.Element {
             txFilter={txFilter}
             categories={CATEGORIES}
             onSplit={handleSplit}
+            onAutomation={handleAutomation}
             onSettle={handleSettle}
             onFilterChange={setTxFilter}
             onClearFilter={clearFilter}

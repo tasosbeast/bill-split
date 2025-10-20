@@ -27,6 +27,7 @@ interface TransactionsPanelProps {
   txFilter: string;
   categories: string[];
   onSplit: (transaction: Transaction) => void;
+  onAutomation?: (transaction: Transaction, automation: unknown) => void;
   onSettle: () => void;
   onFilterChange: (value: string) => void;
   onClearFilter: () => void;
@@ -61,6 +62,7 @@ function TransactionsPanel({
   txFilter,
   categories,
   onSplit,
+  onAutomation,
   onSettle,
   onFilterChange,
   onClearFilter,

@@ -62,6 +62,12 @@ export default function SplitForm({
     createDefaultParticipants(defaultFriendId)
   );
   const [addFriendId, setAddFriendId] = useState("");
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [scheduleRecurring, setScheduleRecurring] = useState(false);
+  const [frequency, setFrequency] = useState("monthly");
+  const [nextOccurrence, setNextOccurrence] = useState("");
+  const [reminderDays, setReminderDays] = useState("2");
 
   const friendsById = useMemo(() => {
     const map = new Map();
@@ -253,12 +259,48 @@ export default function SplitForm({
       nextPayer = YOU_ID;
     }
 
+    let automationRequest = null;
+    if (saveAsTemplate || scheduleRecurring) {
+      const trimmedName = templateName.trim();
+      if (!trimmedName) {
+        setError("Name your template to save it for later.");
+        return;
+      }
+      let recurrence = null;
+      if (scheduleRecurring) {
+        const dateValue = nextOccurrence.trim();
+        if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(dateValue)) {
+          setError("Select the next occurrence date.");
+          return;
+        }
+        const parsedReminder = Number(reminderDays);
+        const reminderDaysBefore =
+          Number.isFinite(parsedReminder) && parsedReminder >= 0
+            ? Math.floor(parsedReminder)
+            : null;
+        recurrence = {
+          frequency,
+          nextOccurrence: dateValue,
+          reminderDaysBefore,
+        };
+      }
+      automationRequest = {
+        template: {
+          templateId: draft?.templateId ?? null,
+          name: trimmedName,
+          recurrence,
+        },
+      };
+    }
+
     const transaction = buildSplitTransaction({
       total: rawTotal,
       payer: nextPayer,
       participants: normalizedParticipants,
       category,
       note: note.trim(),
+      templateId: automationRequest?.template?.templateId ?? undefined,
+      templateName: automationRequest?.template?.name ?? undefined,
     });
 
     if (draft?.templateId) {
@@ -291,6 +333,9 @@ export default function SplitForm({
     if (!transaction) return;
 
     onSplit(transaction);
+    if (automationRequest && typeof onAutomation === "function") {
+      onAutomation(transaction, automationRequest);
+    }
 
     setBill("");
     setNote("");
@@ -299,6 +344,12 @@ export default function SplitForm({
     setParticipants(createDefaultParticipants(defaultFriendId));
     setAddFriendId("");
     setError("");
+    setSaveAsTemplate(false);
+    setTemplateName("");
+    setScheduleRecurring(false);
+    setFrequency("monthly");
+    setNextOccurrence("");
+    setReminderDays("2");
   }
 
   function handleRequestTemplate(intent) {
@@ -496,6 +547,116 @@ export default function SplitForm({
           onChange={(e) => setNote(e.target.value)}
           placeholder="Optional description"
         />
+      </div>
+
+      <div className="card stack-sm">
+        <div>
+          <div className="fw-600">Automation</div>
+          <div className="kicker">
+            Save this split for quick reuse or schedule it on a cadence.
+          </div>
+        </div>
+
+        <label className="row gap-8 align-center" htmlFor="template-toggle">
+          <input
+            id="template-toggle"
+            type="checkbox"
+            checked={saveAsTemplate}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              setSaveAsTemplate(checked);
+              if (!checked) {
+                setScheduleRecurring(false);
+              }
+            }}
+          />
+          <span>Save as a reusable template</span>
+        </label>
+
+        <label className="row gap-8 align-center" htmlFor="recurring-toggle">
+          <input
+            id="recurring-toggle"
+            type="checkbox"
+            checked={scheduleRecurring}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              setScheduleRecurring(checked);
+              if (checked) {
+                setSaveAsTemplate(true);
+              }
+            }}
+          />
+          <span>Mark as a recurring expense</span>
+        </label>
+
+        {(saveAsTemplate || scheduleRecurring) && (
+          <div>
+            <label className="kicker" htmlFor="template-name">
+              Template name
+            </label>
+            <input
+              id="template-name"
+              className="input"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="e.g. Monthly rent with Alex"
+            />
+          </div>
+        )}
+
+        {scheduleRecurring && (
+          <div className="list list-gap-sm">
+            <div>
+              <label className="kicker" htmlFor="recurrence-frequency">
+                Frequency
+              </label>
+              <select
+                id="recurrence-frequency"
+                className="select"
+                value={frequency}
+                onChange={(e) => setFrequency(e.target.value)}
+              >
+                {FREQUENCY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="kicker" htmlFor="recurrence-date">
+                Next occurrence
+              </label>
+              <input
+                id="recurrence-date"
+                className="input"
+                type="date"
+                value={nextOccurrence}
+                onChange={(e) => setNextOccurrence(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="kicker" htmlFor="recurrence-reminder">
+                Reminder (days before)
+              </label>
+              <input
+                id="recurrence-reminder"
+                className="input"
+                type="number"
+                min="0"
+                value={reminderDays}
+                onChange={(e) => setReminderDays(e.target.value)}
+              />
+            </div>
+
+            <div className="helper">
+              Recurring templates appear above with a “Generate now” button when
+              they’re due.
+            </div>
+          </div>
+        )}
       </div>
 
       {error && <div className="error">{error}</div>}

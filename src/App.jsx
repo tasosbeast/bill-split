@@ -219,7 +219,7 @@ export default function App() {
           throw new Error("Unexpected restore payload format");
         }
         const data = JSON.parse(reader.result);
-        const { restoreSnapshot } = await import("./lib/restoreSnapshot.js");
+        const { restoreSnapshot } = await import("./lib/restoreSnapshot");
         const {
           friends: safeFriends,
           transactions: restoredTransactions,

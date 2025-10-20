@@ -100,7 +100,7 @@ body {
   transition: background 120ms ease, color 120ms ease;
 }
 
-.segmented-control__btn:hover {
+.segmented-control__btn:not(.segmented-control__btn--active):hover {
   color: var(--text);
 }
 

@@ -16,10 +16,13 @@ npm install
 
 ## Available scripts
 
-Run the linter to ensure the codebase passes the automated quality checks:
+Run local quality checks before committing:
 
 ```bash
 npm run lint
+npm run typecheck
+npm test
+npm run build
 ```
 
 Start the development server and open the application in your browser to inspect UI changes:

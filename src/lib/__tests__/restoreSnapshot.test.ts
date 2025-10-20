@@ -26,6 +26,9 @@ function baseData() {
   };
 }
 
+type Snapshot = ReturnType<typeof baseData>;
+type RawTransactionEntry = Snapshot["transactions"][number];
+
 describe("restoreSnapshot", () => {
   beforeEach(() => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -67,19 +70,20 @@ describe("restoreSnapshot", () => {
 
   it("defaults unknown categories to 'Other' and reports the warning", () => {
     const data = baseData();
-    data.transactions = [
-      {
-        id: "tx-unknown",
-        type: "split",
-        total: 10,
-        payer: "you",
-        participants: [
-          { id: "you", amount: 5 },
-          { id: "friend-1", amount: 5 },
-        ],
-        category: "mystery-category",
-      },
-    ];
+    const replacement: RawTransactionEntry = {
+      id: "tx-unknown",
+      type: "split",
+      total: 10,
+      payer: "you",
+      participants: [
+        { id: "you", amount: 5 },
+        { id: "friend-1", amount: 5 },
+      ],
+      note: "",
+      category: "mystery-category",
+      createdAt: "2024-05-01T00:00:00.000Z",
+    };
+    data.transactions = [replacement];
 
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const result = restoreSnapshot(data);
@@ -110,26 +114,30 @@ describe("restoreSnapshot", () => {
 
   it("tracks skipped transactions with context when entries are invalid", () => {
     const data = baseData();
-    data.transactions = [
-      null,
-      {
-        id: "tx-invalid",
-        type: "split",
-        total: 20,
-        participants: [{ id: "you", amount: 10 }],
-        category: "Food",
-      },
-      {
-        id: "tx-valid",
-        type: "split",
-        total: 12,
-        participants: [
-          { id: "you", amount: 6 },
-          { id: "friend-1", amount: 6 },
-        ],
-        category: "Food",
-      },
-    ];
+    const invalid: RawTransactionEntry = {
+      id: "tx-invalid",
+      type: "split",
+      total: 20,
+      payer: "you",
+      participants: [{ id: "you", amount: 10 }],
+      note: "",
+      category: "Food",
+      createdAt: "2024-05-02T00:00:00.000Z",
+    };
+    const valid: RawTransactionEntry = {
+      id: "tx-valid",
+      type: "split",
+      total: 12,
+      payer: "you",
+      participants: [
+        { id: "you", amount: 6 },
+        { id: "friend-1", amount: 6 },
+      ],
+      note: "",
+      category: "Food",
+      createdAt: "2024-05-03T00:00:00.000Z",
+    };
+    data.transactions = [null as unknown, invalid, valid] as unknown as Snapshot["transactions"];
 
     const result = restoreSnapshot(data);
 

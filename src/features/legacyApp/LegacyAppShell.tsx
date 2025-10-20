@@ -129,9 +129,17 @@ function addInterval(
   if (frequency === "weekly") {
     date.setUTCDate(date.getUTCDate() + 7);
   } else if (frequency === "monthly") {
+    const originalDate = date.getUTCDate();
     date.setUTCMonth(date.getUTCMonth() + 1);
+    if (date.getUTCDate() !== originalDate) {
+      date.setUTCDate(0);
+    }
   } else {
+    const originalDate = date.getUTCDate();
     date.setUTCFullYear(date.getUTCFullYear() + 1);
+    if (date.getUTCDate() !== originalDate) {
+      date.setUTCDate(0);
+    }
   }
   const nextYear = date.getUTCFullYear();
   const nextMonth = String(date.getUTCMonth() + 1).padStart(2, "0");

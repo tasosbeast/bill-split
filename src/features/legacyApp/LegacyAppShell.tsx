@@ -95,7 +95,6 @@ export default function LegacyAppShell(): JSX.Element {
     [addTransaction]
   );
 
-  const openAnalytics = useCallback(() => setActiveView("analytics"), []);
   const navigateHome = useCallback(() => setActiveView("home"), []);
 
   const openRestoreModal = useCallback(() => setShowRestoreModal(true), []);
@@ -224,59 +223,59 @@ export default function LegacyAppShell(): JSX.Element {
       ) : null}
       <header className="header">
         <div className="brand">Bill Split</div>
-        <div className="row gap-8 flex-wrap">
-          <nav className="row gap-8" aria-label="Primary navigation">
+        <div className="header-controls">
+          <nav className="segmented-control" aria-label="Primary navigation">
             <button
               type="button"
-              className={activeView === "home" ? "button" : "btn-ghost"}
+              className={
+                "segmented-control__btn" +
+                (activeView === "home" ? " segmented-control__btn--active" : "")
+              }
+              aria-current={activeView === "home" ? "page" : undefined}
               onClick={() => setActiveView("home")}
             >
               Splits
             </button>
             <button
               type="button"
-              className={activeView === "analytics" ? "button" : "btn-ghost"}
+              className={
+                "segmented-control__btn" +
+                (activeView === "analytics"
+                  ? " segmented-control__btn--active"
+                  : "")
+              }
+              aria-current={activeView === "analytics" ? "page" : undefined}
               onClick={() => setActiveView("analytics")}
             >
               Analytics
             </button>
           </nav>
 
-          <span className="badge">React + Vite</span>
-
-          {activeView === "home" && (
+          <div className="action-group" role="group" aria-label="Data actions">
             <button
-              className="button btn-ghost"
-              onClick={openAnalytics}
-              title="View analytics for all transactions"
+              className="button btn-ghost action-group__btn"
+              onClick={handleBackup}
+              title="Export all data to a JSON file"
             >
-              Analytics
+              Backup
             </button>
-          )}
 
-          <button
-            className="button btn-ghost"
-            onClick={handleBackup}
-            title="Export all data to a JSON file"
-          >
-            Backup
-          </button>
+            <button
+              className="button btn-ghost action-group__btn"
+              onClick={openRestoreModal}
+              title="Import data from a JSON file"
+            >
+              Restore
+            </button>
 
-          <button
-            className="button btn-ghost"
-            onClick={openRestoreModal}
-            title="Import data from a JSON file"
-          >
-            Restore
-          </button>
-
-          <button
-            className="button btn-ghost"
-            onClick={handleReset}
-            title="Clear all data and restart"
-          >
-            Reset Data
-          </button>
+            <button
+              className="button btn-ghost action-group__btn"
+              onClick={handleReset}
+              title="Clear all data and restart"
+            >
+              Reset Data
+            </button>
+          </div>
         </div>
       </header>
 

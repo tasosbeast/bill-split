@@ -14,6 +14,7 @@ import {
   setTransactionsPersistenceStorage,
   clearTransactionsStatePersistence,
   TRANSACTIONS_STATE_STORAGE_KEY,
+  type PersistedTransactionsState,
 } from "../persistence";
 
 function sampleTransaction(
@@ -117,7 +118,7 @@ describe("transactionsStore budgets", () => {
 
     const raw = storage.getItem(TRANSACTIONS_STATE_STORAGE_KEY);
     expect(raw).toBeTruthy();
-    const parsed = JSON.parse(raw!);
+    const parsed = JSON.parse(raw!) as PersistedTransactionsState;
     expect(parsed.budgets).toEqual({ Food: 25, Drinks: 15 });
 
     resetTransactionsStore();

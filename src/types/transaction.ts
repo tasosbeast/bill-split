@@ -1,4 +1,7 @@
-export type TransactionType = "split" | "settlement" | string;
+export type TransactionType =
+  | "split"
+  | "settlement"
+  | (string & Record<never, never>);
 
 export interface TransactionParticipant {
   id: string;

@@ -35,7 +35,6 @@ src/
   assets/          # Static images and icons
   components/      # Reusable UI (Analytics*, Transactions, Modals, etc.)
   lib/             # Domain utilities (money, storage, analytics JS helpers)
-  pages/           # Route-level views (Analytics dashboard in TSX)
   state/           # Transaction store and persistence helpers (TypeScript)
   types/           # Shared TypeScript declarations
   utils/           # TypeScript analytics utilities plus tests
@@ -93,7 +92,7 @@ Guardrail: If either schema changes, provide an upgrade path (`upgradeTransactio
 | Analytics Agent        | Compute spend totals, monthly buckets, and comparisons.         | `src/utils/analytics.ts`, `src/utils/__tests__/analytics.test.ts`              | Sanitized transactions, budgets      | `totalSpendPerCategory`, `monthlySpendPerCategory`, `compareBudgetByCategory`, etc. | Active                           |
 | Legacy Analytics Agent | Supply dashboard-ready aggregates for current React components. | `src/lib/analytics.js`                                                         | UI snapshot transactions             | Category totals, breakdowns, friend balances                                        | Active (until TS port completes) |
 | Balances Agent         | Determine friend balances and settlements for UI cards.         | `src/lib/analytics.js` (`computeFriendBalances`)                               | Transaction effects                  | Sorted friend balance list                                                          | Active                           |
-| UI Orchestrator        | Compose agent outputs into dashboard and transactions UI.       | `src/App.jsx`, `src/pages/AnalyticsDashboard.tsx`, `src/components/Analytics*` | Selectors, agent outputs             | Rendered React views                                                                | Active                           |
+| UI Orchestrator        | Compose agent outputs into dashboard and transactions UI.       | `src/App.jsx`, `src/components/AnalyticsDashboard.jsx`, `src/components/Analytics*` | Selectors, agent outputs             | Rendered React views                                                                | Active                           |
 
 Status legend: Active = implemented, In Progress = being built, Planned = design only.
 

@@ -15,10 +15,9 @@ interface AnalyticsPanelState {
 
 interface AnalyticsPanelProps {
   state: AnalyticsPanelState;
-  onNavigateHome: () => void;
 }
 
-function AnalyticsPanel({ state, onNavigateHome }: AnalyticsPanelProps) {
+function AnalyticsPanel({ state }: AnalyticsPanelProps) {
   return (
     <Suspense
       fallback={
@@ -28,7 +27,7 @@ function AnalyticsPanel({ state, onNavigateHome }: AnalyticsPanelProps) {
         </section>
       }
     >
-      <AnalyticsDashboard state={state} onNavigateHome={onNavigateHome} />
+      <AnalyticsDashboard state={state} />
     </Suspense>
   );
 }

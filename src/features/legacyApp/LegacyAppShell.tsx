@@ -95,8 +95,6 @@ export default function LegacyAppShell(): JSX.Element {
     [addTransaction]
   );
 
-  const navigateHome = useCallback(() => setActiveView("home"), []);
-
   const openRestoreModal = useCallback(() => setShowRestoreModal(true), []);
   const closeRestoreModal = useCallback(() => setShowRestoreModal(false), []);
 
@@ -280,7 +278,7 @@ export default function LegacyAppShell(): JSX.Element {
       </header>
 
       {activeView === "analytics" ? (
-        <AnalyticsPanel state={storeSnapshot} onNavigateHome={navigateHome} />
+        <AnalyticsPanel state={storeSnapshot} />
       ) : (
         <div className="layout">
           <FriendsPanel

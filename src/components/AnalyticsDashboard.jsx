@@ -35,7 +35,6 @@ function formatCurrency(value) {
 export default function AnalyticsDashboard({
   transactions,
   state,
-  onNavigateHome,
 }) {
   const sourceTransactions = useMemo(() => {
     if (Array.isArray(transactions)) {
@@ -226,7 +225,7 @@ export default function AnalyticsDashboard({
             Track shared expenses and spot trends at a glance.
           </p>
         </div>
-        {(onNavigateHome || hasActiveFilters) && (
+        {hasActiveFilters && (
           <div className="analytics-view__actions">
             {hasActiveFilters && (
               <button
@@ -235,15 +234,6 @@ export default function AnalyticsDashboard({
                 onClick={resetFilters}
               >
                 Reset filters
-              </button>
-            )}
-            {onNavigateHome && (
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={onNavigateHome}
-              >
-                Back to app
               </button>
             )}
           </div>

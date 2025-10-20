@@ -9,7 +9,7 @@ import type {
 
 type SetStateAction<T> = T | ((prev: T) => T);
 
-interface LegacySnapshotUpdaters {
+export interface LegacySnapshotUpdaters {
   setFriends: (action: SetStateAction<LegacyFriend[]>) => void;
   setSelectedId: (action: SetStateAction<string | null>) => void;
   setTransactions: (action: SetStateAction<StoredTransaction[]>) => void;
@@ -17,7 +17,7 @@ interface LegacySnapshotUpdaters {
   reset: () => void;
 }
 
-interface UseLegacySnapshotResult {
+export interface UseLegacySnapshotResult {
   snapshot: UISnapshot;
   updaters: LegacySnapshotUpdaters;
 }

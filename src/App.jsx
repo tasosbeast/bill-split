@@ -8,12 +8,11 @@ import {
 } from "react";
 import "./index.css";
 import { CATEGORIES } from "./lib/categories";
-import { computeBalances } from "./lib/compute";
 import {
   getTransactionEffects,
   transactionIncludesFriend,
 } from "./lib/transactions";
-import { useLegacySnapshot } from "./hooks/useLegacySnapshot";
+import { useFriendSelection } from "./hooks/useFriendSelection";
 
 const FriendList = lazy(() => import("./components/FriendList"));
 const Balances = lazy(() => import("./components/Balances"));
@@ -24,35 +23,26 @@ const AnalyticsDashboard = lazy(() => import("./components/AnalyticsDashboard"))
 const EditTransactionModal = lazy(() => import("./components/EditTransactionModal"));
 
 export default function App() {
-  const { snapshot, updaters } = useLegacySnapshot();
-  const { friends, selectedId, transactions } = snapshot;
   const {
-    setFriends,
-    setSelectedId,
-    setTransactions,
-    replaceSnapshot,
-    reset: resetSnapshot,
-  } = updaters;
+    snapshot,
+    updaters,
+    friends,
+    selectedId,
+    selectedFriend,
+    friendsById,
+    balances,
+    selectedBalance,
+    createFriend,
+    selectFriend,
+    ensureSettle,
+  } = useFriendSelection();
+  const { transactions } = snapshot;
+  const { setTransactions, replaceSnapshot, reset: resetSnapshot } = updaters;
   const [activeView, setActiveView] = useState("home");
   const [txFilter, setTxFilter] = useState("All");
   const [showAdd, setShowAdd] = useState(false);
   const [editTx, setEditTx] = useState(null);
   const [restoreFeedback, setRestoreFeedback] = useState(null);
-
-  const selectedFriend = useMemo(() => {
-    const f = friends.find((fr) => fr.id === selectedId) || null;
-    return f;
-  }, [friends, selectedId]);
-
-  const friendsById = useMemo(() => {
-    const map = new Map();
-    for (const f of friends) {
-      map.set(f.id, f);
-    }
-    return map;
-  }, [friends]);
-
-  const balances = useMemo(() => computeBalances(transactions), [transactions]);
 
   const storeSnapshot = useMemo(
     () => ({
@@ -77,9 +67,6 @@ export default function App() {
       .filter(Boolean);
   }, [transactions, selectedId, txFilter]);
 
-  // Current balance for selected friend (for pill & settle button visibility)
-  const selectedBalance = balances.get(selectedId) ?? 0;
-
   // Hidden input ref για Restore
   const fileInputRef = useRef(null);
 
@@ -95,47 +82,37 @@ export default function App() {
 
   const navigateHome = useCallback(() => setActiveView("home"), []);
 
-  const normalizedFriendEmails = useMemo(
-    () => new Set(friends.map((f) => (f.email ?? "").trim().toLowerCase())),
-    [friends]
-  );
-
   const handleCreateFriend = useCallback(
     (friend) => {
-      const normalizedEmail = (friend?.email ?? "").trim().toLowerCase();
-      if (normalizedFriendEmails.has(normalizedEmail)) {
-        alert("A friend with this email already exists.");
-        return;
-      }
-      setFriends((prev) => [...prev, friend]);
-      setSelectedId(friend.id);
+      const outcome = createFriend(friend);
+      if (!outcome.ok) return;
     },
-    [normalizedFriendEmails, setFriends, setSelectedId]
+    [createFriend]
   );
 
   function handleSettle() {
-    if (!selectedId) return;
-    const bal = balances.get(selectedId) ?? 0;
-    if (bal === 0) return;
+    const guard = ensureSettle();
+    if (!guard.allowed) return;
+    const { friendId, balance: bal } = guard;
 
     const tx = {
       id: crypto.randomUUID(),
       type: "settlement",
-      friendId: selectedId,
+      friendId,
       total: null,
       payer: null,
       participants: [
         { id: "you", amount: Math.max(-bal, 0) },
-        { id: selectedId, amount: Math.max(bal, 0) },
+        { id: friendId, amount: Math.max(bal, 0) },
       ],
       effects: [
         {
-          friendId: selectedId,
+          friendId,
           delta: -bal,
           share: Math.abs(bal),
         },
       ],
-      friendIds: [selectedId],
+      friendIds: [friendId],
       createdAt: new Date().toISOString(),
     };
     setTransactions((prev) => [tx, ...prev]);
@@ -356,7 +333,7 @@ export default function App() {
               <FriendList
                 friends={friends}
                 selectedId={selectedId}
-                onSelect={setSelectedId}
+                onSelect={selectFriend}
               />
             </Suspense>
 
@@ -375,7 +352,7 @@ export default function App() {
               <Balances
                 friends={friends}
                 balances={balances}
-                onJumpTo={(id) => setSelectedId(id)}
+                onJumpTo={selectFriend}
               />
             </Suspense>
           </section>

@@ -127,6 +127,11 @@ function Transactions({ friend, friendsById, items, onRequestEdit, onDelete }) {
                     <strong>Category</strong> {t.category}
                   </span>
                 )}
+                {t.templateName && (
+                  <span className="badge-chip">
+                    <strong>Template</strong> {t.templateName}
+                  </span>
+                )}
                 {t.total ? (
                   <span className="badge-chip">
                     <strong>Total</strong> {formatEUR(t.total)}

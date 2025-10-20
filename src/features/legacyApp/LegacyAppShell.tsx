@@ -1,4 +1,11 @@
-import { useCallback, useMemo, useState, Suspense, lazy, useEffect } from "react";
+import {
+  useCallback,
+  useMemo,
+  useState,
+  Suspense,
+  lazy,
+  useEffect,
+} from "react";
 import { CATEGORIES } from "../../lib/categories";
 import { useLegacyFriendManagement } from "../../hooks/useLegacyFriendManagement";
 import { useLegacyTransactions } from "../../hooks/useLegacyTransactions";
@@ -9,6 +16,14 @@ import RestoreSnapshotModal from "../../components/legacy/RestoreSnapshotModal";
 import type { StoredTransaction, UISnapshot } from "../../types/legacySnapshot";
 import type { FriendTransaction } from "../../hooks/useLegacyTransactions";
 import { setTransactions as syncTransactionsStore } from "../../state/transactionsStore";
+import type {
+  TransactionTemplate,
+  TransactionTemplateRecurrence,
+  SplitDraftPreset,
+  RecurrenceFrequency,
+} from "../../types/transactionTemplate";
+import { roundToCents } from "../../lib/money";
+import { buildSplitTransaction } from "../../lib/transactions";
 
 const AddFriendModal = lazy(() => import("../../components/AddFriendModal"));
 const EditTransactionModal = lazy(
@@ -31,6 +46,108 @@ type FriendTransaction = StoredTransaction & {
 
 type EditableTransaction = FriendTransaction;
 
+interface SplitAutomationTemplateRequest {
+  templateId?: string | null;
+  name: string;
+  recurrence?: TransactionTemplateRecurrence | null;
+}
+
+interface SplitAutomationRequest {
+  template?: SplitAutomationTemplateRequest | null;
+}
+
+function generateTemplateId(): string {
+  if (typeof crypto?.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `template-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function cloneParticipants(
+  participants: StoredTransaction["participants"] | undefined
+): StoredTransaction["participants"] {
+  if (!Array.isArray(participants)) return [];
+  return participants.map((participant) => ({
+    id: participant.id,
+    amount: roundToCents(participant.amount ?? 0),
+  }));
+}
+
+function templateFromTransaction(
+  transaction: StoredTransaction,
+  request: SplitAutomationTemplateRequest,
+  existing?: TransactionTemplate | null
+): TransactionTemplate {
+  const timestamp = new Date().toISOString();
+  const participants = cloneParticipants(transaction.participants);
+  return {
+    id: existing?.id ?? request.templateId ?? generateTemplateId(),
+    name: request.name,
+    total: roundToCents(transaction.total ?? 0),
+    payer: transaction.payer ?? "you",
+    category: transaction.category ?? "Other",
+    note: transaction.note ?? null,
+    participants,
+    createdAt: existing?.createdAt ?? timestamp,
+    updatedAt: existing ? timestamp : null,
+    recurrence: request.recurrence ?? null,
+  };
+}
+
+function buildDraftFromTemplate(
+  template: TransactionTemplate
+): SplitDraftPreset {
+  const participants = cloneParticipants(template.participants);
+  return {
+    id: `template-${template.id}-${template.updatedAt ?? template.createdAt}`,
+    templateId: template.id,
+    templateName: template.name,
+    total: template.total,
+    payer: template.payer,
+    category: template.category,
+    note: template.note ?? "",
+    participants,
+    recurrence: template.recurrence ?? null,
+  };
+}
+
+function addInterval(
+  dateString: string,
+  frequency: RecurrenceFrequency
+): string {
+  const [yearStr, monthStr, dayStr] = dateString.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr) - 1;
+  const day = Number(dayStr);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return dateString;
+  }
+  const date = new Date(Date.UTC(year, month, day));
+  if (Number.isNaN(date.getTime())) {
+    return dateString;
+  }
+  if (frequency === "weekly") {
+    date.setUTCDate(date.getUTCDate() + 7);
+  } else if (frequency === "monthly") {
+    date.setUTCMonth(date.getUTCMonth() + 1);
+  } else {
+    date.setUTCFullYear(date.getUTCFullYear() + 1);
+  }
+  const nextYear = date.getUTCFullYear();
+  const nextMonth = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const nextDay = String(date.getUTCDate()).padStart(2, "0");
+  return `${nextYear}-${nextMonth}-${nextDay}`;
+}
+
+function advanceNextOccurrence(
+  recurrence: TransactionTemplateRecurrence
+): TransactionTemplateRecurrence {
+  return {
+    ...recurrence,
+    nextOccurrence: addInterval(recurrence.nextOccurrence, recurrence.frequency),
+  };
+}
+
 export default function LegacyAppShell(): JSX.Element {
   const {
     snapshot,
@@ -49,12 +166,14 @@ export default function LegacyAppShell(): JSX.Element {
     openAddModal,
     closeAddModal,
   } = useLegacyFriendManagement();
-  const { transactions } = snapshot;
-  const { setTransactions, replaceSnapshot, reset: resetSnapshot } = updaters;
+  const { transactions, templates } = snapshot;
+  const { setTransactions, setTemplates, replaceSnapshot, reset: resetSnapshot } =
+    updaters;
   const [activeView, setActiveView] = useState<"home" | "analytics">("home");
   const [editTx, setEditTx] = useState<EditableTransaction | null>(null);
   const [restoreFeedback, setRestoreFeedback] = useState<RestoreFeedback>(null);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [draftPreset, setDraftPreset] = useState<SplitDraftPreset | null>(null);
 
   const { state: transactionsState, handlers: transactionHandlers } =
     useLegacyTransactions({
@@ -92,8 +211,67 @@ export default function LegacyAppShell(): JSX.Element {
   const handleSplit = useCallback(
     (tx: StoredTransaction) => {
       addTransaction(tx);
+      setDraftPreset(null);
     },
     [addTransaction]
+  );
+
+  const handleAutomation = useCallback(
+    (transaction: StoredTransaction, automation: SplitAutomationRequest | null) => {
+      if (!automation || !automation.template) return;
+      const templateRequest = automation.template;
+      const existing = templateRequest?.templateId
+        ? templates.find((entry) => entry.id === templateRequest.templateId) ?? null
+        : null;
+      const record = templateFromTransaction(transaction, templateRequest, existing ?? undefined);
+      setTemplates((prev) => {
+        const next = [...prev];
+        const index = next.findIndex((entry) => entry.id === record.id);
+        if (index >= 0) {
+          next[index] = record;
+        } else {
+          next.unshift(record);
+        }
+        return next;
+      });
+    },
+    [setTemplates, templates]
+  );
+
+  const handleApplyTemplate = useCallback((template: TransactionTemplate) => {
+    setDraftPreset(buildDraftFromTemplate(template));
+  }, []);
+
+  const handleDeleteTemplate = useCallback(
+    (templateId: string) => {
+      setTemplates((prev) => prev.filter((entry) => entry.id !== templateId));
+      setDraftPreset((prev) => (prev?.templateId === templateId ? null : prev));
+    },
+    [setTemplates]
+  );
+
+  const handleGenerateFromTemplate = useCallback(
+    (template: TransactionTemplate) => {
+      const transaction = buildSplitTransaction({
+        total: template.total,
+        payer: template.payer,
+        participants: template.participants,
+        category: template.category,
+        note: template.note ?? template.name,
+        templateId: template.id,
+        templateName: template.name,
+      }) as StoredTransaction;
+      addTransaction(transaction);
+      if (template.recurrence) {
+        const nextRecurrence = advanceNextOccurrence(template.recurrence);
+        setTemplates((prev) =>
+          prev.map((entry) =>
+            entry.id === template.id ? { ...entry, recurrence: nextRecurrence } : entry
+          )
+        );
+      }
+    },
+    [addTransaction, setTemplates]
   );
 
   const openRestoreModal = useCallback(() => setShowRestoreModal(true), []);
@@ -155,6 +333,7 @@ export default function LegacyAppShell(): JSX.Element {
       friends,
       selectedId,
       transactions,
+      templates,
     };
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
@@ -170,7 +349,7 @@ export default function LegacyAppShell(): JSX.Element {
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
-  }, [friends, selectedId, transactions]);
+  }, [friends, selectedId, transactions, templates]);
 
   useEffect(() => {
     syncTransactionsStore(transactions);
@@ -187,6 +366,7 @@ export default function LegacyAppShell(): JSX.Element {
           friends: safeFriends,
           transactions: restoredTransactions,
           selectedId: normalizedSelectedId,
+          templates: restoredTemplates,
           skippedTransactions,
         } = restoreSnapshot(data);
 
@@ -194,6 +374,7 @@ export default function LegacyAppShell(): JSX.Element {
           friends: safeFriends,
           selectedId: normalizedSelectedId,
           transactions: restoredTransactions,
+          templates: restoredTemplates,
         });
 
         setRestoreFeedback(
@@ -296,13 +477,13 @@ export default function LegacyAppShell(): JSX.Element {
       ) : (
         <div className="layout">
           <FriendsPanel
-          friends={friends}
-          selectedFriendId={selectedId}
-          balances={balances}
-          onAddFriend={openAddModal}
-          onSelectFriend={selectFriend}
-          onRemoveFriend={handleRemoveFriend}
-        />
+            friends={friends}
+            selectedFriendId={selectedId}
+            balances={balances}
+            onAddFriend={openAddModal}
+            onSelectFriend={selectFriend}
+            onRemoveFriend={handleRemoveFriend}
+          />
 
           <TransactionsPanel
             friends={friends}
@@ -313,11 +494,17 @@ export default function LegacyAppShell(): JSX.Element {
             txFilter={txFilter}
             categories={CATEGORIES}
             onSplit={handleSplit}
+            onAutomation={handleAutomation}
             onSettle={handleSettle}
             onFilterChange={setTxFilter}
             onClearFilter={clearFilter}
             onRequestEdit={handleRequestEdit}
             onDeleteTransaction={handleDeleteTx}
+            templates={templates}
+            onUseTemplate={handleApplyTemplate}
+            onGenerateRecurring={handleGenerateFromTemplate}
+            onDeleteTemplate={handleDeleteTemplate}
+            draft={draftPreset}
           />
         </div>
       )}

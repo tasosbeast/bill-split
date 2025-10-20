@@ -6,6 +6,50 @@ import { buildSplitTransaction } from "../lib/transactions";
 
 const YOU_ID = "you";
 
+const FREQUENCY_OPTIONS = [
+  { value: "monthly", label: "Monthly" },
+  { value: "weekly", label: "Weekly" },
+  { value: "yearly", label: "Yearly" },
+];
+
+function todayIso() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatParticipantAmount(amount) {
+  const numeric = Number(amount);
+  if (!Number.isFinite(numeric) || numeric <= 0) return "";
+  return numeric.toFixed(2);
+}
+
+function normalizeDraftParticipants(entries = []) {
+  const seen = new Set();
+  const mapped = [];
+  for (const entry of entries) {
+    if (!entry || typeof entry.id !== "string") continue;
+    const id = entry.id.trim();
+    if (!id || seen.has(id)) continue;
+    mapped.push({ id, amount: formatParticipantAmount(entry.amount) });
+    seen.add(id);
+  }
+  if (!seen.has(YOU_ID)) {
+    mapped.unshift({ id: YOU_ID, amount: "" });
+  }
+  return mapped;
+}
+
+function createDefaultParticipants(defaultFriendId) {
+  const initial = [{ id: YOU_ID, amount: "" }];
+  if (defaultFriendId) {
+    initial.push({ id: defaultFriendId, amount: "" });
+  }
+  return initial;
+}
+
 function parseAmount(value) {
   if (value === null || value === undefined) return null;
   const trimmed = String(value).trim();
@@ -15,20 +59,28 @@ function parseAmount(value) {
   return roundToCents(num);
 }
 
-export default function SplitForm({ friends, defaultFriendId, onSplit }) {
+export default function SplitForm({
+  friends,
+  defaultFriendId,
+  onSplit,
+  onAutomation,
+  draft,
+}) {
   const [bill, setBill] = useState("");
   const [payer, setPayer] = useState(YOU_ID);
   const [category, setCategory] = useState("Other");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
-  const [participants, setParticipants] = useState(() => {
-    const initial = [{ id: YOU_ID, amount: "" }];
-    if (defaultFriendId) {
-      initial.push({ id: defaultFriendId, amount: "" });
-    }
-    return initial;
-  });
+  const [participants, setParticipants] = useState(() =>
+    createDefaultParticipants(defaultFriendId)
+  );
   const [addFriendId, setAddFriendId] = useState("");
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [scheduleRecurring, setScheduleRecurring] = useState(false);
+  const [frequency, setFrequency] = useState("monthly");
+  const [nextOccurrence, setNextOccurrence] = useState("");
+  const [reminderDays, setReminderDays] = useState("2");
 
   const friendsById = useMemo(() => {
     const map = new Map();
@@ -49,17 +101,61 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
   );
 
   useEffect(() => {
-    setParticipants(() => {
-      const next = [{ id: YOU_ID, amount: "" }];
-      if (defaultFriendId) {
-        next.push({ id: defaultFriendId, amount: "" });
-      }
-      return next;
-    });
+    if (draft) return;
+    setParticipants(createDefaultParticipants(defaultFriendId));
     setPayer(YOU_ID);
     setError("");
     setAddFriendId("");
-  }, [defaultFriendId]);
+    setSaveAsTemplate(false);
+    setTemplateName("");
+    setScheduleRecurring(false);
+    setNextOccurrence("");
+    setReminderDays("2");
+  }, [defaultFriendId, draft]);
+
+  useEffect(() => {
+    if (!draft) return;
+    setBill(draft.total ? String(draft.total) : "");
+    setCategory(draft.category || "Other");
+    setPayer(draft.payer || YOU_ID);
+    setNote(draft.note || "");
+    setParticipants(normalizeDraftParticipants(draft.participants));
+    setError("");
+    setAddFriendId("");
+    const hasTemplate = Boolean(draft.templateId || draft.templateName);
+    setSaveAsTemplate(hasTemplate);
+    const fallbackName = draft.templateName || draft.note || `${draft.category || "Split"}`;
+    setTemplateName(fallbackName);
+    if (draft.recurrence) {
+      setScheduleRecurring(true);
+      setFrequency(draft.recurrence.frequency);
+      setNextOccurrence(draft.recurrence.nextOccurrence);
+      setReminderDays(
+        draft.recurrence.reminderDaysBefore !== undefined &&
+          draft.recurrence.reminderDaysBefore !== null
+          ? String(draft.recurrence.reminderDaysBefore)
+          : "2"
+      );
+    } else {
+      setScheduleRecurring(false);
+      setFrequency("monthly");
+      setNextOccurrence("");
+      setReminderDays("2");
+    }
+  }, [draft]);
+
+  useEffect(() => {
+    if (scheduleRecurring && !nextOccurrence) {
+      setNextOccurrence(todayIso());
+    }
+  }, [scheduleRecurring, nextOccurrence]);
+
+  useEffect(() => {
+    if ((saveAsTemplate || scheduleRecurring) && !templateName.trim()) {
+      const fallback = note.trim() || `${category} split`;
+      setTemplateName(fallback);
+    }
+  }, [saveAsTemplate, scheduleRecurring, templateName, note, category]);
 
   const selectableFriends = useMemo(
     () => friends.filter((f) => !participantIds.has(f.id)),
@@ -223,29 +319,68 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
       nextPayer = YOU_ID;
     }
 
+    let automationRequest = null;
+    if (saveAsTemplate || scheduleRecurring) {
+      const trimmedName = templateName.trim();
+      if (!trimmedName) {
+        setError("Name your template to save it for later.");
+        return;
+      }
+      let recurrence = null;
+      if (scheduleRecurring) {
+        const dateValue = nextOccurrence.trim();
+        if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(dateValue)) {
+          setError("Select the next occurrence date.");
+          return;
+        }
+        const parsedReminder = Number(reminderDays);
+        const reminderDaysBefore =
+          Number.isFinite(parsedReminder) && parsedReminder >= 0
+            ? Math.floor(parsedReminder)
+            : null;
+        recurrence = {
+          frequency,
+          nextOccurrence: dateValue,
+          reminderDaysBefore,
+        };
+      }
+      automationRequest = {
+        template: {
+          templateId: draft?.templateId ?? null,
+          name: trimmedName,
+          recurrence,
+        },
+      };
+    }
+
     const transaction = buildSplitTransaction({
       total: rawTotal,
       payer: nextPayer,
       participants: normalizedParticipants,
       category,
       note: note.trim(),
+      templateId: automationRequest?.template?.templateId ?? undefined,
+      templateName: automationRequest?.template?.name ?? undefined,
     });
 
     onSplit(transaction);
+    if (automationRequest && typeof onAutomation === "function") {
+      onAutomation(transaction, automationRequest);
+    }
 
     setBill("");
     setNote("");
     setCategory("Other");
     setPayer(YOU_ID);
-    setParticipants(() => {
-      const next = [{ id: YOU_ID, amount: "" }];
-      if (defaultFriendId) {
-        next.push({ id: defaultFriendId, amount: "" });
-      }
-      return next;
-    });
+    setParticipants(createDefaultParticipants(defaultFriendId));
     setAddFriendId("");
     setError("");
+    setSaveAsTemplate(false);
+    setTemplateName("");
+    setScheduleRecurring(false);
+    setFrequency("monthly");
+    setNextOccurrence("");
+    setReminderDays("2");
   }
 
   return (
@@ -419,6 +554,116 @@ export default function SplitForm({ friends, defaultFriendId, onSplit }) {
         />
       </div>
 
+      <div className="card stack-sm">
+        <div>
+          <div className="fw-600">Automation</div>
+          <div className="kicker">
+            Save this split for quick reuse or schedule it on a cadence.
+          </div>
+        </div>
+
+        <label className="row gap-8 align-center" htmlFor="template-toggle">
+          <input
+            id="template-toggle"
+            type="checkbox"
+            checked={saveAsTemplate}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              setSaveAsTemplate(checked);
+              if (!checked) {
+                setScheduleRecurring(false);
+              }
+            }}
+          />
+          <span>Save as a reusable template</span>
+        </label>
+
+        <label className="row gap-8 align-center" htmlFor="recurring-toggle">
+          <input
+            id="recurring-toggle"
+            type="checkbox"
+            checked={scheduleRecurring}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              setScheduleRecurring(checked);
+              if (checked) {
+                setSaveAsTemplate(true);
+              }
+            }}
+          />
+          <span>Mark as a recurring expense</span>
+        </label>
+
+        {(saveAsTemplate || scheduleRecurring) && (
+          <div>
+            <label className="kicker" htmlFor="template-name">
+              Template name
+            </label>
+            <input
+              id="template-name"
+              className="input"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="e.g. Monthly rent with Alex"
+            />
+          </div>
+        )}
+
+        {scheduleRecurring && (
+          <div className="list list-gap-sm">
+            <div>
+              <label className="kicker" htmlFor="recurrence-frequency">
+                Frequency
+              </label>
+              <select
+                id="recurrence-frequency"
+                className="select"
+                value={frequency}
+                onChange={(e) => setFrequency(e.target.value)}
+              >
+                {FREQUENCY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="kicker" htmlFor="recurrence-date">
+                Next occurrence
+              </label>
+              <input
+                id="recurrence-date"
+                className="input"
+                type="date"
+                value={nextOccurrence}
+                onChange={(e) => setNextOccurrence(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="kicker" htmlFor="recurrence-reminder">
+                Reminder (days before)
+              </label>
+              <input
+                id="recurrence-reminder"
+                className="input"
+                type="number"
+                min="0"
+                value={reminderDays}
+                onChange={(e) => setReminderDays(e.target.value)}
+              />
+            </div>
+
+            <div className="helper">
+              Recurring templates appear above with a “Generate now” button when
+              they’re due.
+            </div>
+          </div>
+        )}
+      </div>
+
       {error && <div className="error">{error}</div>}
 
       <button className="button" type="submit">
@@ -438,4 +683,25 @@ SplitForm.propTypes = {
   ).isRequired,
   defaultFriendId: PropTypes.string,
   onSplit: PropTypes.func.isRequired,
+  onAutomation: PropTypes.func,
+  draft: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    templateId: PropTypes.string,
+    templateName: PropTypes.string,
+    total: PropTypes.number,
+    payer: PropTypes.string,
+    category: PropTypes.string,
+    note: PropTypes.string,
+    participants: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string.isRequired,
+        amount: PropTypes.number,
+      })
+    ),
+    recurrence: PropTypes.shape({
+      frequency: PropTypes.oneOf(["monthly", "weekly", "yearly"]).isRequired,
+      nextOccurrence: PropTypes.string.isRequired,
+      reminderDaysBefore: PropTypes.number,
+    }),
+  }),
 };

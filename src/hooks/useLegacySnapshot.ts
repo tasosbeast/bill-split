@@ -5,6 +5,7 @@ import type {
   LegacyFriend,
   StoredTransaction,
   UISnapshot,
+  StoredSnapshotTemplate,
 } from "../types/legacySnapshot";
 
 type SetStateAction<T> = T | ((prev: T) => T);
@@ -13,6 +14,7 @@ export interface LegacySnapshotUpdaters {
   setFriends: (action: SetStateAction<LegacyFriend[]>) => void;
   setSelectedId: (action: SetStateAction<string | null>) => void;
   setTransactions: (action: SetStateAction<StoredTransaction[]>) => void;
+  setTemplates: (action: SetStateAction<StoredSnapshotTemplate[]>) => void;
   replaceSnapshot: (snapshot: UISnapshot) => void;
   reset: () => void;
 }
@@ -53,6 +55,7 @@ function createDefaultSnapshot(): UISnapshot {
     friends: SAMPLE_FRIENDS.map((friend) => ({ ...friend })),
     selectedId: null,
     transactions: [],
+    templates: [],
   };
 }
 
@@ -66,6 +69,10 @@ function prepareSnapshot(candidate: Partial<UISnapshot> | null): UISnapshot {
     candidate && Array.isArray(candidate.transactions)
       ? normalizeTransactions(candidate.transactions)
       : defaults.transactions;
+  const templates =
+    candidate && Array.isArray(candidate.templates)
+      ? candidate.templates
+      : defaults.templates;
   const selectedCandidate =
     candidate && typeof candidate.selectedId === "string"
       ? candidate.selectedId
@@ -75,6 +82,7 @@ function prepareSnapshot(candidate: Partial<UISnapshot> | null): UISnapshot {
     friends,
     selectedId,
     transactions,
+    templates,
   };
 }
 
@@ -96,6 +104,7 @@ export function useLegacySnapshot(): UseLegacySnapshotResult {
       friends,
       selectedId,
       transactions,
+      templates: Array.isArray(stored.templates) ? stored.templates : [],
     };
   });
 
@@ -166,6 +175,25 @@ export function useLegacySnapshot(): UseLegacySnapshotResult {
       });
     }, []);
 
+  const setTemplates = useCallback<LegacySnapshotUpdaters["setTemplates"]>(
+    (action) => {
+      setSnapshot((prev) => {
+        const resolved = resolveAction(action, prev.templates);
+        const nextTemplates = Array.isArray(resolved)
+          ? resolved
+          : prev.templates;
+        if (nextTemplates === prev.templates) {
+          return prev;
+        }
+        return {
+          ...prev,
+          templates: nextTemplates,
+        };
+      });
+    },
+    []
+  );
+
   const replaceSnapshot = useCallback<
     LegacySnapshotUpdaters["replaceSnapshot"]
   >((next) => {
@@ -182,10 +210,18 @@ export function useLegacySnapshot(): UseLegacySnapshotResult {
       setFriends,
       setSelectedId,
       setTransactions,
+      setTemplates,
       replaceSnapshot,
       reset,
     }),
-    [reset, replaceSnapshot, setFriends, setSelectedId, setTransactions]
+    [
+      reset,
+      replaceSnapshot,
+      setFriends,
+      setSelectedId,
+      setTransactions,
+      setTemplates,
+    ]
   );
 
   return useMemo(

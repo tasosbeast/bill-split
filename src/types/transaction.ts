@@ -27,4 +27,6 @@ export interface Transaction {
   effects?: TransactionEffect[] | null;
   friendId?: string | null;
   friendIds?: string[] | null;
+  templateId?: string | null;
+  templateName?: string | null;
 }

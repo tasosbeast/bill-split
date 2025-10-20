@@ -9,7 +9,9 @@ import type {
   LegacyFriend,
   RestoreSnapshotResult,
   StoredTransaction,
+  StoredSnapshotTemplate,
 } from "../types/legacySnapshot";
+import type { TransactionTemplateRecurrence } from "../types/transactionTemplate";
 
 type TransactionBase = {
   id: string;
@@ -290,6 +292,120 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function sanitizeTemplateParticipantRaw(
+  participant: unknown,
+  helpers: ParseHelpers
+): { id: string; amount: number } | null {
+  if (!isRecord(participant)) return null;
+  const rawId = participant.id;
+  let id: string | null = null;
+  if (rawId === "you") {
+    id = "you";
+  } else if (typeof rawId === "string" && rawId.trim().length > 0) {
+    const normalized = helpers.stableId(rawId.trim());
+    if (helpers.friendIdSet.has(normalized)) {
+      id = normalized;
+    }
+  }
+  if (!id) return null;
+  const amountValue = Number(participant.amount);
+  const amount = Number.isFinite(amountValue) && amountValue >= 0 ? amountValue : 0;
+  return { id, amount: roundToCents(amount) };
+}
+
+function sanitizeTemplateRecurrenceRaw(
+  value: unknown
+): TransactionTemplateRecurrence | null {
+  if (!isRecord(value)) return null;
+  const frequency = value.frequency;
+  if (frequency !== "monthly" && frequency !== "weekly" && frequency !== "yearly") {
+    return null;
+  }
+  const rawDate = value.nextOccurrence;
+  if (typeof rawDate !== "string" || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(rawDate.trim())) {
+    return null;
+  }
+  const trimmedDate = rawDate.trim();
+  const reminderRaw = value.reminderDaysBefore;
+  let reminderDaysBefore: number | null = null;
+  if (reminderRaw !== undefined && reminderRaw !== null) {
+    const parsed = Number(reminderRaw);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      reminderDaysBefore = Math.floor(parsed);
+    }
+  }
+  return {
+    frequency,
+    nextOccurrence: trimmedDate,
+    reminderDaysBefore,
+  };
+}
+
+function parseTemplates(
+  raw: unknown,
+  helpers: ParseHelpers
+): StoredSnapshotTemplate[] {
+  if (!Array.isArray(raw)) return [];
+  const templates: StoredSnapshotTemplate[] = [];
+  for (const entry of raw) {
+    if (!isRecord(entry)) continue;
+    const rawId = entry.id;
+    const rawName = entry.name;
+    const id = typeof rawId === "string" && rawId.trim().length > 0 ? rawId.trim() : null;
+    const name =
+      typeof rawName === "string" && rawName.trim().length > 0 ? rawName.trim() : null;
+    if (!id || !name) continue;
+
+    const participantsRaw = Array.isArray(entry.participants) ? entry.participants : [];
+    const participants: StoredSnapshotTemplate["participants"] = [];
+    const seen = new Set<string>();
+    for (const part of participantsRaw) {
+      const sanitized = sanitizeTemplateParticipantRaw(part, helpers);
+      if (!sanitized || seen.has(sanitized.id)) continue;
+      participants.push(sanitized);
+      seen.add(sanitized.id);
+    }
+    if (!seen.has("you")) {
+      participants.unshift({ id: "you", amount: 0 });
+    }
+
+    const recurrence = sanitizeTemplateRecurrenceRaw(record.recurrence);
+
+    const record = entry;
+    const template: StoredSnapshotTemplate = {
+      ...record,
+      id,
+      name,
+      total: roundToCents(Number(record.total) || 0),
+      payer:
+        typeof record.payer === "string" && record.payer.trim().length > 0
+          ? record.payer.trim()
+          : "you",
+      category:
+        typeof record.category === "string" && record.category.trim().length > 0
+          ? record.category.trim()
+          : "Other",
+      note:
+        typeof record.note === "string" && record.note.trim().length > 0
+          ? record.note.trim()
+          : null,
+      participants,
+      createdAt:
+        typeof record.createdAt === "string" && record.createdAt.trim().length > 0
+          ? record.createdAt.trim()
+          : new Date().toISOString(),
+      updatedAt:
+        typeof record.updatedAt === "string" && record.updatedAt.trim().length > 0
+          ? record.updatedAt.trim()
+          : null,
+      recurrence: recurrence ?? null,
+    };
+
+    templates.push(template);
+  }
+  return templates;
+}
+
 export function restoreSnapshot(data: unknown): RestoreSnapshotResult {
   if (!isRecord(data)) {
     throw new Error("Invalid JSON root");
@@ -408,10 +524,12 @@ export function restoreSnapshot(data: unknown): RestoreSnapshotResult {
     typeof data.selectedId === "string"
       ? stableId(data.selectedId)
       : null;
+  const templates = parseTemplates(data.templates, { stableId, friendIdSet });
 
   return {
     friends: safeFriends,
     transactions: upgradedTransactions,
+    templates,
     selectedId: normalizedSelectedId,
     skippedTransactions,
   };

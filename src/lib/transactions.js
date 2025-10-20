@@ -75,6 +75,8 @@ export function buildSplitTransaction({
   note = "",
   createdAt = new Date().toISOString(),
   updatedAt = null,
+  templateId = null,
+  templateName = null,
 }) {
   const cleanTotal = roundToCents(total || 0);
   const { participants: normalizedParticipants, effects } = computeSplitEffects({
@@ -98,6 +100,8 @@ export function buildSplitTransaction({
     note,
     createdAt,
     updatedAt,
+    templateId,
+    templateName,
   };
 }
 

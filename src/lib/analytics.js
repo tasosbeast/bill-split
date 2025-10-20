@@ -39,6 +39,35 @@ function getPersonalShare(transaction) {
   return 0;
 }
 
+function getTransactionVolume(transaction) {
+  if (!transaction || typeof transaction !== "object") return 0;
+
+  const rawTotal = Number(transaction.total);
+  if (Number.isFinite(rawTotal) && rawTotal !== 0) {
+    return Math.abs(rawTotal);
+  }
+
+  const effects = getTransactionEffects(transaction);
+  if (!Array.isArray(effects) || effects.length === 0) {
+    return 0;
+  }
+
+  let amount = 0;
+  for (const effect of effects) {
+    const share = Number(effect?.share);
+    if (Number.isFinite(share) && share > 0) {
+      amount += share;
+      continue;
+    }
+    const delta = Number(effect?.delta);
+    if (Number.isFinite(delta) && delta !== 0) {
+      amount += Math.abs(delta);
+    }
+  }
+
+  return amount;
+}
+
 export function computeCategoryTotals(transactions) {
   const totals = new Map();
 
@@ -75,22 +104,7 @@ export function computeAnalyticsOverview(transactions) {
 
     const effects = getTransactionEffects(tx);
 
-    const rawTotal = Number(tx.total);
-    if (Number.isFinite(rawTotal) && rawTotal > 0) {
-      totalVolume += Math.abs(rawTotal);
-    } else if (effects.length > 0) {
-      for (const effect of effects) {
-        const share = Number(effect?.share);
-        if (Number.isFinite(share) && share > 0) {
-          totalVolume += share;
-        } else {
-          const delta = Number(effect?.delta);
-          if (Number.isFinite(delta) && delta !== 0) {
-            totalVolume += Math.abs(delta);
-          }
-        }
-      }
-    }
+    totalVolume += getTransactionVolume(tx);
 
     for (const effect of effects) {
       const delta = Number(effect?.delta);
@@ -204,6 +218,54 @@ export function computeMonthlyTrend(transactions, months = 6) {
     label: formatMonthLabel(key),
     amount: buckets.get(key) || 0,
   }));
+}
+
+export function computeMonthlyVolume(transactions, months = 6) {
+  const buckets = new Map();
+  let latestDate = null;
+
+  for (const tx of transactions || []) {
+    const createdAt = toDate(tx?.createdAt || tx?.updatedAt);
+    if (!createdAt) continue;
+
+    const volume = getTransactionVolume(tx);
+    if (!(Number.isFinite(volume) && volume > 0)) continue;
+
+    const key = getMonthKey(createdAt);
+    const current = buckets.get(key) || 0;
+    buckets.set(key, current + volume);
+    if (!latestDate || createdAt > latestDate) {
+      latestDate = createdAt;
+    }
+  }
+
+  if (!latestDate || buckets.size === 0) {
+    return [];
+  }
+
+  const safeMonths = Math.max(1, Number.isFinite(months) ? Math.floor(months) : 1);
+  const result = [];
+  let hasData = false;
+
+  for (let offset = safeMonths - 1; offset >= 0; offset -= 1) {
+    const date = new Date(
+      latestDate.getFullYear(),
+      latestDate.getMonth() - offset,
+      1
+    );
+    const key = getMonthKey(date);
+    const amount = roundToCents(buckets.get(key) || 0);
+    if (amount > 0) {
+      hasData = true;
+    }
+    result.push({
+      key,
+      label: formatMonthLabel(key),
+      amount,
+    });
+  }
+
+  return hasData ? result : [];
 }
 
 export function computeBudgetStatus(

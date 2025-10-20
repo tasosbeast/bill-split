@@ -3,6 +3,7 @@ import {
   computeBudgetStatus,
   computeCategoryTotals,
   computeFriendBalances,
+  computeMonthlyVolume,
 } from "../analytics";
 
 function buildSplit({
@@ -132,6 +133,54 @@ describe("legacy analytics helpers", () => {
         { friendId: "sam", balance: -20 },
         { friendId: "alex", balance: 5.51 },
       ]);
+    });
+  });
+
+  describe("computeMonthlyVolume", () => {
+    it("returns the last N months of total volume including empty buckets", () => {
+      const transactions = [
+        buildSplit({
+          id: "mv-jan",
+          youShare: 12,
+          createdAt: "2024-01-12T08:00:00.000Z",
+        }),
+        buildSplit({
+          id: "mv-mar",
+          youShare: 18,
+          createdAt: "2024-03-02T10:30:00.000Z",
+        }),
+        {
+          ...buildSplit({
+            id: "mv-invalid",
+            youShare: 9,
+          }),
+          createdAt: null,
+        },
+      ];
+
+      const result = computeMonthlyVolume(transactions, 4);
+
+      expect(result).toHaveLength(4);
+      expect(result.map((row) => row.key)).toEqual([
+        "2023-12",
+        "2024-01",
+        "2024-02",
+        "2024-03",
+      ]);
+      expect(result.map((row) => row.amount)).toEqual([0, 22, 0, 28]);
+    });
+
+    it("returns an empty array when no positive volume exists", () => {
+      const transactions = [
+        {
+          id: "mv-empty",
+          type: "settlement",
+          createdAt: "2024-05-01T00:00:00.000Z",
+          effects: [{ share: 0, delta: 0 }],
+        },
+      ];
+
+      expect(computeMonthlyVolume(transactions, 3)).toEqual([]);
     });
   });
 });

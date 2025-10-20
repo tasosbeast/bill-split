@@ -6,6 +6,8 @@ import AnalyticsCard from "./AnalyticsCard";
 import AnalyticsCategoryList from "./AnalyticsCategoryList";
 import AnalyticsTrendChart from "./AnalyticsTrendChart";
 import AnalyticsFriendBalances from "./AnalyticsFriendBalances";
+import AnalyticsNetBalanceChart from "./AnalyticsNetBalanceChart";
+import AnalyticsVolumeBars from "./AnalyticsVolumeBars";
 import {
   CategoryFilter,
   DateRangeFilter,
@@ -18,6 +20,7 @@ import {
   computeMonthlyTrend,
   computeBudgetStatus,
   computeFriendBalances,
+  computeMonthlyVolume,
 } from "../lib/analytics";
 import AnalyticsBudgetSummary from "./AnalyticsBudgetSummary";
 import BudgetManager from "./BudgetManager";
@@ -72,6 +75,7 @@ export default function AnalyticsDashboard({
     () => computeAnalyticsOverview(filteredTransactions),
     [filteredTransactions]
   );
+  const totalVolume = overview.totalVolume;
 
   const topCategories = useMemo(() => {
     const totals = computeCategoryTotals(filteredTransactions);
@@ -86,6 +90,25 @@ export default function AnalyticsDashboard({
   const trend = useMemo(
     () => computeMonthlyTrend(filteredTransactions, 6),
     [filteredTransactions]
+  );
+
+  const volumeBarsData = useMemo(
+    () => {
+      const volume = computeMonthlyVolume(filteredTransactions, 6);
+      if (volume.length > 0) return volume;
+      if (trend.length > 0) return trend;
+      if (totalVolume > 0) {
+        return [
+          {
+            key: "total-volume",
+            label: "All time",
+            amount: totalVolume,
+          },
+        ];
+      }
+      return [];
+    },
+    [filteredTransactions, trend, totalVolume]
   );
 
   const storeSnapshot = useTransactionsStoreState();
@@ -264,7 +287,12 @@ export default function AnalyticsDashboard({
               footer={`Owed to you: ${formatCurrency(
                 overview.owedToYou
               )} | You owe: ${formatCurrency(overview.youOwe)}`}
-            />
+            >
+              <AnalyticsNetBalanceChart
+                owedToYou={overview.owedToYou}
+                youOwe={overview.youOwe}
+              />
+            </AnalyticsCard>
             <AnalyticsCard
               title="Total volume"
               value={formatCurrency(overview.totalVolume)}
@@ -274,7 +302,9 @@ export default function AnalyticsDashboard({
               footer={`Average per transaction: ${formatCurrency(
                 overview.average
               )}`}
-            />
+            >
+              <AnalyticsVolumeBars data={volumeBarsData} />
+            </AnalyticsCard>
             <AnalyticsCard
               title="Budget status"
               value={formatCurrency(budgetStatus.remaining)}

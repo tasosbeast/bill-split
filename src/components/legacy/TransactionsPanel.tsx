@@ -33,6 +33,9 @@ interface TransactionsPanelProps {
   onClearFilter: () => void;
   onRequestEdit: (transaction: FriendTransaction) => void;
   onDeleteTransaction: (id: string) => void;
+  onConfirmSettlement: (transactionId: string) => void;
+  onCancelSettlement: (transactionId: string) => void;
+  onReopenSettlement: (transactionId: string) => void;
   templates: TransactionTemplate[];
   onUseTemplate: (template: TransactionTemplate) => void;
   onGenerateRecurring: (template: TransactionTemplate) => void;
@@ -68,6 +71,9 @@ function TransactionsPanel({
   onClearFilter,
   onRequestEdit,
   onDeleteTransaction,
+  onConfirmSettlement,
+  onCancelSettlement,
+  onReopenSettlement,
   templates,
   onUseTemplate,
   onGenerateRecurring,
@@ -186,6 +192,9 @@ function TransactionsPanel({
               items={transactions}
               onRequestEdit={onRequestEdit}
               onDelete={onDeleteTransaction}
+              onConfirmSettlement={onConfirmSettlement}
+              onCancelSettlement={onCancelSettlement}
+              onReopenSettlement={onReopenSettlement}
             />
           </Suspense>
         </>

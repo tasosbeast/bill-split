@@ -11,7 +11,16 @@ function when(ts) {
   }
 }
 
-function Transactions({ friend, friendsById, items, onRequestEdit, onDelete }) {
+function Transactions({
+  friend,
+  friendsById,
+  items,
+  onRequestEdit,
+  onDelete,
+  onConfirmSettlement,
+  onCancelSettlement,
+  onReopenSettlement,
+}) {
   if (!friend) return null;
 
   const map = friendsById instanceof Map ? friendsById : new Map();
@@ -46,6 +55,37 @@ function Transactions({ friend, friendsById, items, onRequestEdit, onDelete }) {
           return null;
         })();
 
+        const settlementStatus = isSettlement
+          ? (() => {
+              if (typeof t.settlementStatus !== "string") return "confirmed";
+              const normalized = t.settlementStatus.trim().toLowerCase();
+              if (normalized === "canceled") return "cancelled";
+              switch (normalized) {
+                case "initiated":
+                case "pending":
+                case "confirmed":
+                case "cancelled":
+                  return normalized;
+                default:
+                  return "confirmed";
+              }
+            })()
+          : null;
+
+        const settlementStatusLabel = (() => {
+          switch (settlementStatus) {
+            case "initiated":
+              return "Awaiting confirmation";
+            case "pending":
+              return "Pending";
+            case "cancelled":
+              return "Cancelled";
+            case "confirmed":
+            default:
+              return "Confirmed";
+          }
+        })();
+
         const whoPaid = isSettlement
           ? "Settlement"
           : payerName
@@ -54,7 +94,15 @@ function Transactions({ friend, friendsById, items, onRequestEdit, onDelete }) {
 
         let summary;
         if (isSettlement) {
-          summary = `Balance settled \u2014 ${formatEUR(Math.abs(delta))}`;
+          if (settlementStatus === "cancelled") {
+            summary = "Settlement cancelled";
+          } else if (settlementStatus === "confirmed") {
+            summary = `Balance settled \u2014 ${formatEUR(Math.abs(delta))}`;
+          } else {
+            summary = `Settlement in progress \u2014 ${formatEUR(
+              Math.abs(delta)
+            )}`;
+          }
         } else if (delta > 0) {
           summary = `${friend.name} owes you ${formatEUR(delta)}`;
           if (share && Math.abs(share - delta) > 0.01) {
@@ -132,6 +180,13 @@ function Transactions({ friend, friendsById, items, onRequestEdit, onDelete }) {
                     <strong>Template</strong> {t.templateName}
                   </span>
                 )}
+                {isSettlement && settlementStatus && (
+                  <span
+                    className={`badge-chip badge-settlement badge-settlement-${settlementStatus}`}
+                  >
+                    <strong>Status</strong> {settlementStatusLabel}
+                  </span>
+                )}
                 {t.total ? (
                   <span className="badge-chip">
                     <strong>Total</strong> {formatEUR(t.total)}
@@ -152,6 +207,16 @@ function Transactions({ friend, friendsById, items, onRequestEdit, onDelete }) {
                     <strong>Note</strong> {t.note}
                   </span>
                 )}
+                {isSettlement && t.settlementConfirmedAt && (
+                  <span className="badge-chip">
+                    <strong>Confirmed</strong> {when(t.settlementConfirmedAt)}
+                  </span>
+                )}
+                {isSettlement && t.settlementCancelledAt && (
+                  <span className="badge-chip">
+                    <strong>Cancelled</strong> {when(t.settlementCancelledAt)}
+                  </span>
+                )}
               </div>
 
               {/* Actions */}
@@ -170,6 +235,40 @@ function Transactions({ friend, friendsById, items, onRequestEdit, onDelete }) {
                   >
                     Edit
                   </button>
+                )}
+                {isSettlement && settlementStatus && (
+                  <>
+                    {settlementStatus !== "confirmed" &&
+                      settlementStatus !== "cancelled" && (
+                        <button
+                          type="button"
+                          className="button"
+                          onClick={() => onConfirmSettlement?.(t.id)}
+                          title="Mark this settlement as confirmed"
+                        >
+                          Mark confirmed
+                        </button>
+                      )}
+                    {settlementStatus === "confirmed" || settlementStatus === "cancelled" ? (
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        onClick={() => onReopenSettlement?.(t.id)}
+                        title="Reopen this settlement"
+                      >
+                        Reopen
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        onClick={() => onCancelSettlement?.(t.id)}
+                        title="Cancel this settlement"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </>
                 )}
                 <button
                   type="button"
@@ -212,6 +311,14 @@ Transactions.propTypes = {
       total: PropTypes.number,
       payer: PropTypes.string,
       friendIds: PropTypes.arrayOf(PropTypes.string),
+      settlementStatus: PropTypes.oneOf([
+        "initiated",
+        "pending",
+        "confirmed",
+        "cancelled",
+      ]),
+      settlementConfirmedAt: PropTypes.string,
+      settlementCancelledAt: PropTypes.string,
       effect: PropTypes.shape({
         friendId: PropTypes.string.isRequired,
         share: PropTypes.number,
@@ -225,6 +332,9 @@ Transactions.propTypes = {
   ).isRequired,
   onRequestEdit: PropTypes.func,
   onDelete: PropTypes.func,
+  onConfirmSettlement: PropTypes.func,
+  onCancelSettlement: PropTypes.func,
+  onReopenSettlement: PropTypes.func,
 };
 
 

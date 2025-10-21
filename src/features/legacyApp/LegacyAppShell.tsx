@@ -89,6 +89,9 @@ export default function LegacyAppShell(): JSX.Element {
     updateTransaction,
     removeTransaction,
     addSettlement,
+    confirmSettlement,
+    cancelSettlement,
+    reopenSettlement,
   } = transactionHandlers;
 
   const {
@@ -372,6 +375,9 @@ export default function LegacyAppShell(): JSX.Element {
             onClearFilter={clearFilter}
             onRequestEdit={handleRequestEdit}
             onDeleteTransaction={handleDeleteTx}
+            onConfirmSettlement={confirmSettlement}
+            onCancelSettlement={cancelSettlement}
+            onReopenSettlement={reopenSettlement}
             templates={templates}
             onUseTemplate={handleApplyTemplate}
             onGenerateRecurring={handleGenerateFromTemplate}

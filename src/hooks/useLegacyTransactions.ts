@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getTransactionEffects,
   transactionIncludesFriend,
@@ -28,17 +28,141 @@ export interface LegacyTransactionsHandlers {
   updateTransaction: (transaction: StoredTransaction) => void;
   removeTransaction: (id: string) => void;
   addSettlement: (settlement: SettlementDraft) => void;
+  confirmSettlement: (transactionId: string) => void;
+  cancelSettlement: (transactionId: string) => void;
+  reopenSettlement: (transactionId: string) => void;
 }
 
 export interface SettlementDraft {
   friendId: string;
-  balance: number;
+  balance?: number;
   status?: SettlementStatus;
   transactionId?: string;
   payment?: TransactionPaymentMetadata | null;
   initiatedAt?: string | null;
   confirmedAt?: string | null;
   cancelledAt?: string | null;
+}
+
+const SETTLEMENT_STATUSES: SettlementStatus[] = [
+  "initiated",
+  "pending",
+  "confirmed",
+  "cancelled",
+];
+
+function isSettlementStatus(value: unknown): value is SettlementStatus {
+  return (
+    typeof value === "string" &&
+    SETTLEMENT_STATUSES.includes(value.trim().toLowerCase() as SettlementStatus)
+  );
+}
+
+function normalizeStatus(
+  value: unknown,
+  fallback: SettlementStatus
+): SettlementStatus {
+  if (typeof value === "string") {
+    const lowered = value.trim().toLowerCase();
+    if (lowered === "canceled") {
+      return "cancelled";
+    }
+    if (isSettlementStatus(lowered)) {
+      return lowered as SettlementStatus;
+    }
+  }
+  if (isSettlementStatus(value)) {
+    return value;
+  }
+  return fallback;
+}
+
+function extractSettlementFriendId(
+  transaction: StoredTransaction,
+  fallback?: string | null
+): string | null {
+  if (typeof transaction.friendId === "string" && transaction.friendId.trim()) {
+    return transaction.friendId.trim();
+  }
+  if (Array.isArray(transaction.friendIds)) {
+    const found = transaction.friendIds.find(
+      (id): id is string => typeof id === "string" && id.trim().length > 0
+    );
+    if (found) {
+      return found.trim();
+    }
+  }
+  if (Array.isArray(transaction.effects)) {
+    const effectFriend = transaction.effects.find(
+      (effect) =>
+        effect &&
+        typeof effect.friendId === "string" &&
+        effect.friendId.trim().length > 0
+    );
+    if (effectFriend) {
+      return effectFriend.friendId.trim();
+    }
+  }
+  if (typeof fallback === "string" && fallback.trim()) {
+    return fallback.trim();
+  }
+  return null;
+}
+
+function extractSettlementDelta(transaction: StoredTransaction): number {
+  if (Array.isArray(transaction.effects)) {
+    const effect = transaction.effects.find(
+      (entry) => entry && typeof entry.delta === "number"
+    );
+    if (effect && typeof effect.delta === "number") {
+      return effect.delta;
+    }
+  }
+  if (Array.isArray(transaction.participants)) {
+    const you = transaction.participants.find((p) => p?.id === "you");
+    const friend = transaction.participants.find(
+      (p) => p && p.id !== "you" && typeof p.amount === "number"
+    );
+    if (you && friend && typeof friend.amount === "number") {
+      return -friend.amount;
+    }
+    if (friend) {
+      return -Math.max(friend.amount ?? 0, 0);
+    }
+  }
+  return 0;
+}
+
+function deriveSettlementAmounts(
+  balance: number | undefined,
+  existingDelta: number
+): {
+  delta: number;
+  friendShare: number;
+  youShare: number;
+  share: number;
+} {
+  const delta =
+    typeof balance === "number" && Number.isFinite(balance)
+      ? -balance
+      : existingDelta;
+  const resolvedBalance = -delta;
+  const friendShare = Math.max(resolvedBalance, 0);
+  const youShare = Math.max(-resolvedBalance, 0);
+  const share = Math.abs(resolvedBalance);
+  return { delta, friendShare, youShare, share };
+}
+
+function buildSettlementContext(
+  transaction: StoredTransaction
+): { friendId: string | null; balance: number } {
+  const friendId = extractSettlementFriendId(
+    transaction,
+    typeof transaction.friendId === "string" ? transaction.friendId : null
+  );
+  const delta = extractSettlementDelta(transaction);
+  const balance = -delta;
+  return { friendId, balance };
 }
 
 interface UseLegacyTransactionsParams {
@@ -76,6 +200,11 @@ export function useLegacyTransactions({
   handlers: LegacyTransactionsHandlers;
 } {
   const [filter, setFilter] = useState<string>("All");
+  const transactionsRef = useRef(transactions);
+
+  useEffect(() => {
+    transactionsRef.current = transactions;
+  }, [transactions]);
 
   const transactionsByFilter = useMemo<FriendTransaction[]>(() => {
     return transactions
@@ -128,18 +257,15 @@ export function useLegacyTransactions({
     ({
       friendId,
       balance,
-      status = "initiated",
+      status,
       transactionId,
-      payment = null,
+      payment,
       initiatedAt,
       confirmedAt,
       cancelledAt,
     }: SettlementDraft) => {
       const now = new Date().toISOString();
-      const normalizedStatus: SettlementStatus = status;
-      const youShare = Math.max(-balance, 0);
-      const friendShare = Math.max(balance, 0);
-      const delta = -balance;
+      const trimmedFriendId = friendId.trim();
 
       setTransactions((previous) => {
         if (transactionId) {
@@ -147,10 +273,28 @@ export function useLegacyTransactions({
             if (entry.id !== transactionId) return entry;
             if (entry.type !== "settlement") return entry;
 
-            const existingFriendId =
-              typeof entry.friendId === "string" && entry.friendId
-                ? entry.friendId
-                : friendId;
+            const resolvedFriendId =
+              extractSettlementFriendId(entry, trimmedFriendId) ??
+              trimmedFriendId;
+            if (!resolvedFriendId) {
+              return entry;
+            }
+
+            const existingDelta = extractSettlementDelta(entry);
+            const {
+              delta,
+              friendShare,
+              youShare,
+              share,
+            } = deriveSettlementAmounts(balance, existingDelta);
+
+            const previousStatus = normalizeStatus(
+              entry.settlementStatus,
+              "initiated"
+            );
+            const normalizedStatus = status
+              ? normalizeStatus(status, previousStatus)
+              : previousStatus;
 
             const initialTimestamp =
               entry.settlementInitiatedAt ??
@@ -158,16 +302,16 @@ export function useLegacyTransactions({
               (typeof entry.createdAt === "string" && entry.createdAt
                 ? entry.createdAt
                 : now);
-            const previousStatus =
-              (typeof entry.settlementStatus === "string"
-                ? entry.settlementStatus
-                : null) ?? "initiated";
+
             const statusChangedToConfirmed =
               normalizedStatus === "confirmed" &&
               previousStatus !== "confirmed";
             const statusChangedToCancelled =
               normalizedStatus === "cancelled" &&
               previousStatus !== "cancelled";
+            const statusReopenedFromCancelled =
+              previousStatus === "cancelled" &&
+              normalizedStatus !== "cancelled";
 
             const nextParticipants = Array.isArray(entry.participants)
               ? entry.participants.map((participant) => {
@@ -177,75 +321,125 @@ export function useLegacyTransactions({
                   if (participant.id === "you") {
                     return { ...participant, amount: youShare };
                   }
-                  if (participant.id === existingFriendId) {
+                  if (participant.id === resolvedFriendId) {
                     return { ...participant, amount: friendShare };
                   }
                   return participant;
                 })
               : [
                   { id: "you", amount: youShare },
-                  { id: existingFriendId, amount: friendShare },
+                  { id: resolvedFriendId, amount: friendShare },
                 ];
+
+            const nextFriendIds =
+              Array.isArray(entry.friendIds) && entry.friendIds.length > 0
+                ? Array.from(
+                    new Set(
+                      entry.friendIds
+                        .concat(resolvedFriendId)
+                        .filter(
+                          (id): id is string =>
+                            typeof id === "string" && id.trim().length > 0
+                        )
+                    )
+                  )
+                : [resolvedFriendId];
+
+            const existingConfirmedAt =
+              typeof entry.settlementConfirmedAt === "string" &&
+              entry.settlementConfirmedAt
+                ? entry.settlementConfirmedAt
+                : null;
+            const nextConfirmedAt =
+              normalizedStatus === "confirmed"
+                ? confirmedAt ??
+                  existingConfirmedAt ??
+                  (statusChangedToConfirmed ? now : initialTimestamp)
+                : normalizedStatus === "cancelled" || statusReopenedFromCancelled
+                ? null
+                : existingConfirmedAt;
+
+            const existingCancelledAt =
+              typeof entry.settlementCancelledAt === "string" &&
+              entry.settlementCancelledAt
+                ? entry.settlementCancelledAt
+                : null;
+            const nextCancelledAt =
+              normalizedStatus === "cancelled"
+                ? cancelledAt ??
+                  existingCancelledAt ??
+                  (statusChangedToCancelled ? now : initialTimestamp)
+                : normalizedStatus === "confirmed" || statusReopenedFromCancelled
+                ? null
+                : existingCancelledAt;
+
+            const resolvedPayment =
+              payment === undefined ? entry.payment ?? null : payment;
 
             return {
               ...entry,
-              friendId: existingFriendId,
-              friendIds:
-                Array.isArray(entry.friendIds) && entry.friendIds.length > 0
-                  ? entry.friendIds
-                  : [existingFriendId],
+              friendId: resolvedFriendId,
+              friendIds: nextFriendIds,
               participants: nextParticipants,
               effects: [
                 {
-                  friendId: existingFriendId,
+                  friendId: resolvedFriendId,
                   delta,
-                  share: Math.abs(balance),
+                  share,
                 },
               ],
               settlementStatus: normalizedStatus,
-              settlementInitiatedAt: initiatedAt ?? initialTimestamp,
-              settlementConfirmedAt:
-                normalizedStatus === "confirmed"
-                  ? confirmedAt ??
-                    entry.settlementConfirmedAt ??
-                    (statusChangedToConfirmed ? now : initialTimestamp)
-                  : entry.settlementConfirmedAt ?? null,
-              settlementCancelledAt:
-                normalizedStatus === "cancelled"
-                  ? cancelledAt ??
-                    entry.settlementCancelledAt ??
-                    (statusChangedToCancelled ? now : initialTimestamp)
-                  : normalizedStatus === "confirmed"
-                  ? null
-                  : entry.settlementCancelledAt ?? null,
-              payment: payment ?? entry.payment ?? null,
+              settlementInitiatedAt:
+                initiatedAt ??
+                entry.settlementInitiatedAt ??
+                initialTimestamp,
+              settlementConfirmedAt: nextConfirmedAt,
+              settlementCancelledAt: nextCancelledAt,
+              payment: resolvedPayment,
               updatedAt: now,
             } as StoredTransaction;
           });
         }
 
+        if (typeof balance !== "number" || !Number.isFinite(balance)) {
+          console.warn(
+            "Attempted to create settlement without a valid balance."
+          );
+          return previous;
+        }
+
+        const normalizedStatus = status ?? "initiated";
+        const {
+          delta,
+          friendShare,
+          youShare,
+          share,
+        } = deriveSettlementAmounts(balance, 0);
         const createdAt = initiatedAt ?? now;
+        const resolvedPayment =
+          payment === undefined ? null : payment ?? null;
+
         const settlement: StoredTransaction = {
           id:
             typeof crypto?.randomUUID === "function"
               ? crypto.randomUUID()
               : `tx-${Date.now()}`,
           type: "settlement",
-          friendId,
+          friendId: trimmedFriendId,
           total: null,
           payer: null,
           participants: [
             { id: "you", amount: youShare },
-            { id: friendId, amount: friendShare },
+            { id: trimmedFriendId, amount: friendShare },
           ],
           effects: [
             {
-              friendId,
+              friendId: trimmedFriendId,
               delta,
-              share: Math.abs(balance),
+              share,
             },
           ],
-          friendIds: [friendId],
+          friendIds: [trimmedFriendId],
           createdAt,
           updatedAt: now,
           settlementStatus: normalizedStatus,
@@ -258,12 +452,66 @@ export function useLegacyTransactions({
             normalizedStatus === "cancelled"
               ? cancelledAt ?? now
               : null,
-          payment: payment ?? null,
+          payment: resolvedPayment,
         } as StoredTransaction;
         return [settlement, ...previous];
       });
     },
     [setTransactions]
+  );
+
+  const confirmSettlement = useCallback(
+    (transactionId: string) => {
+      const existing = transactionsRef.current.find(
+        (entry) => entry.id === transactionId && entry.type === "settlement"
+      );
+      if (!existing) return;
+      const { friendId, balance } = buildSettlementContext(existing);
+      if (!friendId) return;
+      addSettlement({
+        transactionId,
+        friendId,
+        balance,
+        status: "confirmed",
+      });
+    },
+    [addSettlement]
+  );
+
+  const cancelSettlement = useCallback(
+    (transactionId: string) => {
+      const existing = transactionsRef.current.find(
+        (entry) => entry.id === transactionId && entry.type === "settlement"
+      );
+      if (!existing) return;
+      const { friendId, balance } = buildSettlementContext(existing);
+      if (!friendId) return;
+      addSettlement({
+        transactionId,
+        friendId,
+        balance,
+        status: "cancelled",
+      });
+    },
+    [addSettlement]
+  );
+
+  const reopenSettlement = useCallback(
+    (transactionId: string) => {
+      const existing = transactionsRef.current.find(
+        (entry) => entry.id === transactionId && entry.type === "settlement"
+      );
+      if (!existing) return;
+      const { friendId, balance } = buildSettlementContext(existing);
+      if (!friendId) return;
+      addSettlement({
+        transactionId,
+        friendId,
+        balance,
+        status: "initiated",
+      });
+    },
+    [addSettlement]
   );
 
   const state: LegacyTransactionsState = {
@@ -280,6 +528,9 @@ export function useLegacyTransactions({
     updateTransaction,
     removeTransaction,
     addSettlement,
+    confirmSettlement,
+    cancelSettlement,
+    reopenSettlement,
   };
 
   return { state, handlers };

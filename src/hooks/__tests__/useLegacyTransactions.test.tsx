@@ -240,7 +240,7 @@ describe("useLegacyTransactions", () => {
       }
     );
 
-    const { result, unmount } = renderHook(() =>
+    const { result, unmount, rerender } = renderHook(() =>
       useLegacyTransactions({
         transactions: store,
         selectedFriendId: "friend-1",
@@ -254,6 +254,7 @@ describe("useLegacyTransactions", () => {
     act(() => {
       result.current.handlers.addSettlement({ friendId: "friend-1", balance: 15 });
     });
+    rerender();
 
     const settlement = store[0];
     expect(settlement.type).toBe("settlement");
@@ -269,7 +270,7 @@ describe("useLegacyTransactions", () => {
     unmount();
   });
 
-  it("updates an existing settlement to confirmed and records timestamps", () => {
+  it("supports confirming, cancelling, and reopening settlements", () => {
     let store = [...snapshot.transactions];
     const setTransactions = vi.fn(
       (
@@ -281,7 +282,7 @@ describe("useLegacyTransactions", () => {
       }
     );
 
-    const { result, unmount } = renderHook(() =>
+    const { result, unmount, rerender } = renderHook(() =>
       useLegacyTransactions({
         transactions: store,
         selectedFriendId: "friend-1",
@@ -294,24 +295,44 @@ describe("useLegacyTransactions", () => {
     act(() => {
       result.current.handlers.addSettlement({ friendId: "friend-1", balance: 20 });
     });
+    rerender();
     const pending = store[0];
     expect(pending.settlementStatus).toBe("initiated");
 
     vi.setSystemTime(new Date("2024-05-02T09:30:00.000Z"));
     act(() => {
-      result.current.handlers.addSettlement({
-        friendId: "friend-1",
-        balance: 20,
-        status: "confirmed",
-        transactionId: pending.id,
-      });
+      result.current.handlers.confirmSettlement(pending.id);
     });
+    rerender();
 
     const confirmed = store.find((tx) => tx.id === pending.id)!;
     expect(confirmed.settlementStatus).toBe("confirmed");
     expect(confirmed.settlementConfirmedAt).toBe("2024-05-02T09:30:00.000Z");
     expect(confirmed.settlementInitiatedAt).toBe("2024-05-01T08:00:00.000Z");
     expect(confirmed.updatedAt).toBe("2024-05-02T09:30:00.000Z");
+
+    vi.setSystemTime(new Date("2024-05-03T10:00:00.000Z"));
+    act(() => {
+      result.current.handlers.cancelSettlement(pending.id);
+    });
+    rerender();
+
+    const cancelled = store.find((tx) => tx.id === pending.id)!;
+    expect(cancelled.settlementStatus).toBe("cancelled");
+    expect(cancelled.settlementCancelledAt).toBe("2024-05-03T10:00:00.000Z");
+    expect(cancelled.settlementConfirmedAt).toBeNull();
+
+    vi.setSystemTime(new Date("2024-05-04T11:15:00.000Z"));
+    act(() => {
+      result.current.handlers.reopenSettlement(pending.id);
+    });
+    rerender();
+
+    const reopened = store.find((tx) => tx.id === pending.id)!;
+    expect(reopened.settlementStatus).toBe("initiated");
+    expect(reopened.settlementCancelledAt).toBeNull();
+    expect(reopened.settlementConfirmedAt).toBeNull();
+    expect(reopened.updatedAt).toBe("2024-05-04T11:15:00.000Z");
 
     vi.useRealTimers();
 

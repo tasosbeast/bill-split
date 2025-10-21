@@ -52,10 +52,9 @@ const SETTLEMENT_STATUSES: SettlementStatus[] = [
 ];
 
 function isSettlementStatus(value: unknown): value is SettlementStatus {
-  return (
-    typeof value === "string" &&
-    SETTLEMENT_STATUSES.includes(value.trim().toLowerCase() as SettlementStatus)
-  );
+  if (typeof value !== "string") return false;
+  const lowered = value.trim().toLowerCase();
+  return SETTLEMENT_STATUSES.some((status) => status === lowered);
 }
 
 function normalizeStatus(
@@ -68,7 +67,7 @@ function normalizeStatus(
       return "cancelled";
     }
     if (isSettlementStatus(lowered)) {
-      return lowered as SettlementStatus;
+      return lowered;
     }
   }
   if (isSettlementStatus(value)) {

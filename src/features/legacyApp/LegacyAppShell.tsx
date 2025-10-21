@@ -109,6 +109,35 @@ export default function LegacyAppShell(): JSX.Element {
     reopenSettlement,
   } = transactionHandlers;
 
+  const settlementSummaries = useMemo(() => {
+    const map = new Map<string, SettlementSummary>();
+    for (const transaction of transactions) {
+      if (!transaction || transaction.type !== "settlement") continue;
+      const friendId = resolveSettlementFriendId(transaction);
+      if (!friendId) continue;
+      const summary: SettlementSummary = {
+        transactionId: transaction.id,
+        status: normalizeSettlementStatus(transaction.settlementStatus),
+        balance: resolveSettlementBalance(transaction),
+        createdAt: resolveSettlementTimestamp(transaction),
+        payment: isTransactionPaymentMetadata(transaction.payment)
+          ? transaction.payment
+          : null,
+      };
+      const existing = map.get(friendId);
+      if (!existing) {
+        map.set(friendId, summary);
+        continue;
+      }
+      const existingTime = safeTimestamp(existing.createdAt);
+      const nextTime = safeTimestamp(summary.createdAt);
+      if (nextTime >= existingTime) {
+        map.set(friendId, summary);
+      }
+    }
+    return map;
+  }, [transactions]);
+
   const {
     handleAutomation,
     handleApplyTemplate,

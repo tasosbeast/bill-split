@@ -14,11 +14,20 @@ export interface FriendTransaction extends StoredTransaction {
   effect?: TransactionEffect | null;
 }
 
+export interface LegacySettlementSummary {
+  transactionId: string;
+  status: SettlementStatus;
+  balance: number;
+  createdAt: string | null;
+  payment: TransactionPaymentMetadata | null;
+}
+
 export interface LegacyTransactionsState {
   transactions: StoredTransaction[];
   filter: string;
   transactionsByFilter: FriendTransaction[];
   transactionsForSelectedFriend: FriendTransaction[];
+  settlementSummaries: Map<string, LegacySettlementSummary>;
 }
 
 export interface LegacyTransactionsHandlers {
@@ -50,6 +59,18 @@ const SETTLEMENT_STATUSES: SettlementStatus[] = [
   "confirmed",
   "cancelled",
 ];
+
+function safeTimestamp(value: string | null | undefined): number {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+}
+
+function isTransactionPaymentMetadata(
+  value: unknown
+): value is TransactionPaymentMetadata {
+  return !!value && typeof value === "object";
+}
 
 function isSettlementStatus(value: unknown): value is SettlementStatus {
   if (typeof value !== "string") return false;
@@ -164,6 +185,27 @@ function buildSettlementContext(
   return { friendId, balance };
 }
 
+function resolveSettlementTimestamp(
+  transaction: StoredTransaction
+): string | null {
+  const updated =
+    typeof transaction.updatedAt === "string" && transaction.updatedAt
+      ? transaction.updatedAt
+      : null;
+  if (updated) return updated;
+  const initiated =
+    typeof transaction.settlementInitiatedAt === "string" &&
+    transaction.settlementInitiatedAt
+      ? transaction.settlementInitiatedAt
+      : null;
+  if (initiated) return initiated;
+  const created =
+    typeof transaction.createdAt === "string" && transaction.createdAt
+      ? transaction.createdAt
+      : null;
+  return created;
+}
+
 interface UseLegacyTransactionsParams {
   transactions: StoredTransaction[];
   selectedFriendId: string | null;
@@ -226,6 +268,42 @@ export function useLegacyTransactions({
         return effect ? { ...transaction, effect } : transaction;
       });
   }, [transactions, selectedFriendId, filter]);
+
+  const settlementSummaries = useMemo(
+    () => {
+      const summaries = new Map<string, LegacySettlementSummary>();
+      for (const transaction of transactions) {
+        if (!transaction || transaction.type !== "settlement") continue;
+        const { friendId, balance } = buildSettlementContext(transaction);
+        if (!friendId) continue;
+        const summary: LegacySettlementSummary = {
+          transactionId: transaction.id,
+          status: normalizeStatus(
+            transaction.settlementStatus,
+            "confirmed"
+          ),
+          balance,
+          createdAt: resolveSettlementTimestamp(transaction),
+          payment: isTransactionPaymentMetadata(transaction.payment)
+            ? transaction.payment
+            : null,
+        };
+        const existing = summaries.get(friendId);
+        if (!existing) {
+          summaries.set(friendId, summary);
+          continue;
+        }
+        if (
+          safeTimestamp(summary.createdAt) >=
+          safeTimestamp(existing.createdAt)
+        ) {
+          summaries.set(friendId, summary);
+        }
+      }
+      return summaries;
+    },
+    [transactions]
+  );
 
   const addTransaction = useCallback(
     (transaction: StoredTransaction) => {
@@ -518,6 +596,7 @@ export function useLegacyTransactions({
     filter,
     transactionsByFilter,
     transactionsForSelectedFriend,
+    settlementSummaries,
   };
 
   const handlers: LegacyTransactionsHandlers = {

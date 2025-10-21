@@ -32,14 +32,7 @@ function normalizeAmountInput(value: string): number | null {
 
 function formatIsoDate(value: string): string {
   if (!value) return "";
-  const parts = value.split("-");
-  if (parts.length !== 3) return value;
-  const year = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10);
-  const day = parseInt(parts[2], 10);
-  if (isNaN(year) || isNaN(month) || isNaN(day)) return value;
-
-  const parsed = new Date(year, month - 1, day);
+  const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleDateString();
 }

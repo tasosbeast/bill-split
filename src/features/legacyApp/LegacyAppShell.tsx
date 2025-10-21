@@ -17,7 +17,14 @@ import FriendsPanel from "../../components/legacy/FriendsPanel";
 import TransactionsPanel from "../../components/legacy/TransactionsPanel";
 import AnalyticsPanel from "../../components/legacy/AnalyticsPanel";
 import RestoreSnapshotModal from "../../components/legacy/RestoreSnapshotModal";
-import type { StoredTransaction, UISnapshot } from "../../types/legacySnapshot";
+import SettlementAssistantModal, {
+  type SettlementAssistantResult,
+} from "../../components/SettlementAssistantModal";
+import type {
+  LegacyFriend,
+  StoredTransaction,
+  UISnapshot,
+} from "../../types/legacySnapshot";
 import type { FriendTransaction } from "../../hooks/useLegacyTransactions";
 import { setTransactions as syncTransactionsStore } from "../../state/transactionsStore";
 import type { SplitDraftPreset } from "../../types/transactionTemplate";
@@ -41,6 +48,11 @@ type TemplateRequestIntent = {
   mode: "template" | "recurring";
   includeSplit: boolean;
 };
+
+interface SettlementAssistantState {
+  friend: LegacyFriend;
+  balance: number;
+}
 export default function LegacyAppShell(): JSX.Element {
   const {
     snapshot,
@@ -71,6 +83,8 @@ export default function LegacyAppShell(): JSX.Element {
     { transaction: StoredTransaction; intent: TemplateRequestIntent } | null
   >(null);
   const [splitFormResetSignal, setSplitFormResetSignal] = useState(0);
+  const [settlementAssistant, setSettlementAssistant] =
+    useState<SettlementAssistantState | null>(null);
 
   const { state: transactionsState, handlers: transactionHandlers } =
     useLegacyTransactions({
@@ -81,6 +95,7 @@ export default function LegacyAppShell(): JSX.Element {
   const {
     filter: txFilter,
     transactionsForSelectedFriend,
+    settlementSummaries,
   } = transactionsState;
   const {
     setFilter: setTxFilter,
@@ -152,12 +167,36 @@ export default function LegacyAppShell(): JSX.Element {
   const openRestoreModal = useCallback(() => setShowRestoreModal(true), []);
   const closeRestoreModal = useCallback(() => setShowRestoreModal(false), []);
 
-  const handleSettle = useCallback(() => {
+  const handleOpenSettlementAssistant = useCallback(() => {
     const guard = ensureSettle();
     if (!guard.allowed) return;
-    const { friendId, balance: bal } = guard;
-    addSettlement({ friendId, balance: bal });
-  }, [addSettlement, ensureSettle]);
+    const resolvedFriend =
+      friendsById.get(guard.friendId) ??
+      (selectedFriend && selectedFriend.id === guard.friendId
+        ? selectedFriend
+        : null);
+    if (!resolvedFriend) return;
+    setSettlementAssistant({ friend: resolvedFriend, balance: guard.balance });
+  }, [ensureSettle, friendsById, selectedFriend]);
+
+  const handleDismissSettlementAssistant = useCallback(() => {
+    setSettlementAssistant(null);
+  }, []);
+
+  const handleRecordSettlement = useCallback(
+    (result: SettlementAssistantResult) => {
+      if (!settlementAssistant) return;
+      const { friend } = settlementAssistant;
+      addSettlement({
+        friendId: friend.id,
+        balance: result.amount,
+        status: result.status,
+        payment: result.payment ?? null,
+      });
+      setSettlementAssistant(null);
+    },
+    [settlementAssistant, addSettlement]
+  );
 
   const handleDeleteTx = useCallback(
     (id: string) => {
@@ -358,6 +397,8 @@ export default function LegacyAppShell(): JSX.Element {
             onAddFriend={openAddModal}
             onSelectFriend={selectFriend}
             onRemoveFriend={handleRemoveFriend}
+            settlementSummaries={settlementSummaries}
+            onConfirmSettlement={confirmSettlement}
           />
 
           <TransactionsPanel
@@ -370,7 +411,7 @@ export default function LegacyAppShell(): JSX.Element {
             categories={CATEGORIES}
             onSplit={handleSplit}
             onAutomation={handleAutomation}
-            onSettle={handleSettle}
+            onOpenSettlement={handleOpenSettlementAssistant}
             onFilterChange={setTxFilter}
             onClearFilter={clearFilter}
             onRequestEdit={handleRequestEdit}
@@ -396,6 +437,15 @@ export default function LegacyAppShell(): JSX.Element {
             onRestore={handleRestoreFile}
           />
         </Suspense>
+      )}
+
+      {settlementAssistant && (
+        <SettlementAssistantModal
+          friend={settlementAssistant.friend}
+          balance={settlementAssistant.balance}
+          onClose={handleDismissSettlementAssistant}
+          onSubmit={handleRecordSettlement}
+        />
       )}
 
       {showAddModal && (

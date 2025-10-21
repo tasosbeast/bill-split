@@ -6,6 +6,12 @@ import { buildSplitTransaction } from "../lib/transactions";
 
 const YOU_ID = "you";
 
+const FREQUENCY_OPTIONS = [
+  { value: "monthly", label: "Monthly" },
+  { value: "weekly", label: "Weekly" },
+  { value: "yearly", label: "Yearly" },
+];
+
 function formatParticipantAmount(amount) {
   const numeric = Number(amount);
   if (!Number.isFinite(numeric) || numeric <= 0) return "";
@@ -49,6 +55,7 @@ export default function SplitForm({
   friends,
   defaultFriendId,
   onSplit,
+  onAutomation,
   onRequestTemplate,
   draft,
   resetSignal,
@@ -310,7 +317,7 @@ export default function SplitForm({
       transaction.templateName = draft.templateName;
     }
 
-    return transaction;
+    return { transaction, automationRequest };
   }
 
   function handleSubmit(e) {
@@ -326,11 +333,13 @@ export default function SplitForm({
     const normalizedParticipants = normalizeParticipants(rawTotal);
     if (!normalizedParticipants) return;
 
-    const transaction = buildTransactionPayload(
+    const payload = buildTransactionPayload(
       rawTotal,
       normalizedParticipants
     );
-    if (!transaction) return;
+    if (!payload) return;
+
+    const { transaction, automationRequest } = payload;
 
     onSplit(transaction);
     if (automationRequest && typeof onAutomation === "function") {
@@ -365,11 +374,13 @@ export default function SplitForm({
     const normalizedParticipants = normalizeParticipants(rawTotal);
     if (!normalizedParticipants) return;
 
-    const transaction = buildTransactionPayload(
+    const payload = buildTransactionPayload(
       rawTotal,
       normalizedParticipants
     );
-    if (!transaction) return;
+    if (!payload) return;
+
+    const { transaction } = payload;
 
     onRequestTemplate(transaction, intent);
   }
@@ -702,6 +713,7 @@ SplitForm.propTypes = {
   ).isRequired,
   defaultFriendId: PropTypes.string,
   onSplit: PropTypes.func.isRequired,
+  onAutomation: PropTypes.func,
   onRequestTemplate: PropTypes.func,
   draft: PropTypes.shape({
     id: PropTypes.string.isRequired,

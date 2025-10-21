@@ -125,7 +125,9 @@ function sanitizeTransaction(input: unknown): PersistedTransaction | null {
         const normalized = Number.isFinite(amount) ? roundToCents(amount) : 0;
         return { id: pid, amount: normalized } satisfies PersistedParticipant;
       })
-      .filter(Boolean) as PersistedParticipant[];
+      .filter(
+        (value): value is PersistedParticipant => value !== null
+      );
   }
 
   if (safe.type === "settlement") {
@@ -133,18 +135,19 @@ function sanitizeTransaction(input: unknown): PersistedTransaction | null {
       normalizeSettlementStatus(safe.settlementStatus) ?? "confirmed";
     safe.settlementStatus = nextStatus;
 
+    const createdAtString =
+      typeof safe.createdAt === "string" && safe.createdAt
+        ? safe.createdAt
+        : null;
     const initiatedAt =
       typeof safe.settlementInitiatedAt === "string" && safe.settlementInitiatedAt
         ? safe.settlementInitiatedAt
-        : typeof safe.createdAt === "string"
-        ? (safe.createdAt as string)
-        : null;
+        : createdAtString;
     safe.settlementInitiatedAt = initiatedAt;
 
-    const confirmedFallback =
-      typeof safe.updatedAt === "string" && safe.updatedAt
-        ? (safe.updatedAt as string)
-        : initiatedAt;
+    const updatedAtString =
+      typeof safe.updatedAt === "string" && safe.updatedAt ? safe.updatedAt : null;
+    const confirmedFallback = updatedAtString ?? initiatedAt;
     const confirmedAt =
       typeof safe.settlementConfirmedAt === "string" && safe.settlementConfirmedAt
         ? safe.settlementConfirmedAt
@@ -153,10 +156,7 @@ function sanitizeTransaction(input: unknown): PersistedTransaction | null {
         : null;
     safe.settlementConfirmedAt = confirmedAt;
 
-    const cancelledFallback =
-      typeof safe.updatedAt === "string" && safe.updatedAt
-        ? (safe.updatedAt as string)
-        : initiatedAt;
+    const cancelledFallback = updatedAtString ?? initiatedAt;
     const cancelledAt =
       typeof safe.settlementCancelledAt === "string" && safe.settlementCancelledAt
         ? safe.settlementCancelledAt

@@ -1,5 +1,9 @@
 import { memo, Suspense, lazy } from "react";
 import type { LegacyFriend } from "../../types/legacySnapshot";
+import type {
+  SettlementStatus,
+  TransactionPaymentMetadata,
+} from "../../types/transaction";
 
 const FriendList = lazy(() => import("../FriendList"));
 const Balances = lazy(() => import("../Balances"));
@@ -11,6 +15,16 @@ interface FriendsPanelProps {
   onAddFriend: () => void;
   onSelectFriend: (friendId: string | null) => void;
   onRemoveFriend: (friendId: string) => void;
+  settlementSummaries?: Map<string, FriendSettlementSummary>;
+  onConfirmSettlement?: (transactionId: string) => void;
+}
+
+interface FriendSettlementSummary {
+  transactionId: string;
+  status: SettlementStatus;
+  balance: number;
+  createdAt: string | null;
+  payment: TransactionPaymentMetadata | null;
 }
 
 function FriendsPanel({
@@ -20,6 +34,8 @@ function FriendsPanel({
   onAddFriend,
   onSelectFriend,
   onRemoveFriend,
+  settlementSummaries,
+  onConfirmSettlement,
 }: FriendsPanelProps) {
   return (
     <section className="panel">
@@ -60,7 +76,9 @@ function FriendsPanel({
         <Balances
           friends={friends}
           balances={balances}
+          settlements={settlementSummaries}
           onJumpTo={onSelectFriend}
+          onConfirmSettlement={onConfirmSettlement}
         />
       </Suspense>
     </section>

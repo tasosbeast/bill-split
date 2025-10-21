@@ -165,5 +165,18 @@ describe("analytics utilities", () => {
 
       expect(__testOnlyGetTransactionAmount(transaction)).toBe(10);
     });
+
+    it("returns zero for settlements that are not confirmed", () => {
+      const transaction: Transaction = {
+        ...baseTransaction,
+        id: "tx-11",
+        type: "settlement",
+        total: null,
+        settlementStatus: "initiated",
+        effects: [{ friendId: "friend", delta: -12, share: 12 }],
+      };
+
+      expect(__testOnlyGetTransactionAmount(transaction)).toBe(0);
+    });
   });
 });

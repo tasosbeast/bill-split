@@ -3,6 +3,20 @@ export type TransactionType =
   | "settlement"
   | (string & Record<never, never>);
 
+export type SettlementStatus =
+  | "initiated"
+  | "pending"
+  | "confirmed"
+  | "cancelled";
+
+export interface TransactionPaymentMetadata {
+  method?: string | null;
+  reference?: string | null;
+  provider?: string | null;
+  memo?: string | null;
+  [key: string]: unknown;
+}
+
 export interface TransactionParticipant {
   id: string;
   amount: number;
@@ -29,4 +43,9 @@ export interface Transaction {
   friendIds?: string[] | null;
   templateId?: string | null;
   templateName?: string | null;
+  settlementStatus?: SettlementStatus | null;
+  settlementInitiatedAt?: string | null;
+  settlementConfirmedAt?: string | null;
+  settlementCancelledAt?: string | null;
+  payment?: TransactionPaymentMetadata | null;
 }

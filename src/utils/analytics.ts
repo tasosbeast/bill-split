@@ -52,6 +52,16 @@ function getMonthKey(createdAt: string | null | undefined): string {
   return `${year}-${month}`;
 }
 
+function isConfirmedSettlement(transaction: Transaction | null | undefined): boolean {
+  if (!transaction) return true;
+  if (transaction.type !== "settlement") return true;
+  const status = typeof transaction.settlementStatus === "string"
+    ? transaction.settlementStatus.trim().toLowerCase()
+    : null;
+  if (!status) return true;
+  return status === "confirmed";
+}
+
 function effectAmount(effect: TransactionEffect | null | undefined): number {
   if (!effect) return 0;
   const delta = typeof effect.delta === "number" ? effect.delta : 0;
@@ -77,6 +87,10 @@ function getTransactionAmount(
 ): number {
   if (!transaction) return 0;
   const { allowParticipantFallback = true } = options;
+
+  if (transaction.type === "settlement" && !isConfirmedSettlement(transaction)) {
+    return 0;
+  }
 
   const total = safePositiveNumber(transaction.total);
   if (total > 0) {

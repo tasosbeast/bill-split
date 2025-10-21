@@ -94,10 +94,12 @@ describe("useLegacyTransactions", () => {
     vi.stubGlobal("crypto", {
       randomUUID: vi.fn(() => "generated-id"),
     });
+    vi.useRealTimers();
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it("exposes transactions and default filter", () => {
@@ -226,7 +228,7 @@ describe("useLegacyTransactions", () => {
     unmount();
   });
 
-  it("creates a settlement transaction", () => {
+  it("creates a settlement transaction with pending status metadata", () => {
     let store = [...snapshot.transactions];
     const setTransactions = vi.fn(
       (
@@ -246,14 +248,72 @@ describe("useLegacyTransactions", () => {
       })
     );
 
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-05-01T12:00:00.000Z"));
+
     act(() => {
-      result.current.handlers.addSettlement("friend-1", 15);
+      result.current.handlers.addSettlement({ friendId: "friend-1", balance: 15 });
     });
 
     const settlement = store[0];
     expect(settlement.type).toBe("settlement");
     expect(settlement.friendId).toBe("friend-1");
     expect(settlement.effects?.[0]?.delta).toBe(-15);
+    expect(settlement.settlementStatus).toBe("initiated");
+    expect(settlement.settlementInitiatedAt).toBe("2024-05-01T12:00:00.000Z");
+    expect(settlement.settlementConfirmedAt).toBeNull();
+    expect(settlement.payment).toBeNull();
+    expect(settlement.updatedAt).toBe("2024-05-01T12:00:00.000Z");
+
+    vi.useRealTimers();
+    unmount();
+  });
+
+  it("updates an existing settlement to confirmed and records timestamps", () => {
+    let store = [...snapshot.transactions];
+    const setTransactions = vi.fn(
+      (
+        updater:
+          | StoredTransaction[]
+          | ((previous: StoredTransaction[]) => StoredTransaction[])
+      ) => {
+        store = typeof updater === "function" ? updater(store) : updater;
+      }
+    );
+
+    const { result, unmount } = renderHook(() =>
+      useLegacyTransactions({
+        transactions: store,
+        selectedFriendId: "friend-1",
+        setTransactions,
+      })
+    );
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-05-01T08:00:00.000Z"));
+    act(() => {
+      result.current.handlers.addSettlement({ friendId: "friend-1", balance: 20 });
+    });
+    const pending = store[0];
+    expect(pending.settlementStatus).toBe("initiated");
+
+    vi.setSystemTime(new Date("2024-05-02T09:30:00.000Z"));
+    act(() => {
+      result.current.handlers.addSettlement({
+        friendId: "friend-1",
+        balance: 20,
+        status: "confirmed",
+        transactionId: pending.id,
+      });
+    });
+
+    const confirmed = store.find((tx) => tx.id === pending.id)!;
+    expect(confirmed.settlementStatus).toBe("confirmed");
+    expect(confirmed.settlementConfirmedAt).toBe("2024-05-02T09:30:00.000Z");
+    expect(confirmed.settlementInitiatedAt).toBe("2024-05-01T08:00:00.000Z");
+    expect(confirmed.updatedAt).toBe("2024-05-02T09:30:00.000Z");
+
+    vi.useRealTimers();
 
     unmount();
   });

@@ -4,7 +4,11 @@ import {
   transactionIncludesFriend,
 } from "../lib/transactions";
 import type { StoredTransaction } from "../types/legacySnapshot";
-import type { TransactionEffect } from "../types/transaction";
+import type {
+  SettlementStatus,
+  TransactionEffect,
+  TransactionPaymentMetadata,
+} from "../types/transaction";
 
 export interface FriendTransaction extends StoredTransaction {
   effect?: TransactionEffect | null;
@@ -23,7 +27,18 @@ export interface LegacyTransactionsHandlers {
   addTransaction: (transaction: StoredTransaction) => void;
   updateTransaction: (transaction: StoredTransaction) => void;
   removeTransaction: (id: string) => void;
-  addSettlement: (friendId: string, balance: number) => void;
+  addSettlement: (settlement: SettlementDraft) => void;
+}
+
+export interface SettlementDraft {
+  friendId: string;
+  balance: number;
+  status?: SettlementStatus;
+  transactionId?: string;
+  payment?: TransactionPaymentMetadata | null;
+  initiatedAt?: string | null;
+  confirmedAt?: string | null;
+  cancelledAt?: string | null;
 }
 
 interface UseLegacyTransactionsParams {
@@ -110,31 +125,145 @@ export function useLegacyTransactions({
   );
 
   const addSettlement = useCallback(
-    (friendId: string, balance: number) => {
-      const createdAt = new Date().toISOString();
-      const settlement: StoredTransaction = {
-        id: typeof crypto?.randomUUID === "function" ? crypto.randomUUID() : `tx-${Date.now()}`,
-        type: "settlement",
-        friendId,
-        total: null,
-        payer: null,
-        participants: [
-          { id: "you", amount: Math.max(-balance, 0) },
-          { id: friendId, amount: Math.max(balance, 0) },
-        ],
-        effects: [
-          {
-            friendId,
-            delta: -balance,
-            share: Math.abs(balance),
-          },
-        ],
-        friendIds: [friendId],
-        createdAt,
-      } as StoredTransaction;
-      addTransaction(settlement);
+    ({
+      friendId,
+      balance,
+      status = "initiated",
+      transactionId,
+      payment = null,
+      initiatedAt,
+      confirmedAt,
+      cancelledAt,
+    }: SettlementDraft) => {
+      const now = new Date().toISOString();
+      const normalizedStatus: SettlementStatus = status;
+      const youShare = Math.max(-balance, 0);
+      const friendShare = Math.max(balance, 0);
+      const delta = -balance;
+
+      setTransactions((previous) => {
+        if (transactionId) {
+          return previous.map((entry) => {
+            if (entry.id !== transactionId) return entry;
+            if (entry.type !== "settlement") return entry;
+
+            const existingFriendId =
+              typeof entry.friendId === "string" && entry.friendId
+                ? entry.friendId
+                : friendId;
+
+            const initialTimestamp =
+              entry.settlementInitiatedAt ??
+              initiatedAt ??
+              (typeof entry.createdAt === "string" && entry.createdAt
+                ? entry.createdAt
+                : now);
+            const previousStatus =
+              (typeof entry.settlementStatus === "string"
+                ? entry.settlementStatus
+                : null) ?? "initiated";
+            const statusChangedToConfirmed =
+              normalizedStatus === "confirmed" &&
+              previousStatus !== "confirmed";
+            const statusChangedToCancelled =
+              normalizedStatus === "cancelled" &&
+              previousStatus !== "cancelled";
+
+            const nextParticipants = Array.isArray(entry.participants)
+              ? entry.participants.map((participant) => {
+                  if (!participant || typeof participant !== "object") {
+                    return participant;
+                  }
+                  if (participant.id === "you") {
+                    return { ...participant, amount: youShare };
+                  }
+                  if (participant.id === existingFriendId) {
+                    return { ...participant, amount: friendShare };
+                  }
+                  return participant;
+                })
+              : [
+                  { id: "you", amount: youShare },
+                  { id: existingFriendId, amount: friendShare },
+                ];
+
+            return {
+              ...entry,
+              friendId: existingFriendId,
+              friendIds:
+                Array.isArray(entry.friendIds) && entry.friendIds.length > 0
+                  ? entry.friendIds
+                  : [existingFriendId],
+              participants: nextParticipants,
+              effects: [
+                {
+                  friendId: existingFriendId,
+                  delta,
+                  share: Math.abs(balance),
+                },
+              ],
+              settlementStatus: normalizedStatus,
+              settlementInitiatedAt: initiatedAt ?? initialTimestamp,
+              settlementConfirmedAt:
+                normalizedStatus === "confirmed"
+                  ? confirmedAt ??
+                    entry.settlementConfirmedAt ??
+                    (statusChangedToConfirmed ? now : initialTimestamp)
+                  : entry.settlementConfirmedAt ?? null,
+              settlementCancelledAt:
+                normalizedStatus === "cancelled"
+                  ? cancelledAt ??
+                    entry.settlementCancelledAt ??
+                    (statusChangedToCancelled ? now : initialTimestamp)
+                  : normalizedStatus === "confirmed"
+                  ? null
+                  : entry.settlementCancelledAt ?? null,
+              payment: payment ?? entry.payment ?? null,
+              updatedAt: now,
+            } as StoredTransaction;
+          });
+        }
+
+        const createdAt = initiatedAt ?? now;
+        const settlement: StoredTransaction = {
+          id:
+            typeof crypto?.randomUUID === "function"
+              ? crypto.randomUUID()
+              : `tx-${Date.now()}`,
+          type: "settlement",
+          friendId,
+          total: null,
+          payer: null,
+          participants: [
+            { id: "you", amount: youShare },
+            { id: friendId, amount: friendShare },
+          ],
+          effects: [
+            {
+              friendId,
+              delta,
+              share: Math.abs(balance),
+            },
+          ],
+          friendIds: [friendId],
+          createdAt,
+          updatedAt: now,
+          settlementStatus: normalizedStatus,
+          settlementInitiatedAt: createdAt,
+          settlementConfirmedAt:
+            normalizedStatus === "confirmed"
+              ? confirmedAt ?? now
+              : null,
+          settlementCancelledAt:
+            normalizedStatus === "cancelled"
+              ? cancelledAt ?? now
+              : null,
+          payment: payment ?? null,
+        } as StoredTransaction;
+        return [settlement, ...previous];
+      });
     },
-    [addTransaction]
+    [setTransactions]
   );
 
   const state: LegacyTransactionsState = {

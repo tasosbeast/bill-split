@@ -4,7 +4,11 @@ import {
   buildSplitTransaction,
   upgradeTransactions,
 } from "./transactions";
-import type { TransactionParticipant } from "../types/transaction";
+import type {
+  TransactionParticipant,
+  SettlementStatus,
+  TransactionPaymentMetadata,
+} from "../types/transaction";
 import type {
   LegacyFriend,
   RestoreSnapshotResult,
@@ -29,6 +33,32 @@ type ParseHelpers = {
 type RawTransaction = Record<string, unknown>;
 
 type ParsedTransaction = StoredTransaction;
+
+const SETTLEMENT_STATUSES = new Set<SettlementStatus>([
+  "initiated",
+  "pending",
+  "confirmed",
+  "cancelled",
+]);
+
+function normalizeSettlementStatus(value: unknown): SettlementStatus | null {
+  if (typeof value !== "string") return null;
+  const lowered = value.trim().toLowerCase();
+  if (lowered === "canceled") {
+    return "cancelled";
+  }
+  if (SETTLEMENT_STATUSES.has(lowered as SettlementStatus)) {
+    return lowered as SettlementStatus;
+  }
+  return null;
+}
+
+function sanitizePaymentMetadata(value: unknown): TransactionPaymentMetadata | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as TransactionPaymentMetadata;
+}
 
 function parseV2SplitTransaction(
   transaction: RawTransaction,
@@ -201,6 +231,38 @@ function parseSettlementTransaction(
     ? roundToCents(numericDelta)
     : 0;
 
+  const rawStatus = normalizeSettlementStatus(
+    (transaction as { settlementStatus?: unknown }).settlementStatus
+  );
+  const settlementStatus: SettlementStatus =
+    rawStatus ?? "confirmed";
+
+  const rawInitiatedAt = (transaction as { settlementInitiatedAt?: unknown }).settlementInitiatedAt;
+  const settlementInitiatedAt =
+    typeof rawInitiatedAt === "string" && rawInitiatedAt
+      ? rawInitiatedAt
+      : base.createdAt;
+
+  const rawConfirmedAt = (transaction as { settlementConfirmedAt?: unknown }).settlementConfirmedAt;
+  const settlementConfirmedAt =
+    typeof rawConfirmedAt === "string" && rawConfirmedAt
+      ? rawConfirmedAt
+      : settlementStatus === "confirmed"
+      ? base.updatedAt ?? base.createdAt
+      : null;
+
+  const rawCancelledAt = (transaction as { settlementCancelledAt?: unknown }).settlementCancelledAt;
+  const settlementCancelledAt =
+    typeof rawCancelledAt === "string" && rawCancelledAt
+      ? rawCancelledAt
+      : settlementStatus === "cancelled"
+      ? base.updatedAt ?? base.createdAt
+      : null;
+
+  const payment = sanitizePaymentMetadata(
+    (transaction as { payment?: unknown }).payment
+  );
+
   return {
     id: base.id,
     type: "settlement",
@@ -217,6 +279,11 @@ function parseSettlementTransaction(
     note: base.note,
     createdAt: base.createdAt,
     updatedAt: base.updatedAt,
+    settlementStatus,
+    settlementInitiatedAt,
+    settlementConfirmedAt,
+    settlementCancelledAt,
+    payment: payment ?? null,
   };
 }
 

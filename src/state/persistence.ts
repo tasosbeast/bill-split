@@ -1,4 +1,8 @@
 import { roundToCents } from "../lib/money";
+import type {
+  SettlementStatus,
+  TransactionPaymentMetadata,
+} from "../types/transaction";
 
 export interface StorageAdapter {
   getItem(key: string): string | null;
@@ -19,6 +23,11 @@ export interface PersistedTransaction {
   category?: unknown;
   total?: unknown;
   participants?: PersistedParticipant[];
+  settlementStatus?: unknown;
+  settlementInitiatedAt?: unknown;
+  settlementConfirmedAt?: unknown;
+  settlementCancelledAt?: unknown;
+  payment?: unknown;
 }
 
 export interface PersistedTransactionsState {
@@ -30,6 +39,34 @@ const STORAGE_KEY = "bill-split:transactions";
 
 let customStorage: StorageAdapter | null = null;
 let fallbackStorage: StorageAdapter | null = null;
+
+const SETTLEMENT_STATUSES = new Set<SettlementStatus>([
+  "initiated",
+  "pending",
+  "confirmed",
+  "cancelled",
+]);
+
+function normalizeSettlementStatus(value: unknown): SettlementStatus | null {
+  if (typeof value !== "string") return null;
+  const lowered = value.trim().toLowerCase();
+  if (lowered === "canceled") {
+    return "cancelled";
+  }
+  if (SETTLEMENT_STATUSES.has(lowered as SettlementStatus)) {
+    return lowered as SettlementStatus;
+  }
+  return null;
+}
+
+function sanitizePaymentMetadata(
+  value: unknown
+): TransactionPaymentMetadata | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as TransactionPaymentMetadata;
+}
 
 function isStorageAdapter(value: unknown): value is StorageAdapter {
   if (!value || typeof value !== "object") return false;
@@ -89,6 +126,48 @@ function sanitizeTransaction(input: unknown): PersistedTransaction | null {
         return { id: pid, amount: normalized } satisfies PersistedParticipant;
       })
       .filter(Boolean) as PersistedParticipant[];
+  }
+
+  if (safe.type === "settlement") {
+    const nextStatus =
+      normalizeSettlementStatus(safe.settlementStatus) ?? "confirmed";
+    safe.settlementStatus = nextStatus;
+
+    const initiatedAt =
+      typeof safe.settlementInitiatedAt === "string" && safe.settlementInitiatedAt
+        ? safe.settlementInitiatedAt
+        : typeof safe.createdAt === "string"
+        ? (safe.createdAt as string)
+        : null;
+    safe.settlementInitiatedAt = initiatedAt;
+
+    const confirmedFallback =
+      typeof safe.updatedAt === "string" && safe.updatedAt
+        ? (safe.updatedAt as string)
+        : initiatedAt;
+    const confirmedAt =
+      typeof safe.settlementConfirmedAt === "string" && safe.settlementConfirmedAt
+        ? safe.settlementConfirmedAt
+        : nextStatus === "confirmed"
+        ? confirmedFallback
+        : null;
+    safe.settlementConfirmedAt = confirmedAt;
+
+    const cancelledFallback =
+      typeof safe.updatedAt === "string" && safe.updatedAt
+        ? (safe.updatedAt as string)
+        : initiatedAt;
+    const cancelledAt =
+      typeof safe.settlementCancelledAt === "string" && safe.settlementCancelledAt
+        ? safe.settlementCancelledAt
+        : nextStatus === "cancelled"
+        ? cancelledFallback
+        : null;
+    safe.settlementCancelledAt = cancelledAt;
+
+    safe.payment = sanitizePaymentMetadata(safe.payment);
+  } else if (safe.payment !== undefined) {
+    safe.payment = sanitizePaymentMetadata(safe.payment);
   }
 
   return safe;

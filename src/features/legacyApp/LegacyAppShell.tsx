@@ -153,7 +153,7 @@ export default function LegacyAppShell(): JSX.Element {
     const guard = ensureSettle();
     if (!guard.allowed) return;
     const { friendId, balance: bal } = guard;
-    addSettlement(friendId, bal);
+    addSettlement({ friendId, balance: bal });
   }, [addSettlement, ensureSettle]);
 
   const handleDeleteTx = useCallback(

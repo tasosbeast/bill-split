@@ -4,6 +4,10 @@ import type {
   StoredTransaction,
   StoredSnapshotTemplate,
 } from "../types/legacySnapshot";
+import type {
+  SettlementStatus,
+  TransactionPaymentMetadata,
+} from "../types/transaction";
 
 const KEY = "bill-split@v1";
 
@@ -52,6 +56,63 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+const SETTLEMENT_STATUSES = new Set<SettlementStatus>([
+  "initiated",
+  "pending",
+  "confirmed",
+  "cancelled",
+]);
+
+function normalizeSettlementStatus(value: unknown): SettlementStatus | null {
+  if (typeof value !== "string") return null;
+  const lowered = value.trim().toLowerCase();
+  if (lowered === "canceled") {
+    return "cancelled";
+  }
+  if (SETTLEMENT_STATUSES.has(lowered as SettlementStatus)) {
+    return lowered as SettlementStatus;
+  }
+  return null;
+}
+
+function sanitizePayment(value: unknown): TransactionPaymentMetadata | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as TransactionPaymentMetadata;
+}
+
+function arePaymentsEqual(
+  current: unknown,
+  next: TransactionPaymentMetadata | null
+): boolean {
+  if (!current && !next) return true;
+  if (!current || !next) return false;
+  if (current === next) return true;
+  if (
+    typeof current !== "object" ||
+    current === null ||
+    Array.isArray(current)
+  ) {
+    return false;
+  }
+  const currentRecord = current as Record<string, unknown>;
+  const nextRecord = next as Record<string, unknown>;
+  const currentKeys = Object.keys(currentRecord);
+  const nextKeys = Object.keys(nextRecord);
+  if (currentKeys.length !== nextKeys.length) {
+    return false;
+  }
+  for (const key of currentKeys) {
+    if (!Object.prototype.hasOwnProperty.call(nextRecord, key)) {
+      return false;
+    }
+    if (!Object.is(currentRecord[key], nextRecord[key])) {
+      return false;
+    }
+  }
+  return true;
+}
 function sanitizeFriend(value: unknown): LegacyFriend | null {
   if (!isRecord(value)) return null;
   const id =
@@ -130,11 +191,77 @@ function sanitizeTransactions(input: unknown): {
       continue;
     }
     const entryRecord = entry as StoredTransaction;
+    let normalized: StoredTransaction = entryRecord;
+    let entryChanged = false;
+
     if (id !== entryRecord.id) {
-      transactions.push({ ...entryRecord, id });
+      normalized = { ...normalized, id };
+      entryChanged = true;
+    }
+
+    if (normalized.type === "settlement") {
+      const nextStatus = normalizeSettlementStatus(
+        (normalized as { settlementStatus?: unknown }).settlementStatus
+      ) ?? "confirmed";
+      if (normalized.settlementStatus !== nextStatus) {
+        normalized = { ...normalized, settlementStatus: nextStatus };
+        entryChanged = true;
+      }
+
+      const initiatedAt =
+        typeof normalized.settlementInitiatedAt === "string" &&
+        normalized.settlementInitiatedAt
+          ? normalized.settlementInitiatedAt
+          : typeof normalized.createdAt === "string"
+          ? normalized.createdAt
+          : null;
+      if ((normalized.settlementInitiatedAt ?? null) !== initiatedAt) {
+        normalized = { ...normalized, settlementInitiatedAt: initiatedAt };
+        entryChanged = true;
+      }
+
+      const confirmedFallback =
+        typeof normalized.updatedAt === "string" && normalized.updatedAt
+          ? normalized.updatedAt
+          : initiatedAt;
+      const confirmedAt =
+        typeof normalized.settlementConfirmedAt === "string" &&
+        normalized.settlementConfirmedAt
+          ? normalized.settlementConfirmedAt
+          : nextStatus === "confirmed"
+          ? confirmedFallback
+          : null;
+      if ((normalized.settlementConfirmedAt ?? null) !== confirmedAt) {
+        normalized = { ...normalized, settlementConfirmedAt: confirmedAt };
+        entryChanged = true;
+      }
+
+      const cancelledFallback =
+        typeof normalized.updatedAt === "string" && normalized.updatedAt
+          ? normalized.updatedAt
+          : initiatedAt;
+      const cancelledAt =
+        typeof normalized.settlementCancelledAt === "string" &&
+        normalized.settlementCancelledAt
+          ? normalized.settlementCancelledAt
+          : nextStatus === "cancelled"
+          ? cancelledFallback
+          : null;
+      if ((normalized.settlementCancelledAt ?? null) !== cancelledAt) {
+        normalized = { ...normalized, settlementCancelledAt: cancelledAt };
+        entryChanged = true;
+      }
+
+      const payment = sanitizePayment(normalized.payment);
+      if (!arePaymentsEqual(normalized.payment, payment)) {
+        normalized = { ...normalized, payment };
+        entryChanged = true;
+      }
+    }
+
+    transactions.push(normalized);
+    if (entryChanged) {
       changed = true;
-    } else {
-      transactions.push(entryRecord);
     }
   }
   return { transactions, changed };

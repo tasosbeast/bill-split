@@ -1,6 +1,17 @@
 import { roundToCents } from "./money";
 import { getTransactionEffects } from "./transactions";
 
+function isConfirmedSettlement(transaction) {
+  if (!transaction || typeof transaction !== "object") return true;
+  if (transaction.type !== "settlement") return true;
+  const status = typeof transaction.settlementStatus === "string"
+    ? transaction.settlementStatus.trim().toLowerCase()
+    : null;
+  if (!status) return true;
+  if (status === "confirmed") return true;
+  return false;
+}
+
 function toDate(value) {
   if (!value) return null;
   const d = new Date(value);
@@ -100,6 +111,7 @@ export function computeAnalyticsOverview(transactions) {
 
   for (const tx of transactions || []) {
     if (!tx || typeof tx !== "object") continue;
+    const includeSettlement = isConfirmedSettlement(tx);
     count += 1;
 
     const effects = getTransactionEffects(tx);
@@ -107,6 +119,9 @@ export function computeAnalyticsOverview(transactions) {
     totalVolume += getTransactionVolume(tx);
 
     for (const effect of effects) {
+      if (tx.type === "settlement" && !includeSettlement) {
+        continue;
+      }
       const delta = Number(effect?.delta);
       if (!Number.isFinite(delta) || delta === 0) continue;
       if (delta > 0) {
@@ -178,6 +193,7 @@ export function computeFriendBalances(transactions) {
 
   for (const tx of transactions || []) {
     if (!tx || typeof tx !== "object") continue;
+    if (tx.type === "settlement" && !isConfirmedSettlement(tx)) continue;
     const effects = getTransactionEffects(tx);
     for (const effect of effects) {
       const friendId = typeof effect?.friendId === "string" ? effect.friendId : null;

@@ -134,6 +134,33 @@ describe("legacy analytics helpers", () => {
         { friendId: "alex", balance: 5.51 },
       ]);
     });
+
+    it("ignores settlement effects until they are confirmed", () => {
+      const transactions = [
+        {
+          id: "settle-1",
+          type: "settlement",
+          settlementStatus: "initiated",
+          effects: [{ friendId: "alex", delta: -25, share: 25 }],
+        },
+        {
+          id: "settle-2",
+          type: "settlement",
+          settlementStatus: "confirmed",
+          effects: [{ friendId: "alex", delta: -10, share: 10 }],
+        },
+        {
+          id: "split-1",
+          type: "split",
+          effects: [{ friendId: "sam", delta: 12, share: 12 }],
+        },
+      ];
+
+      expect(computeFriendBalances(transactions)).toEqual([
+        { friendId: "sam", balance: 12 },
+        { friendId: "alex", balance: -10 },
+      ]);
+    });
   });
 
   describe("computeMonthlyVolume", () => {

@@ -6,7 +6,9 @@ import {
   lazy,
   useEffect,
 } from "react";
+import type { ChangeEvent } from "react";
 import { CATEGORIES } from "../../lib/categories";
+import { formatEUR } from "../../lib/money.js";
 import { useLegacyFriendManagement } from "../../hooks/useLegacyFriendManagement";
 import { useLegacyTransactions } from "../../hooks/useLegacyTransactions";
 import {
@@ -27,6 +29,18 @@ import type {
 } from "../../types/legacySnapshot";
 import type { FriendTransaction } from "../../hooks/useLegacyTransactions";
 import { setTransactions as syncTransactionsStore } from "../../state/transactionsStore";
+import {
+  clearReminderHistory,
+  getRemindersState,
+  setReminderPreferences,
+  subscribeReminders,
+  REMINDER_TRIGGER_PRESETS,
+} from "../../state/remindersStore";
+import type {
+  ReminderChannel,
+  ReminderState,
+  ReminderTriggerLevel,
+} from "../../state/remindersStore";
 import type { SplitDraftPreset } from "../../types/transactionTemplate";
 
 const AddFriendModal = lazy(() => import("../../components/AddFriendModal"));
@@ -53,6 +67,53 @@ interface SettlementAssistantState {
   friend: LegacyFriend;
   balance: number;
 }
+
+const REMINDER_LEVEL_SEQUENCE: ReminderTriggerLevel[] = [
+  "low",
+  "medium",
+  "high",
+];
+
+const REMINDER_LEVEL_LABELS: Record<ReminderTriggerLevel, string> = {
+  low: "Relaxed",
+  medium: "Balanced",
+  high: "Strict",
+};
+
+const REMINDER_TRIGGER_OPTIONS = REMINDER_LEVEL_SEQUENCE.map((value) => ({
+  value,
+  label: `${REMINDER_LEVEL_LABELS[value]} · ${formatEUR(
+    REMINDER_TRIGGER_PRESETS[value]
+  )}`,
+}));
+
+const REMINDER_SNOOZE_OPTIONS = [
+  { value: 24, label: "24 hours (next day)" },
+  { value: 72, label: "3 days" },
+  { value: 168, label: "1 week" },
+];
+
+const REMINDER_CHANNEL_OPTIONS: Array<{
+  value: ReminderChannel;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "email",
+    label: "Email",
+    description: "Send a friendly recap to each friend's saved email.",
+  },
+  {
+    value: "sms",
+    label: "SMS",
+    description: "Text friends when a phone number is on file.",
+  },
+  {
+    value: "push",
+    label: "Push",
+    description: "Show a notification on this device.",
+  },
+];
 export default function LegacyAppShell(): JSX.Element {
   const {
     snapshot,
@@ -85,6 +146,9 @@ export default function LegacyAppShell(): JSX.Element {
   const [splitFormResetSignal, setSplitFormResetSignal] = useState(0);
   const [settlementAssistant, setSettlementAssistant] =
     useState<SettlementAssistantState | null>(null);
+  const [reminderSettings, setReminderSettings] = useState<ReminderState>(
+    () => getRemindersState()
+  );
 
   const { state: transactionsState, handlers: transactionHandlers } =
     useLegacyTransactions({
@@ -120,6 +184,8 @@ export default function LegacyAppShell(): JSX.Element {
     setDraftPreset,
   });
 
+  useEffect(() => subscribeReminders(setReminderSettings), []);
+
   const storeSnapshot = useMemo<
     Pick<UISnapshot, "friends" | "selectedId" | "transactions"> & {
       balances: Map<string, number>;
@@ -151,6 +217,64 @@ export default function LegacyAppShell(): JSX.Element {
   );
 
   const closeTemplateModal = useCallback(() => setPendingTemplate(null), []);
+
+  const handleTriggerLevelChange = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      const value = event.target.value as ReminderTriggerLevel;
+      setReminderPreferences({ triggerLevel: value });
+    },
+    []
+  );
+
+  const handleSnoozeChange = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      const hours = Number(event.target.value);
+      if (!Number.isFinite(hours)) return;
+      setReminderPreferences({ snoozeHours: hours });
+    },
+    []
+  );
+
+  const handleChannelToggle = useCallback(
+    (channel: ReminderChannel, checked: boolean) => {
+      const currentChannels = getRemindersState().channels;
+      if (!checked && currentChannels.length <= 1) {
+        return;
+      }
+      const nextChannels = checked
+        ? currentChannels.includes(channel)
+          ? currentChannels
+          : [...currentChannels, channel]
+        : currentChannels.filter((value) => value !== channel);
+      setReminderPreferences({ channels: nextChannels });
+    },
+    []
+  );
+
+  const handleClearReminderHistory = useCallback(() => {
+    clearReminderHistory();
+  }, []);
+
+  const reminderHistoryCount = useMemo(
+    () => Object.keys(reminderSettings.lastSent).length,
+    [reminderSettings.lastSent]
+  );
+
+  const hasPresetSnooze = useMemo(
+    () =>
+      REMINDER_SNOOZE_OPTIONS.some(
+        (option) => option.value === reminderSettings.snoozeHours
+      ),
+    [reminderSettings.snoozeHours]
+  );
+
+  const reminderHistoryLabel = useMemo(() => {
+    if (reminderHistoryCount === 0) {
+      return "No reminders have been sent yet.";
+    }
+    const suffix = reminderHistoryCount === 1 ? "" : "s";
+    return `Last reminder went to ${reminderHistoryCount} friend${suffix}.`;
+  }, [reminderHistoryCount]);
 
   const handleTemplateModalSave = useCallback(
     (automation: SplitAutomationRequest) => {
@@ -385,6 +509,115 @@ export default function LegacyAppShell(): JSX.Element {
           </div>
         </div>
       </header>
+
+      <section
+        className="panel reminder-settings"
+        aria-labelledby="reminder-settings-heading"
+      >
+        <div className="reminder-settings__header">
+          <h2 id="reminder-settings-heading">Reminders</h2>
+          <p className="reminder-settings__subtitle">
+            Choose when Bill Split nudges friends about outstanding balances.
+          </p>
+        </div>
+
+        <div className="reminder-settings__field">
+          <label
+            className="reminder-settings__label"
+            htmlFor="reminder-trigger-level"
+          >
+            Trigger level
+          </label>
+          <select
+            id="reminder-trigger-level"
+            className="select"
+            value={reminderSettings.triggerLevel}
+            onChange={handleTriggerLevelChange}
+          >
+            {REMINDER_TRIGGER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <p className="reminder-settings__help">
+            Reminders send once a friend owes at least{" "}
+            <strong>{formatEUR(reminderSettings.threshold)}</strong>.
+          </p>
+        </div>
+
+        <div className="reminder-settings__field">
+          <label className="reminder-settings__label" htmlFor="reminder-snooze">
+            Snooze window
+          </label>
+          <select
+            id="reminder-snooze"
+            className="select"
+            value={String(reminderSettings.snoozeHours)}
+            onChange={handleSnoozeChange}
+          >
+            {REMINDER_SNOOZE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+            {!hasPresetSnooze && (
+              <option value={reminderSettings.snoozeHours}>
+                Custom · {reminderSettings.snoozeHours} hour
+                {reminderSettings.snoozeHours === 1 ? "" : "s"}
+              </option>
+            )}
+          </select>
+          <p className="reminder-settings__help">
+            We'll wait at least {reminderSettings.snoozeHours} hour
+            {reminderSettings.snoozeHours === 1 ? "" : "s"} between reminders
+            to the same friend.
+          </p>
+        </div>
+
+        <fieldset className="reminder-settings__field">
+          <legend className="reminder-settings__label">Channels</legend>
+          <div className="reminder-settings__channels">
+            {REMINDER_CHANNEL_OPTIONS.map((option) => {
+              const checked = reminderSettings.channels.includes(option.value);
+              return (
+                <label
+                  key={option.value}
+                  className="reminder-settings__checkbox"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(event) =>
+                      handleChannelToggle(option.value, event.target.checked)
+                    }
+                  />
+                  <div>
+                    <div className="reminder-settings__checkbox-label">
+                      {option.label}
+                    </div>
+                    <div className="reminder-settings__checkbox-hint">
+                      {option.description}
+                    </div>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+
+        <div className="reminder-settings__footer">
+          <span>{reminderHistoryLabel}</span>
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={handleClearReminderHistory}
+            disabled={reminderHistoryCount === 0}
+          >
+            Clear history
+          </button>
+        </div>
+      </section>
 
       {activeView === "analytics" ? (
         <AnalyticsPanel state={storeSnapshot} />

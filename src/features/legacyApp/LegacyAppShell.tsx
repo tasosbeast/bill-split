@@ -17,7 +17,20 @@ import FriendsPanel from "../../components/legacy/FriendsPanel";
 import TransactionsPanel from "../../components/legacy/TransactionsPanel";
 import AnalyticsPanel from "../../components/legacy/AnalyticsPanel";
 import RestoreSnapshotModal from "../../components/legacy/RestoreSnapshotModal";
-import type { StoredTransaction, UISnapshot } from "../../types/legacySnapshot";
+import SettlementAssistantModal, {
+  type SettlementAssistantResult,
+} from "../../components/SettlementAssistantModal";
+import { getTransactionEffects } from "../../lib/transactions";
+import type {
+  LegacyFriend,
+  StoredTransaction,
+  UISnapshot,
+} from "../../types/legacySnapshot";
+import type {
+  SettlementStatus,
+  TransactionEffect,
+  TransactionPaymentMetadata,
+} from "../../types/transaction";
 import type { FriendTransaction } from "../../hooks/useLegacyTransactions";
 import { setTransactions as syncTransactionsStore } from "../../state/transactionsStore";
 import type { SplitDraftPreset } from "../../types/transactionTemplate";
@@ -41,6 +54,137 @@ type TemplateRequestIntent = {
   mode: "template" | "recurring";
   includeSplit: boolean;
 };
+
+interface SettlementAssistantState {
+  friend: LegacyFriend;
+  balance: number;
+}
+
+interface SettlementSummary {
+  transactionId: string;
+  status: SettlementStatus;
+  balance: number;
+  createdAt: string | null;
+  payment: TransactionPaymentMetadata | null;
+}
+
+function safeTimestamp(value: string | null): number {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+}
+
+function isTransactionPaymentMetadata(
+  value: unknown
+): value is TransactionPaymentMetadata {
+  return !!value && typeof value === "object";
+}
+
+function isSettlementStatusValue(value: unknown): value is SettlementStatus {
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized === "initiated" ||
+    normalized === "pending" ||
+    normalized === "confirmed" ||
+    normalized === "cancelled"
+  );
+}
+
+function extractEffects(transaction: StoredTransaction): TransactionEffect[] {
+  const effects: TransactionEffect[] = [];
+  const rawEffects: unknown = getTransactionEffects(transaction);
+  if (!Array.isArray(rawEffects)) {
+    return effects;
+  }
+  for (const entry of rawEffects) {
+    if (!entry || typeof entry !== "object") continue;
+    const candidate = entry as Record<string, unknown>;
+    const friendIdValue = candidate.friendId;
+    const deltaValue = candidate.delta;
+    const shareValue = candidate.share;
+    if (
+      typeof friendIdValue === "string" &&
+      friendIdValue.trim().length > 0 &&
+      typeof deltaValue === "number" &&
+      Number.isFinite(deltaValue) &&
+      typeof shareValue === "number" &&
+      Number.isFinite(shareValue)
+    ) {
+      effects.push({
+        friendId: friendIdValue.trim(),
+        delta: deltaValue,
+        share: shareValue,
+      });
+    }
+  }
+  return effects;
+}
+
+function normalizeSettlementStatus(value: unknown): SettlementStatus {
+  if (typeof value === "string") {
+    const lowered = value.trim().toLowerCase();
+    if (lowered === "canceled") {
+      return "cancelled";
+    }
+    if (isSettlementStatusValue(lowered)) {
+      return lowered;
+    }
+  }
+  if (isSettlementStatusValue(value)) {
+    return value;
+  }
+  return "confirmed";
+}
+
+function resolveSettlementFriendId(transaction: StoredTransaction): string | null {
+  if (typeof transaction.friendId === "string" && transaction.friendId.trim()) {
+    return transaction.friendId.trim();
+  }
+  if (Array.isArray(transaction.friendIds)) {
+    const found = transaction.friendIds.find(
+      (id): id is string => typeof id === "string" && id.trim().length > 0
+    );
+    if (found) {
+      return found.trim();
+    }
+  }
+  const effects = extractEffects(transaction);
+  const effect = effects.find((entry) => entry.friendId);
+  return effect ? effect.friendId : null;
+}
+
+function resolveSettlementBalance(transaction: StoredTransaction): number {
+  const effects = extractEffects(transaction);
+  const effectWithDelta = effects.find((entry) => typeof entry.delta === "number");
+  if (effectWithDelta) {
+    return -effectWithDelta.delta;
+  }
+  const delta = Number((transaction as Record<string, unknown>).delta);
+  if (Number.isFinite(delta)) {
+    return -delta;
+  }
+  return 0;
+}
+
+function resolveSettlementTimestamp(transaction: StoredTransaction): string | null {
+  const updated =
+    typeof transaction.updatedAt === "string" && transaction.updatedAt
+      ? transaction.updatedAt
+      : null;
+  if (updated) return updated;
+  const initiated =
+    typeof transaction.settlementInitiatedAt === "string" &&
+    transaction.settlementInitiatedAt
+      ? transaction.settlementInitiatedAt
+      : null;
+  if (initiated) return initiated;
+  const created =
+    typeof transaction.createdAt === "string" && transaction.createdAt
+      ? transaction.createdAt
+      : null;
+  return created;
+}
 export default function LegacyAppShell(): JSX.Element {
   const {
     snapshot,
@@ -71,6 +215,8 @@ export default function LegacyAppShell(): JSX.Element {
     { transaction: StoredTransaction; intent: TemplateRequestIntent } | null
   >(null);
   const [splitFormResetSignal, setSplitFormResetSignal] = useState(0);
+  const [settlementAssistant, setSettlementAssistant] =
+    useState<SettlementAssistantState | null>(null);
 
   const { state: transactionsState, handlers: transactionHandlers } =
     useLegacyTransactions({
@@ -93,6 +239,35 @@ export default function LegacyAppShell(): JSX.Element {
     cancelSettlement,
     reopenSettlement,
   } = transactionHandlers;
+
+  const settlementSummaries = useMemo(() => {
+    const map = new Map<string, SettlementSummary>();
+    for (const transaction of transactions) {
+      if (!transaction || transaction.type !== "settlement") continue;
+      const friendId = resolveSettlementFriendId(transaction);
+      if (!friendId) continue;
+      const summary: SettlementSummary = {
+        transactionId: transaction.id,
+        status: normalizeSettlementStatus(transaction.settlementStatus),
+        balance: resolveSettlementBalance(transaction),
+        createdAt: resolveSettlementTimestamp(transaction),
+        payment: isTransactionPaymentMetadata(transaction.payment)
+          ? transaction.payment
+          : null,
+      };
+      const existing = map.get(friendId);
+      if (!existing) {
+        map.set(friendId, summary);
+        continue;
+      }
+      const existingTime = safeTimestamp(existing.createdAt);
+      const nextTime = safeTimestamp(summary.createdAt);
+      if (nextTime >= existingTime) {
+        map.set(friendId, summary);
+      }
+    }
+    return map;
+  }, [transactions]);
 
   const {
     handleAutomation,
@@ -152,12 +327,36 @@ export default function LegacyAppShell(): JSX.Element {
   const openRestoreModal = useCallback(() => setShowRestoreModal(true), []);
   const closeRestoreModal = useCallback(() => setShowRestoreModal(false), []);
 
-  const handleSettle = useCallback(() => {
+  const handleOpenSettlementAssistant = useCallback(() => {
     const guard = ensureSettle();
     if (!guard.allowed) return;
-    const { friendId, balance: bal } = guard;
-    addSettlement({ friendId, balance: bal });
-  }, [addSettlement, ensureSettle]);
+    const resolvedFriend =
+      friendsById.get(guard.friendId) ??
+      (selectedFriend && selectedFriend.id === guard.friendId
+        ? selectedFriend
+        : null);
+    if (!resolvedFriend) return;
+    setSettlementAssistant({ friend: resolvedFriend, balance: guard.balance });
+  }, [ensureSettle, friendsById, selectedFriend]);
+
+  const handleDismissSettlementAssistant = useCallback(() => {
+    setSettlementAssistant(null);
+  }, []);
+
+  const handleRecordSettlement = useCallback(
+    (result: SettlementAssistantResult) => {
+      if (!settlementAssistant) return;
+      const { friend } = settlementAssistant;
+      addSettlement({
+        friendId: friend.id,
+        balance: result.amount,
+        status: result.status,
+        payment: result.payment ?? null,
+      });
+      setSettlementAssistant(null);
+    },
+    [settlementAssistant, addSettlement]
+  );
 
   const handleDeleteTx = useCallback(
     (id: string) => {
@@ -358,6 +557,8 @@ export default function LegacyAppShell(): JSX.Element {
             onAddFriend={openAddModal}
             onSelectFriend={selectFriend}
             onRemoveFriend={handleRemoveFriend}
+            settlementSummaries={settlementSummaries}
+            onConfirmSettlement={confirmSettlement}
           />
 
           <TransactionsPanel
@@ -370,7 +571,7 @@ export default function LegacyAppShell(): JSX.Element {
             categories={CATEGORIES}
             onSplit={handleSplit}
             onAutomation={handleAutomation}
-            onSettle={handleSettle}
+            onOpenSettlement={handleOpenSettlementAssistant}
             onFilterChange={setTxFilter}
             onClearFilter={clearFilter}
             onRequestEdit={handleRequestEdit}
@@ -396,6 +597,15 @@ export default function LegacyAppShell(): JSX.Element {
             onRestore={handleRestoreFile}
           />
         </Suspense>
+      )}
+
+      {settlementAssistant && (
+        <SettlementAssistantModal
+          friend={settlementAssistant.friend}
+          balance={settlementAssistant.balance}
+          onClose={handleDismissSettlementAssistant}
+          onSubmit={handleRecordSettlement}
+        />
       )}
 
       {showAddModal && (

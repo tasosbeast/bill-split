@@ -28,7 +28,7 @@ interface TransactionsPanelProps {
   categories: string[];
   onSplit: (transaction: Transaction) => void;
   onAutomation?: (transaction: Transaction, automation: unknown) => void;
-  onSettle: () => void;
+  onOpenSettlement: () => void;
   onFilterChange: (value: string) => void;
   onClearFilter: () => void;
   onRequestEdit: (transaction: FriendTransaction) => void;
@@ -66,7 +66,7 @@ function TransactionsPanel({
   categories,
   onSplit,
   onAutomation,
-  onSettle,
+  onOpenSettlement,
   onFilterChange,
   onClearFilter,
   onRequestEdit,
@@ -123,10 +123,10 @@ function TransactionsPanel({
             {selectedBalance !== 0 && (
               <button
                 className="button btn-ghost"
-                onClick={onSettle}
-                title="Zero out balance with this friend"
+                onClick={onOpenSettlement}
+                title="Open the settlement assistant"
               >
-                Settle up
+                Record settlement
               </button>
             )}
           </div>
@@ -149,6 +149,7 @@ function TransactionsPanel({
               friends={friends}
               defaultFriendId={selectedFriend.id}
               onSplit={onSplit}
+              onAutomation={onAutomation}
               onRequestTemplate={onRequestTemplate}
               draft={draft ?? undefined}
               resetSignal={splitFormResetSignal}

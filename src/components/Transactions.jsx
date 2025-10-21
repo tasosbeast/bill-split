@@ -11,6 +11,25 @@ function when(ts) {
   }
 }
 
+function resolveDueLabel(payment) {
+  if (!payment) return null;
+  if (typeof payment.dueDateLabel === "string" && payment.dueDateLabel.trim()) {
+    return payment.dueDateLabel.trim();
+  }
+  if (typeof payment.dueDate === "string" && payment.dueDate.trim()) {
+    try {
+      const parsed = new Date(payment.dueDate);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toLocaleDateString();
+      }
+    } catch {
+      return payment.dueDate;
+    }
+    return payment.dueDate;
+  }
+  return null;
+}
+
 function Transactions({
   friend,
   friendsById,
@@ -71,6 +90,27 @@ function Transactions({
               }
             })()
           : null;
+
+        const paymentMetadata = isSettlement ? t.payment ?? null : null;
+        const paymentMethod =
+          paymentMetadata &&
+          typeof paymentMetadata.method === "string" &&
+          paymentMetadata.method.trim()
+            ? paymentMetadata.method.trim()
+            : null;
+        const paymentDue = resolveDueLabel(paymentMetadata);
+        const paymentReference =
+          paymentMetadata &&
+          typeof paymentMetadata.reference === "string" &&
+          paymentMetadata.reference.trim()
+            ? paymentMetadata.reference.trim()
+            : null;
+        const paymentMemo =
+          paymentMetadata &&
+          typeof paymentMetadata.memo === "string" &&
+          paymentMetadata.memo.trim()
+            ? paymentMetadata.memo.trim()
+            : null;
 
         const settlementStatusLabel = (() => {
           switch (settlementStatus) {
@@ -187,6 +227,26 @@ function Transactions({
                     <strong>Status</strong> {settlementStatusLabel}
                   </span>
                 )}
+                {isSettlement && paymentMethod && (
+                  <span className="badge-chip">
+                    <strong>Method</strong> {paymentMethod}
+                  </span>
+                )}
+                {isSettlement && paymentDue && (
+                  <span className="badge-chip">
+                    <strong>Due</strong> {paymentDue}
+                  </span>
+                )}
+                {isSettlement && paymentReference && (
+                  <span className="badge-chip">
+                    <strong>Reference</strong> {paymentReference}
+                  </span>
+                )}
+                {isSettlement && paymentMemo && (
+                  <span className="badge-chip" title={paymentMemo}>
+                    <strong>Notes</strong> {paymentMemo}
+                  </span>
+                )}
                 {t.total ? (
                   <span className="badge-chip">
                     <strong>Total</strong> {formatEUR(t.total)}
@@ -244,9 +304,9 @@ function Transactions({
                           type="button"
                           className="button"
                           onClick={() => onConfirmSettlement?.(t.id)}
-                          title="Mark this settlement as confirmed"
+                          title="Mark this settlement as paid"
                         >
-                          Mark confirmed
+                          Mark paid
                         </button>
                       )}
                     {settlementStatus === "confirmed" || settlementStatus === "cancelled" ? (
@@ -319,6 +379,13 @@ Transactions.propTypes = {
       ]),
       settlementConfirmedAt: PropTypes.string,
       settlementCancelledAt: PropTypes.string,
+      payment: PropTypes.shape({
+        method: PropTypes.string,
+        dueDate: PropTypes.string,
+        dueDateLabel: PropTypes.string,
+        reference: PropTypes.string,
+        memo: PropTypes.string,
+      }),
       effect: PropTypes.shape({
         friendId: PropTypes.string.isRequired,
         share: PropTypes.number,

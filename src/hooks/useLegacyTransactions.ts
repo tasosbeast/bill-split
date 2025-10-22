@@ -3,6 +3,13 @@ import {
   getTransactionEffects,
   transactionIncludesFriend,
 } from "../lib/transactions";
+import {
+  buildSettlementContext,
+  deriveSettlementAmounts,
+  extractSettlementDelta,
+  extractSettlementFriendId,
+  normalizeSettlementStatus,
+} from "../lib/settlements";
 import type { StoredTransaction } from "../types/legacySnapshot";
 import type {
   SettlementStatus,
@@ -53,13 +60,6 @@ export interface SettlementDraft {
   cancelledAt?: string | null;
 }
 
-const SETTLEMENT_STATUSES: SettlementStatus[] = [
-  "initiated",
-  "pending",
-  "confirmed",
-  "cancelled",
-];
-
 function safeTimestamp(value: string | null | undefined): number {
   if (!value) return Number.NEGATIVE_INFINITY;
   const parsed = Date.parse(value);
@@ -70,119 +70,6 @@ function isTransactionPaymentMetadata(
   value: unknown
 ): value is TransactionPaymentMetadata {
   return !!value && typeof value === "object";
-}
-
-function isSettlementStatus(value: unknown): value is SettlementStatus {
-  if (typeof value !== "string") return false;
-  const lowered = value.trim().toLowerCase();
-  return SETTLEMENT_STATUSES.some((status) => status === lowered);
-}
-
-function normalizeStatus(
-  value: unknown,
-  fallback: SettlementStatus
-): SettlementStatus {
-  if (typeof value === "string") {
-    const lowered = value.trim().toLowerCase();
-    if (lowered === "canceled") {
-      return "cancelled";
-    }
-    if (isSettlementStatus(lowered)) {
-      return lowered;
-    }
-  }
-  if (isSettlementStatus(value)) {
-    return value;
-  }
-  return fallback;
-}
-
-function extractSettlementFriendId(
-  transaction: StoredTransaction,
-  fallback?: string | null
-): string | null {
-  if (typeof transaction.friendId === "string" && transaction.friendId.trim()) {
-    return transaction.friendId.trim();
-  }
-  if (Array.isArray(transaction.friendIds)) {
-    const found = transaction.friendIds.find(
-      (id): id is string => typeof id === "string" && id.trim().length > 0
-    );
-    if (found) {
-      return found.trim();
-    }
-  }
-  if (Array.isArray(transaction.effects)) {
-    const effectFriend = transaction.effects.find(
-      (effect) =>
-        effect &&
-        typeof effect.friendId === "string" &&
-        effect.friendId.trim().length > 0
-    );
-    if (effectFriend) {
-      return effectFriend.friendId.trim();
-    }
-  }
-  if (typeof fallback === "string" && fallback.trim()) {
-    return fallback.trim();
-  }
-  return null;
-}
-
-function extractSettlementDelta(transaction: StoredTransaction): number {
-  if (Array.isArray(transaction.effects)) {
-    const effect = transaction.effects.find(
-      (entry) => entry && typeof entry.delta === "number"
-    );
-    if (effect && typeof effect.delta === "number") {
-      return effect.delta;
-    }
-  }
-  if (Array.isArray(transaction.participants)) {
-    const you = transaction.participants.find((p) => p?.id === "you");
-    const friend = transaction.participants.find(
-      (p) => p && p.id !== "you" && typeof p.amount === "number"
-    );
-    if (you && friend && typeof friend.amount === "number") {
-      return -friend.amount;
-    }
-    if (friend) {
-      return -Math.max(friend.amount ?? 0, 0);
-    }
-  }
-  return 0;
-}
-
-function deriveSettlementAmounts(
-  balance: number | undefined,
-  existingDelta: number
-): {
-  delta: number;
-  friendShare: number;
-  youShare: number;
-  share: number;
-} {
-  const delta =
-    typeof balance === "number" && Number.isFinite(balance)
-      ? -balance
-      : existingDelta;
-  const resolvedBalance = -delta;
-  const friendShare = Math.max(resolvedBalance, 0);
-  const youShare = Math.max(-resolvedBalance, 0);
-  const share = Math.abs(resolvedBalance);
-  return { delta, friendShare, youShare, share };
-}
-
-function buildSettlementContext(
-  transaction: StoredTransaction
-): { friendId: string | null; balance: number } {
-  const friendId = extractSettlementFriendId(
-    transaction,
-    typeof transaction.friendId === "string" ? transaction.friendId : null
-  );
-  const delta = extractSettlementDelta(transaction);
-  const balance = -delta;
-  return { friendId, balance };
 }
 
 function resolveSettlementTimestamp(
@@ -278,7 +165,7 @@ export function useLegacyTransactions({
         if (!friendId) continue;
         const summary: LegacySettlementSummary = {
           transactionId: transaction.id,
-          status: normalizeStatus(
+          status: normalizeSettlementStatus(
             transaction.settlementStatus,
             "confirmed"
           ),
@@ -365,12 +252,12 @@ export function useLegacyTransactions({
               share,
             } = deriveSettlementAmounts(balance, existingDelta);
 
-            const previousStatus = normalizeStatus(
+            const previousStatus = normalizeSettlementStatus(
               entry.settlementStatus,
               "initiated"
             );
             const normalizedStatus = status
-              ? normalizeStatus(status, previousStatus)
+              ? normalizeSettlementStatus(status, previousStatus)
               : previousStatus;
 
             const initialTimestamp =

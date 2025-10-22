@@ -718,6 +718,34 @@ body {
   padding: 4px 9px;
 }
 
+.badge-settlement {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.badge-settlement-initiated {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #9ef3b8;
+}
+
+.badge-settlement-pending {
+  background: rgba(234, 179, 8, 0.12);
+  border-color: rgba(234, 179, 8, 0.3);
+  color: #f8d46b;
+}
+
+.badge-settlement-confirmed {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #a0c4ff;
+}
+
+.badge-settlement-cancelled {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #ffb3c1;
+}
+
 /* Add separation before actions to avoid crowding */
 .tx-actions {
   margin-top: 10px;

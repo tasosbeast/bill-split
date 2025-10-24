@@ -11,6 +11,10 @@ export interface LegacyTransactionsState {
   filter: string;
   transactionsByFilter: FriendTransaction[];
   transactionsForSelectedFriend: FriendTransaction[];
+  expenses: StoredTransaction[];
+  settlementTransactions: StoredTransaction[];
+  domainTransactions: ReturnType<typeof useTransactions>["domainTransactions"];
+  domainSettlements: ReturnType<typeof useTransactions>["domainSettlements"];
   settlementSummaries: ReturnType<typeof useSettleUp>["settlementSummaries"];
 }
 
@@ -39,6 +43,10 @@ export function useLegacyTransactions(): {
     transactionsByFilter: transactionsResult.transactionsByFilter,
     transactionsForSelectedFriend:
       transactionsResult.transactionsForSelectedFriend,
+    expenses: transactionsResult.expenses,
+    settlementTransactions: transactionsResult.settlementTransactions,
+    domainTransactions: transactionsResult.domainTransactions,
+    domainSettlements: transactionsResult.domainSettlements,
     settlementSummaries: settleUp.settlementSummaries,
   };
 

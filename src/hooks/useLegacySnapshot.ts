@@ -28,6 +28,10 @@ export function useLegacySnapshot(): UseLegacySnapshotResult {
   const selectedId = useAppStore((state) => state.selectedId);
   const transactions = useAppStore((state) => state.transactions);
   const templates = useAppStore((state) => state.templates);
+  const settlements = useMemo(
+    () => transactions.filter((transaction) => transaction?.type === "settlement"),
+    [transactions]
+  );
 
   const setFriends = useAppStore((state) => state.setFriends);
   const setSelectedId = useAppStore((state) => state.setSelectedId);
@@ -42,8 +46,9 @@ export function useLegacySnapshot(): UseLegacySnapshotResult {
       selectedId,
       transactions,
       templates,
+      settlements,
     }),
-    [friends, selectedId, transactions, templates]
+    [friends, selectedId, transactions, templates, settlements]
   );
 
   useEffect(() => {

@@ -75,7 +75,16 @@ export function useFriends(): UseFriendsResult {
         alert(DUPLICATE_EMAIL_MESSAGE);
         return { ok: false, reason: "duplicate-email" };
       }
-      addFriend(friend);
+      const now = Date.now();
+      addFriend({
+        ...friend,
+        active: friend.active ?? true,
+        createdAt: friend.createdAt ?? now,
+        avatarUrl:
+          typeof friend.avatarUrl === "string" && friend.avatarUrl.trim().length > 0
+            ? friend.avatarUrl.trim()
+            : friend.avatarUrl,
+      });
       return { ok: true };
     },
     [addFriend, normalizedEmails]

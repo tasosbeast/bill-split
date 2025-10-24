@@ -1,9 +1,7 @@
-import type {
-  LegacyFriend,
-  UISnapshot,
-} from "../types/legacySnapshot";
+import type { UISnapshot } from "../types/legacySnapshot";
+import type { Friend } from "../types/domain";
 
-const SAMPLE_FRIENDS: LegacyFriend[] = [
+const SAMPLE_FRIENDS: Friend[] = [
   {
     id:
       typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -11,6 +9,10 @@ const SAMPLE_FRIENDS: LegacyFriend[] = [
         : `friend-${Date.now()}-1`,
     name: "Valia",
     email: "valia@example.com",
+    avatarUrl: undefined,
+    active: true,
+    createdAt: Date.now(),
+    tag: "friend",
   },
   {
     id:
@@ -19,6 +21,10 @@ const SAMPLE_FRIENDS: LegacyFriend[] = [
         : `friend-${Date.now()}-2`,
     name: "Nikos",
     email: "nikos@example.com",
+    avatarUrl: undefined,
+    active: true,
+    createdAt: Date.now(),
+    tag: "friend",
   },
 ];
 
@@ -28,6 +34,6 @@ export function createDefaultSnapshot(): UISnapshot {
     selectedId: null,
     transactions: [],
     templates: [],
+    settlements: [],
   };
 }
-

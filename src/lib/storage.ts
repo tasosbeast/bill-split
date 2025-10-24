@@ -1,6 +1,5 @@
 import type {
   UISnapshot,
-  LegacyFriend,
   StoredTransaction,
   StoredSnapshotTemplate,
 } from "../types/legacySnapshot";
@@ -9,6 +8,7 @@ import type {
   TransactionPaymentMetadata,
 } from "../types/transaction";
 import { getStorage } from "../services/storage";
+import type { Friend } from "../types/domain";
 
 const KEY = "bill-split@v1";
 
@@ -17,6 +17,7 @@ const EMPTY_SNAPSHOT: UISnapshot = {
   selectedId: null,
   transactions: [],
   templates: [],
+  settlements: [],
 };
 
 function getNodeEnv(): string | undefined {
@@ -114,37 +115,8 @@ function arePaymentsEqual(
   }
   return true;
 }
-function sanitizeFriend(value: unknown): LegacyFriend | null {
-  if (!isRecord(value)) return null;
-  const id =
-    typeof value.id === "string" && value.id.trim().length > 0
-      ? value.id.trim()
-      : null;
-  if (!id) return null;
-  const name =
-    typeof value.name === "string" && value.name.trim().length > 0
-      ? value.name.trim()
-      : "Friend";
-  const emailValue = value.email;
-  const email =
-    typeof emailValue === "string" && emailValue.trim().length > 0
-      ? emailValue.trim().toLowerCase()
-      : null;
-  const friend: LegacyFriend = {
-    id,
-    name,
-  };
-  if (email) {
-    friend.email = email;
-  }
-  if (typeof value.tag === "string" && value.tag.trim().length > 0) {
-    friend.tag = value.tag;
-  }
-  return friend;
-}
-
 function sanitizeFriends(input: unknown): {
-  friends: LegacyFriend[];
+  friends: Friend[];
   changed: boolean;
 } {
   if (input === undefined) {
@@ -153,7 +125,7 @@ function sanitizeFriends(input: unknown): {
   if (!Array.isArray(input)) {
     return { friends: [], changed: true };
   }
-  const friends: LegacyFriend[] = [];
+  const friends: Friend[] = [];
   let changed = false;
   for (const entry of input) {
     const sanitized = sanitizeFriend(entry);
@@ -441,6 +413,10 @@ function sanitizeSnapshot(
   const { transactions, changed: transactionsChanged } = sanitizeTransactions(
     raw.transactions
   );
+  const {
+    transactions: settlements,
+    changed: settlementsChanged,
+  } = sanitizeTransactions(raw.settlements);
   const { templates, changed: templatesChanged } = sanitizeTemplates(
     raw.templates
   );
@@ -460,9 +436,13 @@ function sanitizeSnapshot(
   }
 
   return {
-    snapshot: { friends, selectedId, transactions, templates },
+    snapshot: { friends, selectedId, transactions, templates, settlements },
     changed:
-      friendsChanged || transactionsChanged || templatesChanged || selectedChanged,
+      friendsChanged ||
+      transactionsChanged ||
+      templatesChanged ||
+      settlementsChanged ||
+      selectedChanged,
   };
 }
 
@@ -519,3 +499,50 @@ export function clearState(): void {
 }
 
 export type { UISnapshot, LegacyFriend, StoredTransaction };
+function sanitizeFriend(value: unknown): Friend | null {
+  if (!isRecord(value)) return null;
+  const id =
+    typeof value.id === "string" && value.id.trim().length > 0
+      ? value.id.trim()
+      : null;
+  if (!id) return null;
+  const name =
+    typeof value.name === "string" && value.name.trim().length > 0
+      ? value.name.trim()
+      : "Friend";
+  const emailValue = value.email;
+  const email =
+    typeof emailValue === "string" && emailValue.trim().length > 0
+      ? emailValue.trim().toLowerCase()
+      : undefined;
+  const avatarUrl =
+    typeof value.avatarUrl === "string" && value.avatarUrl.trim().length > 0
+      ? value.avatarUrl.trim()
+      : undefined;
+  const active =
+    typeof value.active === "boolean" ? value.active : true;
+  const createdAtCandidate = (value as Record<string, unknown>).createdAt;
+  let createdAt = Date.now();
+  if (typeof createdAtCandidate === "number" && Number.isFinite(createdAtCandidate)) {
+    createdAt = createdAtCandidate;
+  } else if (typeof createdAtCandidate === "string") {
+    const parsed = Date.parse(createdAtCandidate);
+    if (!Number.isNaN(parsed)) {
+      createdAt = parsed;
+    }
+  }
+  const tag =
+    typeof value.tag === "string" && value.tag.trim().length > 0
+      ? value.tag.trim()
+      : undefined;
+
+  return {
+    id,
+    name,
+    email,
+    avatarUrl,
+    active,
+    createdAt,
+    tag,
+  };
+}

@@ -2,11 +2,11 @@ import { create } from "zustand";
 import { loadState, clearState } from "../lib/storage";
 import { upgradeTransactions } from "../lib/transactions";
 import type {
-  LegacyFriend,
   StoredSnapshotTemplate,
   StoredTransaction,
   UISnapshot,
 } from "../types/legacySnapshot";
+import type { Friend } from "../types/domain";
 import type { SplitDraftPreset } from "../types/transactionTemplate";
 import { createDefaultSnapshot } from "./defaultSnapshot";
 
@@ -20,8 +20,43 @@ function resolveStateUpdater<T>(updater: StateUpdater<T>, prev: T): T {
     : updater;
 }
 
+function normalizeFriendRecord(friend: Friend): Friend {
+  const name = typeof friend.name === "string" && friend.name.trim().length > 0
+    ? friend.name.trim()
+    : "Friend";
+  const email =
+    typeof friend.email === "string" && friend.email.trim().length > 0
+      ? friend.email.trim().toLowerCase()
+      : undefined;
+  const avatarUrl =
+    typeof friend.avatarUrl === "string" && friend.avatarUrl.trim().length > 0
+      ? friend.avatarUrl.trim()
+      : undefined;
+  const createdAt =
+    typeof friend.createdAt === "number" && Number.isFinite(friend.createdAt)
+      ? friend.createdAt
+      : Date.now();
+  const tag =
+    typeof friend.tag === "string" && friend.tag.trim().length > 0
+      ? friend.tag.trim()
+      : undefined;
+  return {
+    id: friend.id,
+    name,
+    email,
+    avatarUrl,
+    active: friend.active ?? true,
+    createdAt,
+    tag,
+  };
+}
+
+function normalizeFriendsList(friends: Friend[]): Friend[] {
+  return friends.map((entry) => normalizeFriendRecord(entry));
+}
+
 function ensureValidSelectedId(
-  friends: LegacyFriend[],
+  friends: Friend[],
   selectedId: string | null
 ): string | null {
   if (!selectedId) return null;
@@ -40,14 +75,29 @@ function prepareSnapshot(candidate: Partial<UISnapshot> | null | undefined): UIS
     return createDefaultSnapshot();
   }
   const defaults = createDefaultSnapshot();
-  const friends = Array.isArray(candidate.friends)
-    ? candidate.friends
-    : defaults.friends;
+  const friends = normalizeFriendsList(
+    Array.isArray(candidate.friends)
+      ? (candidate.friends as Friend[])
+      : defaults.friends
+  );
   const transactions = normalizeTransactions(
     Array.isArray(candidate.transactions)
       ? candidate.transactions
       : defaults.transactions
   );
+  const normalizedSettlements = normalizeTransactions(
+    Array.isArray(candidate.settlements)
+      ? candidate.settlements
+      : defaults.settlements ?? []
+  ).filter((transaction) => transaction?.type === "settlement");
+  const merged = new Map<string, StoredTransaction>();
+  for (const transaction of transactions) {
+    merged.set(transaction.id, transaction);
+  }
+  for (const settlement of normalizedSettlements) {
+    merged.set(settlement.id, settlement);
+  }
+  const combinedTransactions = Array.from(merged.values());
   const templates = Array.isArray(candidate.templates)
     ? candidate.templates
     : defaults.templates;
@@ -57,8 +107,9 @@ function prepareSnapshot(candidate: Partial<UISnapshot> | null | undefined): UIS
   return {
     friends,
     selectedId,
-    transactions,
+    transactions: combinedTransactions,
     templates,
+    settlements: normalizedSettlements,
   };
 }
 
@@ -68,13 +119,13 @@ const initialSnapshot = persisted
   : createDefaultSnapshot();
 
 interface FriendsSlice {
-  friends: LegacyFriend[];
+  friends: Friend[];
   selectedId: string | null;
   setFriends: (
-    updater: StateUpdater<LegacyFriend[]>
+    updater: StateUpdater<Friend[]>
   ) => void;
   setSelectedId: (updater: StateUpdater<string | null>) => void;
-  addFriend: (friend: LegacyFriend) => void;
+  addFriend: (friend: Friend) => void;
   removeFriend: (friendId: string) => void;
 }
 
@@ -136,7 +187,10 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   restoreFeedback: null,
   setFriends: (updater) => {
     set((state) => {
-      const nextFriends = resolveStateUpdater(updater, state.friends);
+      const resolved = resolveStateUpdater(updater, state.friends);
+      const nextFriends = normalizeFriendsList(
+        Array.isArray(resolved) ? [...resolved] : state.friends
+      );
       const selectedId = ensureValidSelectedId(nextFriends, state.selectedId);
       return {
         friends: nextFriends,
@@ -153,7 +207,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   },
   addFriend: (friend) => {
     set((state) => ({
-      friends: [...state.friends, friend],
+      friends: [...state.friends, normalizeFriendRecord(friend)],
       selectedId: friend.id,
     }));
   },

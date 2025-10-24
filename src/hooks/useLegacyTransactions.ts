@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   getTransactionEffects,
   transactionIncludesFriend,
@@ -11,6 +11,7 @@ import {
   normalizeSettlementStatus,
 } from "../lib/settlements";
 import type { StoredTransaction } from "../types/legacySnapshot";
+import { useAppStore } from "../state/appStore";
 import type {
   SettlementStatus,
   TransactionEffect,
@@ -93,16 +94,6 @@ function resolveSettlementTimestamp(
   return created;
 }
 
-interface UseLegacyTransactionsParams {
-  transactions: StoredTransaction[];
-  selectedFriendId: string | null;
-  setTransactions: (
-    updater:
-      | StoredTransaction[]
-      | ((previous: StoredTransaction[]) => StoredTransaction[])
-  ) => void;
-}
-
 function computeEffect(
   transaction: StoredTransaction,
   friendId: string | null
@@ -119,15 +110,16 @@ function matchesFilter(filter: string, transaction: StoredTransaction): boolean 
   return category === filter;
 }
 
-export function useLegacyTransactions({
-  transactions,
-  selectedFriendId,
-  setTransactions,
-}: UseLegacyTransactionsParams): {
+export function useLegacyTransactions(): {
   state: LegacyTransactionsState;
   handlers: LegacyTransactionsHandlers;
 } {
-  const [filter, setFilter] = useState<string>("All");
+  const transactions = useAppStore((state) => state.transactions);
+  const selectedFriendId = useAppStore((state) => state.selectedId);
+  const filter = useAppStore((state) => state.filter);
+  const setFilterAction = useAppStore((state) => state.setFilter);
+  const clearFilterAction = useAppStore((state) => state.clearFilter);
+  const setTransactions = useAppStore((state) => state.setTransactions);
   const transactionsRef = useRef(transactions);
 
   useEffect(() => {
@@ -487,8 +479,8 @@ export function useLegacyTransactions({
   };
 
   const handlers: LegacyTransactionsHandlers = {
-    setFilter,
-    clearFilter: () => setFilter("All"),
+    setFilter: setFilterAction,
+    clearFilter: clearFilterAction,
     addTransaction,
     updateTransaction,
     removeTransaction,

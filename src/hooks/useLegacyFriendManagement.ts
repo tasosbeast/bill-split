@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useFriendSelection } from "./useFriendSelection";
+import { useAppStore } from "../state/appStore";
 import type { LegacyFriend } from "../types/legacySnapshot";
 
 type FriendSelectionResult = ReturnType<typeof useFriendSelection>;
@@ -14,20 +15,19 @@ export interface LegacyFriendManagementResult extends FriendSelectionResult {
 
 export function useLegacyFriendManagement(): LegacyFriendManagementResult {
   const selection = useFriendSelection();
-  const [showAddModal, setShowAddModal] = useState(false);
-
-  const openAddModal = useCallback(() => setShowAddModal(true), []);
-  const closeAddModal = useCallback(() => setShowAddModal(false), []);
+  const showAddModal = useAppStore((state) => state.showAddModal);
+  const openAddModal = useAppStore((state) => state.openAddModal);
+  const closeAddModal = useAppStore((state) => state.closeAddModal);
 
   const createFriend = useCallback<LegacyFriendManagementResult["createFriend"]>(
     (friend) => {
       const outcome = selection.createFriend(friend);
       if (outcome.ok) {
-        setShowAddModal(false);
+        closeAddModal();
       }
       return outcome;
     },
-    [selection]
+    [selection, closeAddModal]
   );
 
   return useMemo(

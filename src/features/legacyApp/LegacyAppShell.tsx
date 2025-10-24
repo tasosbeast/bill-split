@@ -13,6 +13,7 @@ import {
   useTransactionTemplates,
   type SplitAutomationRequest,
 } from "../../hooks/useTransactionTemplates";
+import { useAppStore, type RestoreFeedback } from "../../state/appStore";
 import FriendsPanel from "../../components/legacy/FriendsPanel";
 import TransactionsPanel from "../../components/legacy/TransactionsPanel";
 import AnalyticsPanel from "../../components/legacy/AnalyticsPanel";
@@ -36,12 +37,6 @@ const EditTransactionModal = lazy(
 const TemplateComposerModal = lazy(
   () => import("../../components/TemplateComposerModal")
 );
-
-type RestoreFeedback =
-  | { status: "success"; message: string }
-  | { status: "warning"; message: string }
-  | { status: "error"; message: string }
-  | null;
 
 type EditableTransaction = FriendTransaction;
 type TemplateRequestIntent = {
@@ -74,24 +69,30 @@ export default function LegacyAppShell(): JSX.Element {
   const { transactions, templates } = snapshot;
   const { setTransactions, setTemplates, replaceSnapshot, reset: resetSnapshot } =
     updaters;
-  const [activeView, setActiveView] = useState<"home" | "analytics">("home");
+  const view = useAppStore((state) => state.view);
+  const setActiveView = useAppStore((state) => state.setView);
   const [editTx, setEditTx] = useState<EditableTransaction | null>(null);
-  const [restoreFeedback, setRestoreFeedback] = useState<RestoreFeedback>(null);
-  const [showRestoreModal, setShowRestoreModal] = useState(false);
-  const [draftPreset, setDraftPreset] = useState<SplitDraftPreset | null>(null);
+  const restoreFeedback = useAppStore((state) => state.restoreFeedback);
+  const setRestoreFeedback = useAppStore((state) => state.setRestoreFeedback);
+  const showRestoreModal = useAppStore((state) => state.showRestoreModal);
+  const openRestoreModal = useAppStore((state) => state.openRestoreModal);
+  const closeRestoreModal = useAppStore((state) => state.closeRestoreModal);
+  const draftPreset = useAppStore((state) => state.draftPreset);
+  const setDraftPreset = useAppStore((state) => state.setDraftPreset);
   const [pendingTemplate, setPendingTemplate] = useState<
     { transaction: StoredTransaction; intent: TemplateRequestIntent } | null
   >(null);
-  const [splitFormResetSignal, setSplitFormResetSignal] = useState(0);
+  const splitFormResetSignal = useAppStore(
+    (state) => state.splitFormResetSignal
+  );
+  const bumpSplitFormResetSignal = useAppStore(
+    (state) => state.bumpSplitFormResetSignal
+  );
   const [settlementAssistant, setSettlementAssistant] =
     useState<SettlementAssistantState | null>(null);
 
   const { state: transactionsState, handlers: transactionHandlers } =
-    useLegacyTransactions({
-      transactions,
-      selectedFriendId: selectedId,
-      setTransactions,
-    });
+    useLegacyTransactions();
   const {
     filter: txFilter,
     transactionsForSelectedFriend,
@@ -138,9 +139,9 @@ export default function LegacyAppShell(): JSX.Element {
     (tx: StoredTransaction) => {
       addTransaction(tx);
       setDraftPreset(null);
-      setSplitFormResetSignal((prev) => prev + 1);
+      bumpSplitFormResetSignal();
     },
-    [addTransaction, setDraftPreset, setSplitFormResetSignal]
+    [addTransaction, setDraftPreset, bumpSplitFormResetSignal]
   );
 
   const handleRequestTemplate = useCallback(
@@ -163,9 +164,6 @@ export default function LegacyAppShell(): JSX.Element {
     },
     [pendingTemplate, handleAutomation, handleSplit]
   );
-
-  const openRestoreModal = useCallback(() => setShowRestoreModal(true), []);
-  const closeRestoreModal = useCallback(() => setShowRestoreModal(false), []);
 
   const handleOpenSettlementAssistant = useCallback(() => {
     const guard = ensureSettle();
@@ -336,9 +334,9 @@ export default function LegacyAppShell(): JSX.Element {
               type="button"
               className={
                 "segmented-control__btn" +
-                (activeView === "home" ? " segmented-control__btn--active" : "")
+                (view === "home" ? " segmented-control__btn--active" : "")
               }
-              aria-current={activeView === "home" ? "page" : undefined}
+              aria-current={view === "home" ? "page" : undefined}
               onClick={() => setActiveView("home")}
             >
               Splits
@@ -347,11 +345,11 @@ export default function LegacyAppShell(): JSX.Element {
               type="button"
               className={
                 "segmented-control__btn" +
-                (activeView === "analytics"
+                (view === "analytics"
                   ? " segmented-control__btn--active"
                   : "")
               }
-              aria-current={activeView === "analytics" ? "page" : undefined}
+              aria-current={view === "analytics" ? "page" : undefined}
               onClick={() => setActiveView("analytics")}
             >
               Analytics
@@ -386,7 +384,7 @@ export default function LegacyAppShell(): JSX.Element {
         </div>
       </header>
 
-      {activeView === "analytics" ? (
+      {view === "analytics" ? (
         <AnalyticsPanel state={storeSnapshot} />
       ) : (
         <div className="layout">

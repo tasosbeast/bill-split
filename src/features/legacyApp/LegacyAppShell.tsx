@@ -7,13 +7,14 @@ import {
   useEffect,
 } from "react";
 import { CATEGORIES } from "../../lib/categories";
-import { useLegacyFriendManagement } from "../../hooks/useLegacyFriendManagement";
-import { useLegacyTransactions } from "../../hooks/useLegacyTransactions";
+import { useFriends } from "../../hooks/useFriends";
+import { useTransactions, type FriendTransaction } from "../../hooks/useTransactions";
+import { useSettleUp } from "../../hooks/useSettleUp";
 import {
   useTransactionTemplates,
   type SplitAutomationRequest,
 } from "../../hooks/useTransactionTemplates";
-import { useAppStore, type RestoreFeedback } from "../../state/appStore";
+import { useAppStore } from "../../state/appStore";
 import FriendsPanel from "../../components/legacy/FriendsPanel";
 import TransactionsPanel from "../../components/legacy/TransactionsPanel";
 import AnalyticsPanel from "../../components/legacy/AnalyticsPanel";
@@ -26,7 +27,6 @@ import type {
   StoredTransaction,
   UISnapshot,
 } from "../../types/legacySnapshot";
-import type { FriendTransaction } from "../../hooks/useLegacyTransactions";
 import { setTransactions as syncTransactionsStore } from "../../state/transactionsStore";
 import type { SplitDraftPreset } from "../../types/transactionTemplate";
 
@@ -50,8 +50,6 @@ interface SettlementAssistantState {
 }
 export default function LegacyAppShell(): JSX.Element {
   const {
-    snapshot,
-    updaters,
     friends,
     selectedId,
     selectedFriend,
@@ -59,16 +57,34 @@ export default function LegacyAppShell(): JSX.Element {
     balances,
     selectedBalance,
     createFriend,
-    removeFriend,
     selectFriend,
+    removeFriend,
+  } = useFriends();
+  const {
+    transactions,
+    filter: txFilter,
+    transactionsForSelectedFriend,
+    setFilter: setTxFilter,
+    clearFilter,
+    addTransaction,
+    updateTransaction,
+    removeTransaction,
+  } = useTransactions();
+  const {
+    settlementSummaries,
     ensureSettle,
-    showAddModal,
-    openAddModal,
-    closeAddModal,
-  } = useLegacyFriendManagement();
-  const { transactions, templates } = snapshot;
-  const { setTransactions, setTemplates, replaceSnapshot, reset: resetSnapshot } =
-    updaters;
+    addSettlement,
+    confirmSettlement,
+    cancelSettlement,
+    reopenSettlement,
+  } = useSettleUp();
+  const templates = useAppStore((state) => state.templates);
+  const setTemplates = useAppStore((state) => state.setTemplates);
+  const replaceSnapshot = useAppStore((state) => state.replaceSnapshot);
+  const resetStore = useAppStore((state) => state.reset);
+  const showAddModal = useAppStore((state) => state.showAddModal);
+  const openAddModal = useAppStore((state) => state.openAddModal);
+  const closeAddModal = useAppStore((state) => state.closeAddModal);
   const view = useAppStore((state) => state.view);
   const setActiveView = useAppStore((state) => state.setView);
   const [editTx, setEditTx] = useState<EditableTransaction | null>(null);
@@ -90,25 +106,6 @@ export default function LegacyAppShell(): JSX.Element {
   );
   const [settlementAssistant, setSettlementAssistant] =
     useState<SettlementAssistantState | null>(null);
-
-  const { state: transactionsState, handlers: transactionHandlers } =
-    useLegacyTransactions();
-  const {
-    filter: txFilter,
-    transactionsForSelectedFriend,
-    settlementSummaries,
-  } = transactionsState;
-  const {
-    setFilter: setTxFilter,
-    clearFilter,
-    addTransaction,
-    updateTransaction,
-    removeTransaction,
-    addSettlement,
-    confirmSettlement,
-    cancelSettlement,
-    reopenSettlement,
-  } = transactionHandlers;
 
   const {
     handleAutomation,
@@ -234,9 +231,9 @@ export default function LegacyAppShell(): JSX.Element {
       "This will delete all your friends, transactions, and balances. Are you sure?"
     );
     if (!ok) return;
-    resetSnapshot();
+    resetStore();
     window.location.reload();
-  }, [resetSnapshot]);
+  }, [resetStore]);
 
   const handleBackup = useCallback(() => {
     const payload = {

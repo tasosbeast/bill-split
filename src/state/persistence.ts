@@ -1,15 +1,11 @@
 import { roundToCents } from "../lib/money";
+import { getStorage, type StorageLike } from "../services/storage";
 import type {
   SettlementStatus,
   TransactionPaymentMetadata,
 } from "../types/transaction";
 
-export interface StorageAdapter {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-  clear?(): void;
-}
+export interface StorageAdapter extends StorageLike {}
 
 export interface PersistedParticipant {
   id?: unknown;
@@ -68,23 +64,8 @@ function sanitizePaymentMetadata(
   return value as TransactionPaymentMetadata;
 }
 
-function isStorageAdapter(value: unknown): value is StorageAdapter {
-  if (!value || typeof value !== "object") return false;
-  const maybe = value as Record<string, unknown>;
-  return (
-    typeof maybe.getItem === "function" &&
-    typeof maybe.setItem === "function" &&
-    typeof maybe.removeItem === "function"
-  );
-}
-
 function resolveNativeStorage(): StorageAdapter | null {
-  if (typeof globalThis === "undefined") return null;
-  const maybe = (globalThis as Record<string, unknown>).localStorage;
-  if (isStorageAdapter(maybe)) {
-    return maybe;
-  }
-  return null;
+  return getStorage();
 }
 
 function ensureStorage(): StorageAdapter {

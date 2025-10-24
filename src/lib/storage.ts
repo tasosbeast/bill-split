@@ -8,6 +8,7 @@ import type {
   SettlementStatus,
   TransactionPaymentMetadata,
 } from "../types/transaction";
+import { getStorage } from "../services/storage";
 
 const KEY = "bill-split@v1";
 
@@ -467,7 +468,9 @@ function sanitizeSnapshot(
 
 export function loadState(): UISnapshot | null {
   try {
-    const raw = localStorage.getItem(KEY);
+    const storage = getStorage();
+    if (!storage) return null;
+    const raw = storage.getItem(KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
     const { snapshot, changed } = sanitizeSnapshot(parsed);
@@ -492,9 +495,14 @@ export function loadState(): UISnapshot | null {
 
 export function saveState(snapshot: unknown): void {
   try {
+    const storage = getStorage();
+    if (!storage) {
+      logStorageWarning("localStorage is not available; state was not saved");
+      return;
+    }
     const { snapshot: sanitized } = sanitizeSnapshot(snapshot);
     const payload = sanitized ?? EMPTY_SNAPSHOT;
-    localStorage.setItem(KEY, JSON.stringify(payload));
+    storage.setItem(KEY, JSON.stringify(payload));
   } catch {
     logStorageWarning("Could not save state to localStorage");
   }
@@ -502,7 +510,9 @@ export function saveState(snapshot: unknown): void {
 
 export function clearState(): void {
   try {
-    localStorage.removeItem(KEY);
+    const storage = getStorage();
+    if (!storage) return;
+    storage.removeItem(KEY);
   } catch {
     logStorageWarning("Could not clear state from localStorage");
   }

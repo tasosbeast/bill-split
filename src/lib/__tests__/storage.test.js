@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { clearState, loadState, saveState } from "../storage";
+import { buildVersionedKey } from "../../services/storage";
 
-const KEY = "bill-split@v1";
+const KEY = buildVersionedKey("bill-split");
 
 function createMockStorage() {
   const store = new Map();
@@ -45,6 +46,7 @@ describe("storage", () => {
       selectedId: null,
       transactions: [],
       templates: [],
+      settlements: [],
     });
     expect(warnSpy).toHaveBeenCalledTimes(1);
     expect(warnSpy.mock.calls[0][0]).toMatch(/sanitized|defaults/i);
@@ -59,6 +61,7 @@ describe("storage", () => {
       selectedId: "alice",
       transactions: [{ id: "t1", type: "split" }],
       templates: [],
+      settlements: [],
     };
     localStorage.setItem(KEY, JSON.stringify(payload));
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -77,10 +80,14 @@ describe("storage", () => {
     expect(warnSpy).not.toHaveBeenCalled();
     const stored = JSON.parse(localStorage.getItem(KEY));
     expect(stored).toEqual({
-      friends: [],
-      selectedId: null,
-      transactions: [],
-      templates: [],
+      version: 1,
+      data: {
+        friends: [],
+        selectedId: null,
+        transactions: [],
+        templates: [],
+        settlements: [],
+      },
     });
   });
 

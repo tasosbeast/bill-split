@@ -2,15 +2,23 @@ import type {
   UISnapshot,
   StoredTransaction,
   StoredSnapshotTemplate,
+  LegacyFriend,
 } from "../types/legacySnapshot";
 import type {
   SettlementStatus,
   TransactionPaymentMetadata,
 } from "../types/transaction";
-import { getStorage } from "../services/storage";
+import {
+  buildVersionedKey,
+  readStorageItem,
+  writeStorageItem,
+  removeStorageItem,
+} from "../services/storage";
 import type { Friend } from "../types/domain";
 
-const KEY = "bill-split@v1";
+const STORAGE_BASE_KEY = "bill-split";
+const STORAGE_VERSION = 1;
+const KEY = buildVersionedKey(STORAGE_BASE_KEY, STORAGE_VERSION);
 
 const EMPTY_SNAPSHOT: UISnapshot = {
   friends: [],
@@ -446,54 +454,91 @@ function sanitizeSnapshot(
   };
 }
 
-export function loadState(): UISnapshot | null {
-  try {
-    const storage = getStorage();
-    if (!storage) return null;
-    const raw = storage.getItem(KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as unknown;
-    const { snapshot, changed } = sanitizeSnapshot(parsed);
-    if (!snapshot) {
-      if (changed) {
-        logStorageWarning(
-          "Stored UI snapshot was invalid. Falling back to defaults."
-        );
-      }
-      return null;
+function unwrapSnapshotEnvelope(raw: unknown): { version: number; data: unknown } {
+  if (isRecord(raw)) {
+    const versionCandidate = (raw as { version?: unknown }).version;
+    if (
+      typeof versionCandidate === "number" &&
+      Number.isFinite(versionCandidate) &&
+      Object.prototype.hasOwnProperty.call(raw, "data")
+    ) {
+      return {
+        version: versionCandidate,
+        data: (raw as { data: unknown }).data,
+      };
     }
-    if (changed) {
+  }
+  return { version: 0, data: raw };
+}
+
+export function loadState(): UISnapshot | null {
+  const readResult = readStorageItem(KEY);
+  if (!readResult.ok) {
+    if (readResult.error !== "unavailable") {
       logStorageWarning(
-        "Stored UI snapshot contained invalid data and was sanitized."
+        `Unable to read UI snapshot (${readResult.error}). Falling back to defaults.`
       );
     }
-    return snapshot;
-  } catch {
     return null;
   }
+
+  const raw = readResult.value;
+  if (!raw) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch (cause) {
+    logStorageWarning("Stored UI snapshot could not be parsed and was ignored.");
+    return null;
+  }
+
+  const { version, data } = unwrapSnapshotEnvelope(parsed);
+  if (version !== 0 && version !== STORAGE_VERSION) {
+    logStorageWarning(
+      `Stored UI snapshot version ${version} differs from expected ${STORAGE_VERSION}. Attempting to load.`
+    );
+  }
+
+  const { snapshot, changed } = sanitizeSnapshot(data);
+  if (!snapshot) {
+    if (changed) {
+      logStorageWarning(
+        "Stored UI snapshot was invalid. Falling back to defaults."
+      );
+    }
+    return null;
+  }
+  if (changed) {
+    logStorageWarning(
+      "Stored UI snapshot contained invalid data and was sanitized."
+    );
+  }
+  return snapshot;
 }
 
 export function saveState(snapshot: unknown): void {
-  try {
-    const storage = getStorage();
-    if (!storage) {
+  const { snapshot: sanitized } = sanitizeSnapshot(snapshot);
+  const payload = sanitized ?? EMPTY_SNAPSHOT;
+  const envelope = {
+    version: STORAGE_VERSION,
+    data: payload,
+  };
+  const writeResult = writeStorageItem(KEY, JSON.stringify(envelope));
+  if (!writeResult.ok) {
+    if (writeResult.error === "unavailable") {
       logStorageWarning("localStorage is not available; state was not saved");
-      return;
+    } else {
+      logStorageWarning(
+        `Could not save state to localStorage (${writeResult.error}).`
+      );
     }
-    const { snapshot: sanitized } = sanitizeSnapshot(snapshot);
-    const payload = sanitized ?? EMPTY_SNAPSHOT;
-    storage.setItem(KEY, JSON.stringify(payload));
-  } catch {
-    logStorageWarning("Could not save state to localStorage");
   }
 }
 
 export function clearState(): void {
-  try {
-    const storage = getStorage();
-    if (!storage) return;
-    storage.removeItem(KEY);
-  } catch {
+  const removeResult = removeStorageItem(KEY);
+  if (!removeResult.ok && removeResult.error !== "unavailable") {
     logStorageWarning("Could not clear state from localStorage");
   }
 }

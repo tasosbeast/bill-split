@@ -10,11 +10,13 @@ import { CATEGORIES } from "../../lib/categories";
 import { useFriends } from "../../hooks/useFriends";
 import { useTransactions, type FriendTransaction } from "../../hooks/useTransactions";
 import { useSettleUp } from "../../hooks/useSettleUp";
+import { FRIEND_SELECTION_MESSAGES } from "../../hooks/useFriendSelection";
 import {
   useTransactionTemplates,
   type SplitAutomationRequest,
 } from "../../hooks/useTransactionTemplates";
 import { useAppStore } from "../../state/appStore";
+import { useToasts } from "../../state/toastStore";
 import FriendsPanel from "../../components/legacy/FriendsPanel";
 import TransactionsPanel from "../../components/legacy/TransactionsPanel";
 import AnalyticsPanel from "../../components/legacy/AnalyticsPanel";
@@ -164,7 +166,14 @@ export default function LegacyAppShell(): JSX.Element {
 
   const handleOpenSettlementAssistant = useCallback(() => {
     const guard = ensureSettle();
-    if (!guard.allowed) return;
+    if (!guard.allowed) {
+      const message =
+        guard.reason === "no-selection"
+          ? FRIEND_SELECTION_MESSAGES.noSelection
+          : FRIEND_SELECTION_MESSAGES.zeroBalance;
+      addToast({ kind: "error", message });
+      return;
+    }
     const resolvedFriend =
       friendsById.get(guard.friendId) ??
       (selectedFriend && selectedFriend.id === guard.friendId
@@ -172,7 +181,7 @@ export default function LegacyAppShell(): JSX.Element {
         : null);
     if (!resolvedFriend) return;
     setSettlementAssistant({ friend: resolvedFriend, balance: guard.balance });
-  }, [ensureSettle, friendsById, selectedFriend]);
+  }, [addToast, ensureSettle, friendsById, selectedFriend]);
 
   const handleDismissSettlementAssistant = useCallback(() => {
     setSettlementAssistant(null);
@@ -210,9 +219,18 @@ export default function LegacyAppShell(): JSX.Element {
         `Remove ${friend.name}? Their saved transactions with you will also be deleted.`
       );
       if (!confirmation) return;
-      removeFriend(friendId);
+      const outcome = removeFriend(friendId);
+      if (!outcome.ok) {
+        const message =
+          outcome.reason === "outstanding-balance"
+            ? FRIEND_SELECTION_MESSAGES.outstandingBalance
+            : "Friend could not be removed.";
+        addToast({ kind: "error", message });
+        return;
+      }
+      addToast({ kind: "success", message: `${friend.name} removed.` });
     },
-    [friendsById, removeFriend]
+    [addToast, friendsById, removeFriend]
   );
 
   const handleRequestEdit = useCallback((transaction: FriendTransaction) => {

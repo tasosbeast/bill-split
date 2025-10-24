@@ -82,7 +82,6 @@ export function useFriendSelection(): UseFriendSelectionResult {
     (friend) => {
       const normalizedEmail = normalizeEmail(friend.email);
       if (normalizedEmails.has(normalizedEmail)) {
-        alert(DUPLICATE_EMAIL_MESSAGE);
         return { ok: false, reason: "duplicate-email" };
       }
       setFriends((prev) => [...prev, friend]);
@@ -102,12 +101,10 @@ export function useFriendSelection(): UseFriendSelectionResult {
   const ensureSettle = useCallback<UseFriendSelectionResult["ensureSettle"]>(
     () => {
       if (!selectedId) {
-        alert(NO_SELECTION_MESSAGE);
         return { allowed: false, reason: "no-selection" };
       }
       const balance = balances.get(selectedId) ?? 0;
       if (balance === 0) {
-        alert(ZERO_BALANCE_MESSAGE);
         return { allowed: false, reason: "no-balance" };
       }
       return {
@@ -126,7 +123,6 @@ export function useFriendSelection(): UseFriendSelectionResult {
       }
       const balance = balances.get(friendId) ?? 0;
       if (Math.abs(balance) > 0.0001) {
-        alert(OUTSTANDING_BALANCE_MESSAGE);
         return { ok: false, reason: "outstanding-balance" };
       }
 
@@ -158,3 +154,10 @@ export function useFriendSelection(): UseFriendSelectionResult {
     removeFriend,
   };
 }
+
+export const FRIEND_SELECTION_MESSAGES = {
+  duplicateEmail: DUPLICATE_EMAIL_MESSAGE,
+  noSelection: NO_SELECTION_MESSAGE,
+  zeroBalance: ZERO_BALANCE_MESSAGE,
+  outstandingBalance: OUTSTANDING_BALANCE_MESSAGE,
+} as const;

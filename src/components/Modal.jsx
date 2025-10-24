@@ -1,88 +1,146 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import PropTypes from "prop-types";
 
+const FOCUSABLE_SELECTORS =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export default function Modal({ title, children, onClose }) {
+  const backdropRef = useRef(null);
   const dialogRef = useRef(null);
   const firstFieldRef = useRef(null);
+  const previouslyFocusedElementRef = useRef(null);
+  const titleId = useMemo(() => `modal-title-${Math.random().toString(36).slice(2)}`, []);
 
-  // Close on Escape
-  useEffect(() => {
-    function onKey(e) {
-      if (e.key === "Escape") onClose();
+  const focusFirstInput = useCallback(() => {
+    const firstField = firstFieldRef.current;
+    if (firstField && typeof firstField.focus === "function") {
+      firstField.focus();
+      return true;
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  // Focus first field when open
-  useEffect(() => {
-    const t = setTimeout(() => {
-      firstFieldRef.current?.focus();
-    }, 0);
-    return () => clearTimeout(t);
+    const dialog = dialogRef.current;
+    if (!dialog) return false;
+    const focusables = dialog.querySelectorAll(FOCUSABLE_SELECTORS);
+    if (focusables.length > 0) {
+      (focusables[0] instanceof HTMLElement ? focusables[0] : dialog).focus();
+      return true;
+    }
+    dialog.focus();
+    return true;
   }, []);
 
-  // Basic focus trap (cheap and cheerful)
   useEffect(() => {
-    const container = dialogRef.current;
-    if (!container) return;
+    previouslyFocusedElementRef.current =
+      (document.activeElement instanceof HTMLElement && document.activeElement) || null;
+    const focusTimer = window.setTimeout(() => {
+      focusFirstInput();
+    }, 0);
+    return () => {
+      window.clearTimeout(focusTimer);
+      const lastFocused = previouslyFocusedElementRef.current;
+      if (lastFocused && typeof lastFocused.focus === "function") {
+        lastFocused.focus();
+      }
+    };
+  }, [focusFirstInput]);
 
-    const selectors =
-      'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])';
-    const getFocusable = () =>
-      Array.from(container.querySelectorAll(selectors)).filter(
-        (el) => !el.hasAttribute("disabled")
+  const handleKeyDown = useCallback(
+    (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") {
+        return;
+      }
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const focusables = Array.from(dialog.querySelectorAll(FOCUSABLE_SELECTORS)).filter(
+        (element) => element instanceof HTMLElement && !element.hasAttribute("disabled")
       );
-
-    function handleTab(e) {
-      if (e.key !== "Tab") return;
-      const focusables = getFocusable();
-      if (focusables.length === 0) return;
-
+      if (focusables.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
-
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
+      const active = document.activeElement;
+      if (event.shiftKey) {
+        if (active === first || !dialog.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last) {
+        event.preventDefault();
         first.focus();
       }
-    }
+    },
+    [onClose]
+  );
 
-    container.addEventListener("keydown", handleTab);
-    return () => container.removeEventListener("keydown", handleTab);
-  }, []);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    dialog.addEventListener("keydown", handleKeyDown);
+    return () => dialog.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
-  function backdropClick(e) {
-    if (e.target.dataset.backdrop) onClose();
-  }
+  const handleBackdropMouseDown = useCallback(
+    (event) => {
+      if (event.target === backdropRef.current) {
+        onClose();
+      }
+    },
+    [onClose]
+  );
+
+  const handleBackdropKeyDown = useCallback(
+    (event) => {
+      if (event.key === "Tab") {
+        event.preventDefault();
+        focusFirstInput();
+      }
+    },
+    [focusFirstInput]
+  );
+
+  const renderChildren = useMemo(() => {
+    return typeof children === "function"
+      ? children({ firstFieldRef })
+      : children;
+  }, [children]);
 
   return (
     <div
       className="modal-backdrop"
+      ref={backdropRef}
       data-backdrop
-      onMouseDown={backdropClick}
-      aria-modal="true"
-      role="dialog"
-      aria-label={title}
+      onMouseDown={handleBackdropMouseDown}
+      onKeyDown={handleBackdropKeyDown}
     >
       <div
         className="modal"
         ref={dialogRef}
-        onMouseDown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onMouseDown={(event) => event.stopPropagation()}
       >
-        <header>
-          <h3>{title}</h3>
-          <button className="close" onClick={onClose} aria-label="Close modal">
+        <header className="modal__header">
+          <h3 id={titleId}>{title}</h3>
+          <button
+            type="button"
+            className="close"
+            onClick={onClose}
+            aria-label="Close modal"
+          >
             <span aria-hidden="true">{"\u2715"}</span>
           </button>
         </header>
-        {/* Pass a ref handle so child can auto-focus first field */}
-        {typeof children === "function"
-          ? children({ firstFieldRef })
-          : children}
+        {renderChildren}
       </div>
     </div>
   );

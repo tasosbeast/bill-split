@@ -1,6 +1,6 @@
 # AGENTS.md
 
-> Purpose: give AI assistants the context they need to work safely in this repo - what the app does, where logic lives, how to run checks, and which contracts must stay stable. Keep this concise and accurate.
+> Purpose: give AI assistants the context they need to work safely in this repo - what the app does, where logic lives, how to run checks, and which contracts must stay stable. Keep this concise and current.
 
 ---
 
@@ -84,38 +84,216 @@ Guardrail: If either schema changes, provide an upgrade path (`upgradeTransactio
 
 ---
 
+## Data Flow
+
+```
+User Action
+    ↓
+UI Component (App.jsx)
+    ↓
+Transaction Creation/Edit
+    ↓
+├─→ UI State Update (setState in App.jsx)
+│   └─→ localStorage write (bill-split@v1)
+│
+└─→ Transactions Store (transactionsStore.ts)
+    └─→ Sanitization & Normalization
+        └─→ localStorage write (bill-split:transactions)
+            └─→ Subscribers notified (analytics components)
+                └─→ Analytics calculations (analytics.ts)
+                    └─→ UI re-render with insights
+```
+
+---
+
 ## Agents & Responsibilities
 
-| Agent                  | Responsibility                                                  | Implementation                                                                 | Inputs                               | Outputs                                                                             | Status                           |
-| ---------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------------------------------------- | -------------------------------- |
-| Transactions Agent     | Normalize, store, and broadcast transactions and budgets.       | `src/state/transactionsStore.ts`, `src/state/persistence.ts`                   | Raw persisted payloads, UI mutations | In-memory `TransactionsState`, persistence side effects                             | Active                           |
-| Analytics Agent        | Compute spend totals, monthly buckets, and comparisons.         | `src/utils/analytics.ts`, `src/utils/__tests__/analytics.test.ts`              | Sanitized transactions, budgets      | `totalSpendPerCategory`, `monthlySpendPerCategory`, `compareBudgetByCategory`, etc. | Active                           |
-| Legacy Analytics Agent | Supply dashboard-ready aggregates for current React components. | `src/lib/analytics.js`                                                         | UI snapshot transactions             | Category totals, breakdowns, friend balances                                        | Active (until TS port completes) |
-| Balances Agent         | Determine friend balances and settlements for UI cards.         | `src/lib/analytics.js` (`computeFriendBalances`)                               | Transaction effects                  | Sorted friend balance list                                                          | Active                           |
-| UI Orchestrator        | Compose agent outputs into dashboard and transactions UI.       | `src/App.jsx`, `src/components/AnalyticsDashboard.jsx`, `src/components/Analytics*` | Selectors, agent outputs             | Rendered React views                                                                | Active                           |
+| Agent                  | Responsibility                                                  | Implementation                                                                      | Inputs                               | Outputs                                                                             | Status                             |
+| ---------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------- | ---------------------------------- |
+| Transactions Agent     | Normalize, store, and broadcast transactions and budgets.       | `src/state/transactionsStore.ts`, `src/state/persistence.ts`                        | Raw persisted payloads, UI mutations | In-memory `TransactionsState`, persistence side effects                             | Active                             |
+| Analytics Agent        | Compute spend totals, monthly buckets, and comparisons.         | `src/utils/analytics.ts`, `src/utils/__tests__/analytics.test.ts`                   | Sanitized transactions, budgets      | `totalSpendPerCategory`, `monthlySpendPerCategory`, `compareBudgetByCategory`, etc. | Active                             |
+| Legacy Analytics Agent | Supply dashboard-ready aggregates for current React components. | `src/lib/analytics.js`                                                              | UI snapshot transactions             | Category totals, balance calculations                                               | Deprecated (migration in progress) |
+| Balances Agent         | Determine friend balances and settlements for UI cards.         | `src/lib/analytics.js` (`computeFriendBalances`)                                    | Transaction effects                  | `Map<friendId, { balance, owedTo, owedFrom }>`                                      | Active                             |
+| UI Orchestrator        | Compose agent outputs into dashboard and transactions UI.       | `src/App.jsx`, `src/components/AnalyticsDashboard.jsx`, `src/components/Analytics*` | Selectors, agent outputs             | Rendered React components                                                           | Active (needs refactoring)         |
+| Settlement Agent       | Calculate and create settlement transactions between friends.   | `src/lib/transactions.js` (`buildSplitTransaction`)                                 | Friends list, balances               | Settlement transaction objects                                                      | Active                             |
 
-Status legend: Active = implemented, In Progress = being built, Planned = design only.
+Status legend: Active = implemented, Deprecated = scheduled for removal, In Progress = being built, Planned = design only.
 
 When adding a new agent, define its loop (inputs and outputs), implement it in isolation, protect it with tests, expose it through a selector or hook, and update this table.
 
 ---
 
+## Migration In Progress
+
+**Analytics Consolidation:**
+
+- **Current state:** Two analytics systems coexist:
+  - Legacy: `src/lib/analytics.js` (JavaScript, used by UI)
+  - New: `src/utils/analytics.ts` (TypeScript, tested, more accurate)
+- **Goal:** Migrate all UI components to use `src/utils/analytics.ts` and remove legacy code.
+- **Blockers:** UI components still coupled to old data shapes.
+- **Next steps:**
+  1. Refactor `AnalyticsOverview` and `AnalyticsDashboard` to consume typed utilities.
+  2. Add integration tests for UI + new analytics.
+  3. Delete `src/lib/analytics.js`.
+
+**State Management:**
+
+- **Current state:** Mixed approach with App.jsx holding UI state and transactionsStore for analytics.
+- **Future consideration:** Evaluate context providers or lightweight state management (Zustand, Jotai) to eliminate prop drilling.
+
+---
+
+## Architectural Decisions
+
+### Why localStorage instead of a backend?
+
+- **Decision:** Keep app 100% client-side for privacy and simplicity.
+- **Trade-offs:** No sync across devices, quota limits (~5-10MB), no server-side analytics.
+- **Revisit when:** Users request multi-device sync or collaboration features.
+
+### Why two analytics systems?
+
+- **Decision:** Incremental rewrite to TypeScript with proper testing.
+- **Trade-offs:** Temporary code duplication, higher maintenance burden.
+- **Timeline:** Complete migration in Q1 2026.
+
+### Why React 19?
+
+- **Decision:** Adopt latest stable for better concurrent features and automatic batching.
+- **Trade-offs:** Cutting edge may have ecosystem lag (e.g., some libraries not updated).
+- **Monitoring:** Watch for hydration warnings and Suspense edge cases.
+
+---
+
 ## Guardrails
 
+### ✅ Safe to change:
+
+- Adding new components to `src/components/`
+- Extending analytics utilities in `src/utils/` (with tests)
+- Improving CSS styling (maintain mobile responsiveness)
+- Optimizing performance (measure before/after)
+- Adding JSDoc type hints to JavaScript files
+
+### ⚠️ Requires review:
+
+- Modifying transaction normalization logic
+- Changing localStorage schema or keys
+- Refactoring App.jsx state management
+- Updating ESLint rules
+
+### ❌ Do not change without explicit approval:
+
+- `src/lib/transactions.js` core splitting algorithm
+- Storage keys (`bill-split@v1`, `bill-split:transactions`)
+- Test expectations (fix the code, not the tests)
+- React/Vite versions (ensure compatibility first)
+- `CATEGORIES` list in `src/lib/categories.js` (normalization depends on it)
+
+### General principles:
+
 - Preserve public component APIs in `src/components`; update every call site and CSS module if props change.
-- Keep `CATEGORIES` (`src/lib/categories.js`) authoritative. Normalization helpers rely on the canonical list.
 - Protect the localStorage keys above; add migrations before mutating stored shapes.
 - Maintain accessibility affordances (modal focus trap, keyboard support, aria-live announcements).
 - Avoid introducing `eval`, dynamic script injection, or unchecked HTML rendering.
 
 ---
 
+## Common Pitfalls
+
+1. **Floating point arithmetic:** Always use integer cents internally. Use helper functions from `src/lib/money.js` for rounding.
+
+2. **Dual state updates:** When modifying transactions, update BOTH:
+
+   - App.jsx state (for immediate UI)
+   - transactionsStore (for analytics)
+
+   Missing either causes inconsistencies.
+
+3. **localStorage quota:** No current limits enforced. Consider adding size warnings if transaction count > 1000.
+
+4. **Time zones:** All dates should be stored as ISO 8601 strings. Display formatting happens in components.
+
+5. **Schema evolution:** Before changing `Transaction` or `Friend` types:
+
+   - Write migration function in `src/state/persistence.ts`
+   - Add version field to persisted data
+   - Test upgrade path with realistic legacy data
+
+6. **ESLint warnings = failures:** The CI pipeline treats warnings as errors. Fix all linting issues before committing.
+
+---
+
 ## Testing & Verification
 
-- Run `npm run lint`, `npm test`, and `npm run build` before opening pull requests.
-- Add Vitest coverage for analytics math or selector logic when touching those files.
-- Manual QA: confirm transactions persist and reload, analytics dashboards render, and balances update after edits.
-- For bug fixes, create a failing test first whenever practical.
+### Testing Requirements
+
+**Must have tests for:**
+
+- ✅ Analytics utilities (`src/utils/*.ts`)
+- ✅ State store logic (`src/state/*.ts`)
+- ⚠️ Transaction creation/splitting logic (add before refactoring)
+- ❌ UI components (not yet implemented)
+
+**Coverage targets:**
+
+- Utilities: 90%+ line coverage
+- State management: 85%+ line coverage
+- Transaction logic: 80%+ line coverage
+
+**Testing principles:**
+
+- Test behavior, not implementation
+- Mock localStorage for state tests
+- Use descriptive test names (e.g., `should calculate correct balances when multiple friends split unevenly`)
+- For bug fixes, create a failing test first whenever practical
+
+### Before opening pull requests:
+
+- Run `npm run lint`, `npm test`, and `npm run build`
+- Add Vitest coverage for analytics math or selector logic when touching those files
+- Manual QA: confirm transactions persist and reload, analytics dashboards render, and balances update after edits
+
+---
+
+## Quick Reference
+
+### How to add a new analytics metric:
+
+1. Add calculation function to `src/utils/analytics.ts`
+2. Export type in `src/types/index.ts` if needed
+3. Write tests in `src/utils/__tests__/analytics.test.ts`
+4. Subscribe to store in your component:
+   ```typescript
+   useEffect(() => {
+     const unsubscribe = transactionsStore.subscribe((state) => {
+       const metric = calculateNewMetric(state.transactions);
+       setMetric(metric);
+     });
+     return unsubscribe;
+   }, []);
+   ```
+
+### How to modify a transaction:
+
+```javascript
+// 1. Update UI state
+setTransactions((prev) =>
+  prev.map((t) => (t.id === targetId ? { ...t, amount: newAmount } : t))
+);
+
+// 2. Update analytics store
+transactionsStore.updateTransaction(targetId, { amount: newAmount });
+```
+
+### How to debug localStorage issues:
+
+```javascript
+// In browser console:
+localStorage.getItem("bill-split@v1"); // UI state
+localStorage.getItem("bill-split:transactions"); // Analytics state
+```
 
 ---
 
@@ -148,4 +326,4 @@ Always attach diffs and explain trade-offs when proposing changes.
 ## Last Verified
 
 - Update this date whenever you edit this file.
-- **YYYY-MM-DD:** 2025-10-20
+- **YYYY-MM-DD:** 2025-11-10

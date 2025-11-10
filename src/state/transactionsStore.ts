@@ -68,7 +68,9 @@ function normalizeCategoryName(category?: string | null): string {
   return trimmed;
 }
 
-function sanitizeParticipant(participant: unknown): TransactionParticipant | null {
+function sanitizeParticipant(
+  participant: unknown
+): TransactionParticipant | null {
   if (!participant || typeof participant !== "object") return null;
   const raw = participant as Record<string, unknown>;
   const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : null;
@@ -111,13 +113,17 @@ function sanitizeTransaction(input: unknown): TransactionRecord | null {
   return sanitized;
 }
 
-function sanitizeTransactions(transactions: readonly unknown[]): TransactionRecord[] {
+function sanitizeTransactions(
+  transactions: readonly unknown[]
+): TransactionRecord[] {
   return transactions
     .map((entry) => sanitizeTransaction(entry))
     .filter(Boolean) as TransactionRecord[];
 }
 
-function sanitizeBudgets(input: Record<string, number> | undefined): Record<string, number> {
+function sanitizeBudgets(
+  input: Record<string, number> | undefined
+): Record<string, number> {
   if (!input) return {};
   const result: Record<string, number> = {};
   for (const [rawCategory, rawValue] of Object.entries(input)) {
@@ -148,7 +154,9 @@ function emit(): void {
   }
 }
 
-function serializeState(current: TransactionsState): PersistedTransactionsState {
+function serializeState(
+  current: TransactionsState
+): PersistedTransactionsState {
   return {
     transactions: current.transactions.map((transaction) => ({
       ...transaction,
@@ -162,15 +170,21 @@ function serializeState(current: TransactionsState): PersistedTransactionsState 
 }
 
 function applyState(next: TransactionsState): void {
-  state = {
+  const sanitized = {
     transactions: sanitizeTransactions(next.transactions),
     budgets: sanitizeBudgets(next.budgets),
   };
-  persistTransactionsState(serializeState(state));
+
+  // Persist first - only update in-memory state if persistence succeeds
+  persistTransactionsState(serializeState(sanitized));
+
+  state = sanitized;
   emit();
 }
 
-function withState(producer: (previous: TransactionsState) => TransactionsState): void {
+function withState(
+  producer: (previous: TransactionsState) => TransactionsState
+): void {
   const draft: TransactionsState = {
     transactions: [...state.transactions],
     budgets: { ...state.budgets },

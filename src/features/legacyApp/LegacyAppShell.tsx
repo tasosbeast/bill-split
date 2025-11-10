@@ -124,7 +124,7 @@ export default function LegacyAppShell() {
   } = useTransactionTemplates({
     setTemplates,
     addTransaction,
-    setDraftPreset: setDraftPresetDispatch,
+    setDraftPreset,
   });
 
   const storeSnapshot = useMemo<

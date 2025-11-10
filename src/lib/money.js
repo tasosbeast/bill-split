@@ -10,5 +10,5 @@ export function formatEUR(value) {
 export function roundToCents(value) {
   const num = Number(value);
   if (!Number.isFinite(num)) return 0;
-  return Math.round(num * 100) / 100;
+  return Math.round(num * 100 + Number.EPSILON) / 100;
 }

@@ -122,8 +122,8 @@ export default function LegacyAppShell() {
     handleDeleteTemplate,
     handleGenerateFromTemplate,
   } = useTransactionTemplates({
-    setTemplates,\r
-    addTransaction,\r
+    setTemplates,
+    addTransaction,
     setDraftPreset: setDraftPresetDispatch,
   });
 

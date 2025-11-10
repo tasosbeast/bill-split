@@ -8,7 +8,10 @@ import {
 } from "react";
 import { CATEGORIES } from "../../lib/categories";
 import { useFriends } from "../../hooks/useFriends";
-import { useTransactions, type FriendTransaction } from "../../hooks/useTransactions";
+import {
+  useTransactions,
+  type FriendTransaction,
+} from "../../hooks/useTransactions";
 import { useSettleUp } from "../../hooks/useSettleUp";
 import { FRIEND_SELECTION_MESSAGES } from "../../hooks/useFriendSelection";
 import {
@@ -50,7 +53,7 @@ interface SettlementAssistantState {
   friend: LegacyFriend;
   balance: number;
 }
-export default function LegacyAppShell(): JSX.Element {
+export default function LegacyAppShell() {
   const {
     friends,
     selectedId,
@@ -61,6 +64,7 @@ export default function LegacyAppShell(): JSX.Element {
     createFriend,
     selectFriend,
     removeFriend,
+    friendSummaries,
   } = useFriends();
   const {
     transactions,
@@ -97,9 +101,10 @@ export default function LegacyAppShell(): JSX.Element {
   const closeRestoreModal = useAppStore((state) => state.closeRestoreModal);
   const draftPreset = useAppStore((state) => state.draftPreset);
   const setDraftPreset = useAppStore((state) => state.setDraftPreset);
-  const [pendingTemplate, setPendingTemplate] = useState<
-    { transaction: StoredTransaction; intent: TemplateRequestIntent } | null
-  >(null);
+  const [pendingTemplate, setPendingTemplate] = useState<{
+    transaction: StoredTransaction;
+    intent: TemplateRequestIntent;
+  } | null>(null);
   const splitFormResetSignal = useAppStore(
     (state) => state.splitFormResetSignal
   );
@@ -108,6 +113,8 @@ export default function LegacyAppShell(): JSX.Element {
   );
   const [settlementAssistant, setSettlementAssistant] =
     useState<SettlementAssistantState | null>(null);
+  const toastApi = useToasts();
+  const addToast = toastApi.addToast;
 
   const {
     handleAutomation,
@@ -115,9 +122,9 @@ export default function LegacyAppShell(): JSX.Element {
     handleDeleteTemplate,
     handleGenerateFromTemplate,
   } = useTransactionTemplates({
-    setTemplates,
-    addTransaction,
-    setDraftPreset,
+    setTemplates,\r
+    addTransaction,\r
+    setDraftPreset: setDraftPresetDispatch,
   });
 
   const storeSnapshot = useMemo<
@@ -360,9 +367,7 @@ export default function LegacyAppShell(): JSX.Element {
               type="button"
               className={
                 "segmented-control__btn" +
-                (view === "analytics"
-                  ? " segmented-control__btn--active"
-                  : "")
+                (view === "analytics" ? " segmented-control__btn--active" : "")
               }
               aria-current={view === "analytics" ? "page" : undefined}
               onClick={() => setActiveView("analytics")}
@@ -405,6 +410,7 @@ export default function LegacyAppShell(): JSX.Element {
         <div className="layout">
           <FriendsPanel
             friends={friends}
+            friendSummaries={friendSummaries}
             selectedFriendId={selectedId}
             balances={balances}
             onAddFriend={openAddModal}
@@ -472,7 +478,8 @@ export default function LegacyAppShell(): JSX.Element {
           <EditTransactionModal
             tx={editTx}
             friend={
-              friendsById.get(editTx.effect?.friendId || editTx.friendId) ?? null
+              friendsById.get(editTx.effect?.friendId || editTx.friendId) ??
+              null
             }
             onClose={() => setEditTx(null)}
             onSave={handleSaveEditedTx}
@@ -493,3 +500,7 @@ export default function LegacyAppShell(): JSX.Element {
     </div>
   );
 }
+
+
+
+

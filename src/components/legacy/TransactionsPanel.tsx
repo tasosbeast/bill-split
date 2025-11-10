@@ -6,6 +6,7 @@ import type {
   SplitDraftPreset,
 } from "../../types/transactionTemplate";
 import TransactionTemplatesPanel from "../TransactionTemplatesPanel";
+import { useDebouncedCallback } from "../../hooks/useDebouncedCallback";
 
 const SplitForm = lazy(() => import("../SplitForm"));
 const Transactions = lazy(() => import("../Transactions"));
@@ -82,6 +83,8 @@ function TransactionsPanel({
   onRequestTemplate,
   splitFormResetSignal,
 }: TransactionsPanelProps) {
+  const handleFilterChange = useDebouncedCallback(onFilterChange, 200);
+
   return (
     <section className="panel">
       <h2>Split a bill</h2>
@@ -163,7 +166,7 @@ function TransactionsPanel({
               <select
                 className="select w-180"
                 value={txFilter}
-                onChange={(event) => onFilterChange(event.target.value)}
+                onChange={(event) => handleFilterChange(event.target.value)}
                 title="Filter by category"
               >
                 <option value="All">All</option>

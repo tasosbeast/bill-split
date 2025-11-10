@@ -3,6 +3,12 @@ import { computeBalances } from "../lib/compute";
 import { useAppStore } from "../state/appStore";
 import type { LegacyFriend } from "../types/legacySnapshot";
 
+export interface FriendBalanceSummary {
+  friend: LegacyFriend;
+  balance: number;
+  canRemove: boolean;
+}
+
 type CreateFriendOutcome =
   | { ok: true }
   | { ok: false; reason: "duplicate-email" };
@@ -10,10 +16,6 @@ type CreateFriendOutcome =
 type RemoveFriendOutcome =
   | { ok: true }
   | { ok: false; reason: "not-found" | "outstanding-balance" };
-
-const DUPLICATE_EMAIL_MESSAGE = "A friend with this email already exists.";
-const OUTSTANDING_BALANCE_MESSAGE =
-  "Settle any outstanding balance with this friend before removing them.";
 
 function normalizeEmail(value: string | undefined): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -29,6 +31,7 @@ export interface UseFriendsResult {
   createFriend: (friend: LegacyFriend) => CreateFriendOutcome;
   selectFriend: (friendId: string | null) => void;
   removeFriend: (friendId: string) => RemoveFriendOutcome;
+  friendSummaries: FriendBalanceSummary[];
 }
 
 export function useFriends(): UseFriendsResult {
@@ -72,7 +75,6 @@ export function useFriends(): UseFriendsResult {
     (friend) => {
       const normalizedEmail = normalizeEmail(friend.email);
       if (normalizedEmails.has(normalizedEmail)) {
-        alert(DUPLICATE_EMAIL_MESSAGE);
         return { ok: false, reason: "duplicate-email" };
       }
       const now = Date.now();
@@ -104,7 +106,6 @@ export function useFriends(): UseFriendsResult {
       }
       const balance = balances.get(friendId) ?? 0;
       if (Math.abs(balance) > 0.0001) {
-        alert(OUTSTANDING_BALANCE_MESSAGE);
         return { ok: false, reason: "outstanding-balance" };
       }
 
@@ -113,6 +114,14 @@ export function useFriends(): UseFriendsResult {
     },
     [balances, friendsById, removeFriendFromStore]
   );
+
+  const friendSummaries = useMemo<FriendBalanceSummary[]>(() => {
+    return friends.map((friend) => {
+      const balance = balances.get(friend.id) ?? 0;
+      const canRemove = Math.abs(balance) < 0.0001;
+      return { friend, balance, canRemove };
+    });
+  }, [balances, friends]);
 
   return {
     friends,
@@ -124,5 +133,7 @@ export function useFriends(): UseFriendsResult {
     createFriend,
     selectFriend,
     removeFriend,
+    friendSummaries,
   };
 }
+

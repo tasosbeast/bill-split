@@ -1,17 +1,34 @@
 import PropTypes from "prop-types";
 import { memo } from "react";
 
-function FriendList({ friends, selectedId, balances, onSelect, onRemove }) {
+function FriendList({
+  friends,
+  selectedId,
+  balances,
+  friendSummaries,
+  onSelect,
+  onRemove,
+}) {
+  const entries =
+    friendSummaries ??
+    friends.map((friend) => {
+      const balance = balances?.get?.(friend.id) ?? 0;
+      return {
+        friend,
+        balance,
+        canRemove: Math.abs(balance) < 0.01,
+      };
+    });
+
   return (
     <div className="list">
-      {friends.length === 0 && (
+      {entries.length === 0 && (
         <div className="kicker">No friends yet. Add one to get started.</div>
       )}
 
-      {friends.map((friend) => {
+      {entries.map((entry) => {
+        const { friend, balance, canRemove } = entry;
         const active = friend.id === selectedId;
-        const balance = balances?.get?.(friend.id) ?? 0;
-        const canRemove = Math.abs(balance) < 0.01;
         const deleteTitle = canRemove
           ? `Remove ${friend.name}`
           : "Settle the balance before removing this friend.";
@@ -55,6 +72,7 @@ FriendList.propTypes = {
   friends: PropTypes.array.isRequired,
   selectedId: PropTypes.string,
   balances: PropTypes.instanceOf(Map),
+  friendSummaries: PropTypes.array,
   onSelect: PropTypes.func.isRequired,
   onRemove: PropTypes.func.isRequired,
 };

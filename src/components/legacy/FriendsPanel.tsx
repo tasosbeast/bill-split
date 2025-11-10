@@ -1,5 +1,6 @@
 import { memo, Suspense, lazy } from "react";
 import type { LegacyFriend } from "../../types/legacySnapshot";
+import type { FriendBalanceSummary } from "../../hooks/useFriends";
 import type {
   SettlementStatus,
   TransactionPaymentMetadata,
@@ -10,6 +11,7 @@ const Balances = lazy(() => import("../Balances"));
 
 interface FriendsPanelProps {
   friends: LegacyFriend[];
+  friendSummaries?: FriendBalanceSummary[];
   selectedFriendId: string | null;
   balances: Map<string, number>;
   onAddFriend: () => void;
@@ -29,6 +31,7 @@ interface FriendSettlementSummary {
 
 function FriendsPanel({
   friends,
+  friendSummaries,
   selectedFriendId,
   balances,
   onAddFriend,
@@ -56,6 +59,7 @@ function FriendsPanel({
           friends={friends}
           selectedId={selectedFriendId}
           balances={balances}
+          friendSummaries={friendSummaries}
           onSelect={onSelectFriend}
           onRemove={onRemoveFriend}
         />
@@ -76,6 +80,7 @@ function FriendsPanel({
         <Balances
           friends={friends}
           balances={balances}
+          friendSummaries={friendSummaries}
           settlements={settlementSummaries}
           onJumpTo={onSelectFriend}
           onConfirmSettlement={onConfirmSettlement}

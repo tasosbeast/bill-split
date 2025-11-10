@@ -75,8 +75,10 @@ export function useFriendSelection(): UseFriendSelectionResult {
     [friendsById, selectedId]
   );
 
-  const selectedBalance =
-    selectedId && balances.has(selectedId) ? balances.get(selectedId)! : 0;
+  const selectedBalance = useMemo(() => {
+    if (!selectedId) return 0;
+    return balances.get(selectedId) ?? 0;
+  }, [balances, selectedId]);
 
   const createFriend = useCallback<UseFriendSelectionResult["createFriend"]>(
     (friend) => {

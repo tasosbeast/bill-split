@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useToastStore } from "../state/toastStore";
 
-const KIND_ROLE: Record<string, "status" | "alert"> = {
+const KIND_ROLE = {
   success: "status",
   info: "status",
   error: "alert",
@@ -17,10 +17,10 @@ export default function ToastRegion() {
     }
     const timers = toasts.map((toast) => {
       const delay = Math.max(0, toast.dismissAt - Date.now());
-      return window.setTimeout(() => removeToast(toast.id), delay);
+      return setTimeout(() => removeToast(toast.id), delay);
     });
     return () => {
-      timers.forEach((timer) => window.clearTimeout(timer));
+      timers.forEach((timer) => clearTimeout(timer));
     };
   }, [toasts, removeToast]);
 
@@ -43,11 +43,15 @@ export default function ToastRegion() {
             onClick={() => removeToast(toast.id)}
             aria-label="Dismiss notification"
           >
-            Ã—
+            ×
           </button>
         </div>
       ))}
     </div>
   );
 }
+
+
+
+
 

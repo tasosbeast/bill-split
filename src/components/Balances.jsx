@@ -1,6 +1,6 @@
 import PropTypes from "prop-types";
+import { memo, useMemo } from "react";
 import { formatEUR } from "../lib/money";
-import { memo } from "react";
 
 const STATUS_LABELS = {
   initiated: "Awaiting payment",
@@ -35,19 +35,32 @@ function resolveDueLabel(payment) {
 function Balances({
   friends,
   balances,
+  friendSummaries,
   settlements,
   onJumpTo,
   onConfirmSettlement,
 }) {
-  // balances: Map<friendId, number> (signed)
+  const entries = useMemo(() => {
+    if (Array.isArray(friendSummaries) && friendSummaries.length > 0) {
+      return friendSummaries;
+    }
+    return friends.map((friend) => {
+      const balance = balances.get(friend.id) || 0;
+      return {
+        friend,
+        balance,
+        canRemove: Math.abs(balance) < 0.01,
+      };
+    });
+  }, [friendSummaries, friends, balances]);
+
   return (
     <div className="list">
-      {friends.length === 0 && (
+      {entries.length === 0 && (
         <div className="kicker">No friends yet. Add one to get started.</div>
       )}
 
-      {friends.map((f) => {
-        const bal = balances.get(f.id) || 0;
+      {entries.map(({ friend: f, balance: bal }) => {
         const settlement = settlements?.get(f.id) || null;
         const label =
           bal > 0
@@ -189,6 +202,7 @@ Balances.propTypes = {
     })
   ).isRequired,
   balances: PropTypes.instanceOf(Map).isRequired,
+  friendSummaries: PropTypes.array,
   settlements: PropTypes.instanceOf(Map),
   onJumpTo: PropTypes.func,
   onConfirmSettlement: PropTypes.func,

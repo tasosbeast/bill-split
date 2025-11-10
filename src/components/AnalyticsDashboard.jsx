@@ -21,7 +21,7 @@ import {
   computeBudgetStatus,
   computeFriendBalances,
   computeMonthlyVolume,
-} from "../lib/analytics";
+} from "../utils/analytics";
 import AnalyticsBudgetSummary from "./AnalyticsBudgetSummary";
 import BudgetManager from "./BudgetManager";
 import { useTransactionsStoreState } from "../hooks/useTransactionsStore";

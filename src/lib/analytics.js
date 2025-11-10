@@ -1,3 +1,11 @@
+/**
+ * @deprecated This file is deprecated and will be removed in a future version.
+ * Please use src/utils/analytics.ts instead.
+ * 
+ * Migration completed in PR #33. This file remains temporarily for any
+ * external references but should not be used in new code.
+ */
+
 import { roundToCents } from "./money";
 import { getTransactionEffects } from "./transactions";
 

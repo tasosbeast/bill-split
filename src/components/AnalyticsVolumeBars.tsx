@@ -11,7 +11,9 @@ interface AnalyticsVolumeBarsProps {
   data?: VolumeEntry[];
 }
 
-export default function AnalyticsVolumeBars({ data }: AnalyticsVolumeBarsProps) {
+export default function AnalyticsVolumeBars({
+  data,
+}: AnalyticsVolumeBarsProps) {
   if (!data || data.length === 0) {
     return <div className="kicker">No tracked volume yet.</div>;
   }

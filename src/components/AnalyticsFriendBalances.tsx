@@ -53,9 +53,7 @@ export default function AnalyticsFriendBalances({
               />
             </div>
             <div className={styles.meta}>
-              {isPositive
-                ? `${entry.name} owes you`
-                : `You owe ${entry.name}`}
+              {isPositive ? `${entry.name} owes you` : `You owe ${entry.name}`}
             </div>
           </div>
         );

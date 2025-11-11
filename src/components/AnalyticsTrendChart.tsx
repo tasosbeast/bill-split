@@ -11,7 +11,9 @@ interface AnalyticsTrendChartProps {
   data?: TrendPoint[];
 }
 
-export default function AnalyticsTrendChart({ data }: AnalyticsTrendChartProps) {
+export default function AnalyticsTrendChart({
+  data,
+}: AnalyticsTrendChartProps) {
   if (!data || data.length === 0) {
     return (
       <div className="kicker">No spending data yet for this timeframe.</div>

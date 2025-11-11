@@ -4,6 +4,8 @@ import {
   clearTransactionsStatePersistence,
   loadTransactionsState,
   persistTransactionsState,
+  createMemoryStorage,
+  setTransactionsPersistenceStorage,
   type PersistedTransaction,
   type PersistedTransactionsState,
 } from "./persistence";
@@ -68,9 +70,7 @@ function normalizeCategoryName(category?: string | null): string {
   return trimmed;
 }
 
-function sanitizeParticipant(
-  participant: unknown
-): TransactionParticipant | null {
+function sanitizeParticipant(participant: unknown): TransactionParticipant | null {
   if (!participant || typeof participant !== "object") return null;
   const raw = participant as Record<string, unknown>;
   const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : null;
@@ -113,17 +113,13 @@ function sanitizeTransaction(input: unknown): TransactionRecord | null {
   return sanitized;
 }
 
-function sanitizeTransactions(
-  transactions: readonly unknown[]
-): TransactionRecord[] {
+function sanitizeTransactions(transactions: readonly unknown[]): TransactionRecord[] {
   return transactions
     .map((entry) => sanitizeTransaction(entry))
     .filter(Boolean) as TransactionRecord[];
 }
 
-function sanitizeBudgets(
-  input: Record<string, number> | undefined
-): Record<string, number> {
+function sanitizeBudgets(input: Record<string, number> | undefined): Record<string, number> {
   if (!input) return {};
   const result: Record<string, number> = {};
   for (const [rawCategory, rawValue] of Object.entries(input)) {
@@ -150,13 +146,18 @@ const listeners = new Set<TransactionsListener>();
 
 function emit(): void {
   for (const listener of listeners) {
-    listener(state);
+    try {
+      listener(state);
+    } catch (err) {
+      // Guard against subscriber errors so one bad listener doesn't break the store
+      // (log and continue)
+      // eslint-disable-next-line no-console
+      console.warn("Transactions listener error", err);
+    }
   }
 }
 
-function serializeState(
-  current: TransactionsState
-): PersistedTransactionsState {
+function serializeState(current: TransactionsState): PersistedTransactionsState {
   return {
     transactions: current.transactions.map((transaction) => ({
       ...transaction,
@@ -169,22 +170,49 @@ function serializeState(
   };
 }
 
+/**
+ * Apply a new state to the store. This function will attempt to persist the
+ * sanitized state to the configured persistence. If persistence fails it will:
+ *  - log the failure,
+ *  - install an in-memory fallback storage and retry persistence,
+ *  - if fallback also fails, keep the in-memory state and log an error.
+ */
 function applyState(next: TransactionsState): void {
-  const sanitized = {
+  const sanitizedState: TransactionsState = {
     transactions: sanitizeTransactions(next.transactions),
     budgets: sanitizeBudgets(next.budgets),
   };
 
-  // Persist first - only update in-memory state if persistence succeeds
-  persistTransactionsState(serializeState(sanitized));
+  // Update in-memory state immediately so callers of getTransactionsState() see it.
+  state = sanitizedState;
 
-  state = sanitized;
-  emit();
+  // Attempt to persist; if it fails try a memory fallback.
+  try {
+    persistTransactionsState(serializeState(state));
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn("Failed to persist transactions state to primary storage", error);
+
+    try {
+      const fallback = createMemoryStorage();
+      setTransactionsPersistenceStorage(fallback);
+      persistTransactionsState(serializeState(state));
+      // eslint-disable-next-line no-console
+      console.info("Persisted transactions state to in-memory fallback storage");
+    } catch (fallbackError) {
+      // eslint-disable-next-line no-console
+      console.error(
+        "Failed to persist transactions state to fallback storage; state will remain in memory only",
+        fallbackError
+      );
+    }
+  } finally {
+    // Notify subscribers after persistence attempts (successful or failed).
+    emit();
+  }
 }
 
-function withState(
-  producer: (previous: TransactionsState) => TransactionsState
-): void {
+function withState(producer: (previous: TransactionsState) => TransactionsState): void {
   const draft: TransactionsState = {
     transactions: [...state.transactions],
     budgets: { ...state.budgets },
@@ -433,6 +461,22 @@ export function resetTransactionsStore(options?: ResetStoreOptions): void {
   } else {
     state = buildStateFromPersisted(loadTransactionsState());
   }
-  persistTransactionsState(serializeState(state));
-  emit();
+  try {
+    persistTransactionsState(serializeState(state));
+  } catch (error) {
+    // If persist fails during reset, install fallback memory storage and try again,
+    // but always emit to let UI reflect the reset result (persist may be best-effort).
+    try {
+      const fallback = createMemoryStorage();
+      setTransactionsPersistenceStorage(fallback);
+      persistTransactionsState(serializeState(state));
+      // eslint-disable-next-line no-console
+      console.info("Persisted reset state to in-memory fallback storage");
+    } catch (fallbackError) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to persist reset state to fallback storage", fallbackError);
+    }
+  } finally {
+    emit();
+  }
 }

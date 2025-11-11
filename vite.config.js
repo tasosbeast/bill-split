@@ -1,5 +1,5 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -8,6 +8,7 @@ export default defineConfig({
     environment: "jsdom",
   },
   build: {
+    sourcemap: "hidden", // Generate source maps but don't reference them in built files
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -25,4 +26,4 @@ export default defineConfig({
       },
     },
   },
-})
+});

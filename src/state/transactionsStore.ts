@@ -1,4 +1,4 @@
-import { CATEGORIES } from "../lib/categories.js";
+import { CATEGORIES } from "../lib/categories";
 import { roundToCents } from "../lib/money";
 import {
   clearTransactionsStatePersistence,

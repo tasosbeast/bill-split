@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Main bundle (index)",
+    "path": "dist/assets/index-*.js",
+    "limit": "150 KB",
+    "gzip": true
+  },
+  {
+    "name": "React vendor chunk",
+    "path": "dist/assets/react-*.js",
+    "limit": "65 KB",
+    "gzip": true
+  },
+  {
+    "name": "Transactions chunk",
+    "path": "dist/assets/transactions-*.js",
+    "limit": "10 KB",
+    "gzip": true
+  },
+  {
+    "name": "Total bundle size",
+    "path": "dist/assets/*.js",
+    "limit": "200 KB",
+    "gzip": true
+  }
+]

@@ -50,12 +50,78 @@ src/
 npm install         # Install dependencies (package-lock.json is authoritative)
 npm run dev         # Start Vite dev server
 npm run build       # Production build
+npm run build:analyze # Build and open bundle visualization
 npm run preview     # Preview production build locally
 npm run lint        # ESLint (fails on warnings)
 npm test            # Vitest (single run)
+npm run size        # Check bundle sizes against limits
+npm run size:why    # Analyze what's contributing to bundle size
 ```
 
 > There are no dedicated `format` or `typecheck` scripts. Run the TypeScript compiler manually if needed (`npx tsc --noEmit`).
+
+---
+
+## Bundle Size Monitoring
+
+Bundle size is monitored using two complementary tools:
+
+### 1. Bundle Visualization (`rollup-plugin-visualizer`)
+
+After each build, a treemap visualization is generated at `dist/stats.html` showing:
+
+- Component and dependency sizes
+- Gzipped and Brotli sizes
+- Interactive exploration of bundle composition
+
+**Usage:**
+
+```bash
+npm run build         # Generates dist/stats.html
+npm run build:analyze # Builds and opens stats.html (macOS/Linux)
+```
+
+Open `dist/stats.html` in a browser to explore the bundle interactively. Use this to:
+
+- Identify large dependencies that could be optimized
+- Spot duplicate dependencies
+- Verify code-splitting is working as expected
+
+### 2. Size Limits (`size-limit`)
+
+Enforces maximum bundle sizes configured in `.size-limit.json`:
+
+```json
+{
+  "Main bundle (index)": "150 KB gzipped",
+  "React vendor chunk": "65 KB gzipped",
+  "Transactions chunk": "10 KB gzipped",
+  "Total bundle size": "200 KB gzipped"
+}
+```
+
+**Usage:**
+
+```bash
+npm run size        # Check sizes (fails if over limit)
+npm run size:why    # Analyze what's making bundles large
+```
+
+**Size limits rationale:**
+
+- **Main bundle**: Application code excluding vendors (current: ~2 KB, limit: 150 KB)
+- **React vendor**: React + React DOM + Scheduler (current: ~60 KB, limit: 65 KB)
+- **Transactions chunk**: Split transaction logic (current: ~1.5 KB, limit: 10 KB)
+- **Total**: All JavaScript combined (current: ~117 KB, limit: 200 KB)
+
+**When to update limits:**
+
+1. After major feature additions, review actual sizes and adjust limits by ~10-20% headroom
+2. If migration impacts bundle size, document the change and update limits accordingly
+3. Always keep total bundle under 200 KB gzipped for good mobile performance
+
+**Integration with CI:**
+Add `npm run size` to CI pipeline to fail builds that exceed limits. This prevents bundle bloat from creeping in unnoticed.
 
 ---
 

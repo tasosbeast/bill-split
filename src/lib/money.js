@@ -1,6 +1,6 @@
 export function formatEUR(value) {
   const n = Number(value) || 0;
-  return new Intl.NumberFormat(undefined, {
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 2,

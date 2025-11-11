@@ -234,7 +234,7 @@ function toDate(value: string | null | undefined): Date | null {
 function formatMonthLabel(key: string): string {
   const [year, month] = key.split("-");
   const date = new Date(Number(year), Number(month) - 1, 1);
-  return date.toLocaleDateString(undefined, { month: "short" });
+  return date.toLocaleDateString("en-US", { month: "short" });
 }
 
 // Legacy transaction formats (for backward compatibility)

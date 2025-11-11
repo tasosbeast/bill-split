@@ -28,9 +28,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       { id: "you", amount: 50 },
       { id: "friend-1", amount: 50 },
     ],
-    effects: [
-      { friendId: "friend-1", delta: 50, share: 50 },
-    ],
+    effects: [{ friendId: "friend-1", delta: 50, share: 50 }],
   };
 
   const baseSettlementTransaction: Transaction = {
@@ -40,9 +38,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
     friendId: "friend-1",
     createdAt: "2024-03-20T12:00:00.000Z",
     settlementStatus: "confirmed",
-    effects: [
-      { friendId: "friend-1", delta: -50, share: 50 },
-    ],
+    effects: [{ friendId: "friend-1", delta: -50, share: 50 }],
   };
 
   describe("computeAnalyticsOverview", () => {
@@ -69,14 +65,12 @@ describe("Legacy Analytics Port - Phase 1", () => {
             { id: "you", amount: 40 },
             { id: "friend-2", amount: 40 },
           ],
-          effects: [
-            { friendId: "friend-2", delta: 40, share: 40 },
-          ],
+          effects: [{ friendId: "friend-2", delta: 40, share: 40 }],
         },
       ];
 
       const result = computeAnalyticsOverview(transactions);
-      
+
       expect(result.count).toBe(2);
       expect(result.totalVolume).toBe(180);
       expect(result.owedToYou).toBe(90);
@@ -92,7 +86,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeAnalyticsOverview(transactions);
-      
+
       expect(result.count).toBe(2);
       expect(result.totalVolume).toBe(150);
       expect(result.owedToYou).toBe(50);
@@ -110,7 +104,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeAnalyticsOverview(transactions);
-      
+
       expect(result.count).toBe(2);
       expect(result.owedToYou).toBe(50);
       expect(result.youOwe).toBe(0);
@@ -118,15 +112,12 @@ describe("Legacy Analytics Port - Phase 1", () => {
     });
 
     it("handles null and undefined transactions", () => {
-      const transactions: any[] = [
-        baseSplitTransaction,
-        null,
-        undefined,
-        {},
-      ];
+      const transactions: Array<
+        Transaction | null | undefined | Record<string, unknown>
+      > = [baseSplitTransaction, null, undefined, {}];
 
-      const result = computeAnalyticsOverview(transactions);
-      
+      const result = computeAnalyticsOverview(transactions as Transaction[]);
+
       expect(result.count).toBe(2);
     });
 
@@ -139,14 +130,12 @@ describe("Legacy Analytics Port - Phase 1", () => {
             { id: "you", amount: 16.666 },
             { id: "friend-1", amount: 16.667 },
           ],
-          effects: [
-            { friendId: "friend-1", delta: 16.667, share: 16.667 },
-          ],
+          effects: [{ friendId: "friend-1", delta: 16.667, share: 16.667 }],
         },
       ];
 
       const result = computeAnalyticsOverview(transactions);
-      
+
       expect(result.totalVolume).toBe(33.33);
       expect(result.owedToYou).toBe(16.67);
     });
@@ -180,7 +169,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeCategoryBreakdown(transactions);
-      
+
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({
         category: "Food",
@@ -218,7 +207,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeCategoryBreakdown(transactions);
-      
+
       expect(result).toHaveLength(1);
       expect(result[0].category).toBe("Uncategorized");
       expect(result[0].total).toBe(200);
@@ -234,7 +223,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeCategoryBreakdown(transactions);
-      
+
       expect(result).toHaveLength(1);
       expect(result[0].category).toBe("Food");
     });
@@ -261,7 +250,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeCategoryBreakdown(transactions);
-      
+
       expect(result[0].category).toBe("B");
       expect(result[1].category).toBe("C");
       expect(result[2].category).toBe("A");
@@ -282,7 +271,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeCategoryBreakdown(transactions);
-      
+
       expect(result[0].percentage).toBe(66.7);
       expect(result[1].percentage).toBe(33.3);
     });
@@ -316,7 +305,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeCategoryTotals(transactions);
-      
+
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({ category: "Food", amount: 150 });
       expect(result[1]).toEqual({ category: "Travel", amount: 80 });
@@ -332,7 +321,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeCategoryTotals(transactions);
-      
+
       expect(result).toHaveLength(1);
     });
 
@@ -349,12 +338,15 @@ describe("Legacy Analytics Port - Phase 1", () => {
           id: "tx-2",
           total: null,
           payer: "friend-1",
-          participants: [{ id: "you", amount: 0 }, { id: "friend-1", amount: 100 }],
+          participants: [
+            { id: "you", amount: 0 },
+            { id: "friend-1", amount: 100 },
+          ],
         },
       ];
 
       const result = computeCategoryTotals(transactions);
-      
+
       expect(result).toEqual([]);
     });
 
@@ -374,7 +366,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeCategoryTotals(transactions);
-      
+
       expect(result[0].category).toBe("B");
       expect(result[1].category).toBe("A");
     });
@@ -408,7 +400,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeMonthlyTrend(transactions, 6);
-      
+
       expect(result).toHaveLength(2);
       expect(result[0].key).toBe("2024-01");
       expect(result[0].amount).toBe(150);
@@ -444,7 +436,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeMonthlyTrend(transactions, 2);
-      
+
       expect(result).toHaveLength(2);
       expect(result[0].key).toBe("2024-03");
       expect(result[1].key).toBe("2024-04");
@@ -460,7 +452,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeMonthlyTrend(transactions, 6);
-      
+
       expect(result[0].label).toBe("Mar");
     });
 
@@ -480,7 +472,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeMonthlyTrend(transactions, 6);
-      
+
       expect(result).toHaveLength(1);
       expect(result[0].key).toBe("2024-03");
     });
@@ -496,7 +488,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeMonthlyTrend(transactions, 6);
-      
+
       expect(result).toHaveLength(1);
       expect(result[0].key).toBe("2024-03");
     });
@@ -527,7 +519,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeFriendBalances(transactions);
-      
+
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({ friendId: "friend-1", balance: 80 });
       expect(result[1]).toEqual({ friendId: "friend-2", balance: -20 });
@@ -553,7 +545,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeFriendBalances(transactions);
-      
+
       expect(result).toEqual([]);
     });
 
@@ -576,7 +568,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeFriendBalances(transactions);
-      
+
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({ friendId: "friend-2", balance: 30 });
     });
@@ -600,7 +592,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeFriendBalances(transactions);
-      
+
       expect(result[0].friendId).toBe("friend-2");
       expect(result[1].friendId).toBe("friend-3");
       expect(result[2].friendId).toBe("friend-1");
@@ -629,7 +621,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeMonthlyVolume(transactions, 2);
-      
+
       expect(result).toHaveLength(2);
       expect(result[0].key).toBe("2024-01");
       expect(result[0].amount).toBe(100);
@@ -653,7 +645,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeMonthlyVolume(transactions, 3);
-      
+
       expect(result).toHaveLength(3);
       expect(result[0].key).toBe("2024-01");
       expect(result[0].amount).toBe(100);
@@ -675,7 +667,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeMonthlyVolume(transactions, 6);
-      
+
       expect(result).toEqual([]);
     });
 
@@ -693,7 +685,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeMonthlyVolume(transactions, 1);
-      
+
       expect(result).toHaveLength(1);
       expect(result[0].amount).toBe(100);
     });
@@ -714,7 +706,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeMonthlyVolume(transactions, 1);
-      
+
       expect(result).toHaveLength(1);
       expect(result[0].key).toBe("2024-03");
     });
@@ -739,7 +731,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeBudgetStatus(transactions, 100, march2024);
-      
+
       expect(result.budget).toBe(100);
       expect(result.spent).toBe(80);
       expect(result.remaining).toBe(20);
@@ -757,7 +749,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeBudgetStatus(transactions, 100, march2024);
-      
+
       expect(result.status).toBe("on-track");
     });
 
@@ -771,7 +763,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeBudgetStatus(transactions, 100, march2024);
-      
+
       expect(result.status).toBe("warning");
     });
 
@@ -785,7 +777,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeBudgetStatus(transactions, 100, march2024);
-      
+
       expect(result.status).toBe("over");
       expect(result.remaining).toBe(0);
     });
@@ -812,7 +804,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeBudgetStatus(transactions, 100, march2024);
-      
+
       expect(result.spent).toBe(50);
     });
 
@@ -826,7 +818,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeBudgetStatus(transactions, 0, march2024);
-      
+
       expect(result.budget).toBe(0);
       expect(result.spent).toBe(50);
       expect(result.remaining).toBe(0);
@@ -842,8 +834,12 @@ describe("Legacy Analytics Port - Phase 1", () => {
         },
       ];
 
-      const result = computeBudgetStatus(transactions, 100, new Date("invalid"));
-      
+      const result = computeBudgetStatus(
+        transactions,
+        100,
+        new Date("invalid")
+      );
+
       // Should use current date without error
       expect(result.budget).toBe(100);
     });
@@ -859,7 +855,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeBudgetStatus(transactions, 100, march2024);
-      
+
       expect(result.spent).toBe(50);
     });
 
@@ -873,7 +869,7 @@ describe("Legacy Analytics Port - Phase 1", () => {
       ];
 
       const result = computeBudgetStatus(transactions, -100, march2024);
-      
+
       expect(result.budget).toBe(0);
       expect(result.status).toBe("on-track");
     });

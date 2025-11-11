@@ -3,14 +3,14 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StoredTransaction, UISnapshot } from "../../types/legacySnapshot";
 import type { TransactionEffect } from "../../types/transaction";
+import type { TransactionLike } from "../../lib/transactions";
 
-const getTransactionEffectsMock = vi.fn<
-  (transaction: StoredTransaction) => TransactionEffect[]
->();
-const transactionIncludesFriendMock = vi.fn<
-  (transaction: StoredTransaction, friendId: string) => boolean
->();
-const upgradeTransactionsMock = vi.fn<(list: any[]) => any[]>();
+const getTransactionEffectsMock =
+  vi.fn<(transaction: TransactionLike) => TransactionEffect[]>();
+const transactionIncludesFriendMock =
+  vi.fn<(transaction: TransactionLike, friendId: string) => boolean>();
+const upgradeTransactionsMock =
+  vi.fn<(list: TransactionLike[]) => TransactionLike[]>();
 
 vi.mock("../../lib/transactions", () => ({
   getTransactionEffects: getTransactionEffectsMock,
@@ -21,8 +21,9 @@ vi.mock("../../lib/transactions", () => ({
 const { useLegacyTransactions } = await import("../useLegacyTransactions");
 const { useAppStore } = await import("../../state/appStore");
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-  true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function renderHook<T>(callback: () => T) {
   const result: { current: T | null } = { current: null };
@@ -113,9 +114,7 @@ describe("useLegacyTransactions", () => {
     // Populate store with test data
     useAppStore.getState().replaceSnapshot(snapshot);
 
-    const { result, unmount } = renderHook(() =>
-      useLegacyTransactions()
-    );
+    const { result, unmount } = renderHook(() => useLegacyTransactions());
 
     expect(result.current.state.transactions).toEqual(snapshot.transactions);
     expect(result.current.state.filter).toBe("All");
@@ -158,14 +157,12 @@ describe("useLegacyTransactions", () => {
     // Populate store with test data
     useAppStore.getState().replaceSnapshot(snapshot);
 
-    const { result, unmount } = renderHook(() =>
-      useLegacyTransactions()
-    );
+    const { result, unmount } = renderHook(() => useLegacyTransactions());
 
     expect(result.current.state.transactionsForSelectedFriend).toHaveLength(1);
-    expect(result.current.state.transactionsForSelectedFriend[0].effect).toEqual(
-      effects[0]
-    );
+    expect(
+      result.current.state.transactionsForSelectedFriend[0].effect
+    ).toEqual(effects[0]);
 
     unmount();
   });
@@ -206,7 +203,9 @@ describe("useLegacyTransactions", () => {
       result.current.handlers.removeTransaction(updated.id);
     });
     rerender();
-    expect(result.current.state.transactions.find((tx) => tx.id === updated.id)).toBeUndefined();
+    expect(
+      result.current.state.transactions.find((tx) => tx.id === updated.id)
+    ).toBeUndefined();
 
     unmount();
   });
@@ -223,7 +222,10 @@ describe("useLegacyTransactions", () => {
     vi.setSystemTime(new Date("2024-05-01T12:00:00.000Z"));
 
     act(() => {
-      result.current.handlers.addSettlement({ friendId: "friend-1", balance: 15 });
+      result.current.handlers.addSettlement({
+        friendId: "friend-1",
+        balance: 15,
+      });
     });
     rerender();
 
@@ -252,7 +254,10 @@ describe("useLegacyTransactions", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-05-01T08:00:00.000Z"));
     act(() => {
-      result.current.handlers.addSettlement({ friendId: "friend-1", balance: 20 });
+      result.current.handlers.addSettlement({
+        friendId: "friend-1",
+        balance: 20,
+      });
     });
     rerender();
     const pending = result.current.state.transactions[0];
@@ -264,7 +269,9 @@ describe("useLegacyTransactions", () => {
     });
     rerender();
 
-    const confirmed = result.current.state.transactions.find((tx) => tx.id === pending.id)!;
+    const confirmed = result.current.state.transactions.find(
+      (tx) => tx.id === pending.id
+    )!;
     expect(confirmed.settlementStatus).toBe("confirmed");
     expect(confirmed.settlementConfirmedAt).toBe("2024-05-02T09:30:00.000Z");
     expect(confirmed.settlementInitiatedAt).toBe("2024-05-01T08:00:00.000Z");
@@ -276,7 +283,9 @@ describe("useLegacyTransactions", () => {
     });
     rerender();
 
-    const cancelled = result.current.state.transactions.find((tx) => tx.id === pending.id)!;
+    const cancelled = result.current.state.transactions.find(
+      (tx) => tx.id === pending.id
+    )!;
     expect(cancelled.settlementStatus).toBe("cancelled");
     expect(cancelled.settlementCancelledAt).toBe("2024-05-03T10:00:00.000Z");
     expect(cancelled.settlementConfirmedAt).toBeNull();
@@ -287,7 +296,9 @@ describe("useLegacyTransactions", () => {
     });
     rerender();
 
-    const reopened = result.current.state.transactions.find((tx) => tx.id === pending.id)!;
+    const reopened = result.current.state.transactions.find(
+      (tx) => tx.id === pending.id
+    )!;
     expect(reopened.settlementStatus).toBe("initiated");
     expect(reopened.settlementCancelledAt).toBeNull();
     expect(reopened.settlementConfirmedAt).toBeNull();

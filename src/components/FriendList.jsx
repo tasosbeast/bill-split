@@ -27,7 +27,7 @@ function FriendList({
       )}
 
       {entries.map((entry) => {
-        const { friend, balance, canRemove } = entry;
+        const { friend, canRemove } = entry;
         const active = friend.id === selectedId;
         const deleteTitle = canRemove
           ? `Remove ${friend.name}`

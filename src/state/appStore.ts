@@ -21,9 +21,10 @@ function resolveStateUpdater<T>(updater: StateUpdater<T>, prev: T): T {
 }
 
 function normalizeFriendRecord(friend: Friend): Friend {
-  const name = typeof friend.name === "string" && friend.name.trim().length > 0
-    ? friend.name.trim()
-    : "Friend";
+  const name =
+    typeof friend.name === "string" && friend.name.trim().length > 0
+      ? friend.name.trim()
+      : "Friend";
   const email =
     typeof friend.email === "string" && friend.email.trim().length > 0
       ? friend.email.trim().toLowerCase()
@@ -70,15 +71,15 @@ function normalizeTransactions(
   return upgradeTransactions(source) as StoredTransaction[];
 }
 
-function prepareSnapshot(candidate: Partial<UISnapshot> | null | undefined): UISnapshot {
+function prepareSnapshot(
+  candidate: Partial<UISnapshot> | null | undefined
+): UISnapshot {
   if (!candidate) {
     return createDefaultSnapshot();
   }
   const defaults = createDefaultSnapshot();
   const friends = normalizeFriendsList(
-    Array.isArray(candidate.friends)
-      ? (candidate.friends as Friend[])
-      : defaults.friends
+    Array.isArray(candidate.friends) ? candidate.friends : defaults.friends
   );
   const transactions = normalizeTransactions(
     Array.isArray(candidate.transactions)
@@ -121,9 +122,7 @@ const initialSnapshot = persisted
 interface FriendsSlice {
   friends: Friend[];
   selectedId: string | null;
-  setFriends: (
-    updater: StateUpdater<Friend[]>
-  ) => void;
+  setFriends: (updater: StateUpdater<Friend[]>) => void;
   setSelectedId: (updater: StateUpdater<string | null>) => void;
   addFriend: (friend: Friend) => void;
   removeFriend: (friendId: string) => void;
@@ -135,12 +134,8 @@ interface TransactionsSlice {
   filter: string;
   draftPreset: SplitDraftPreset | null;
   splitFormResetSignal: number;
-  setTransactions: (
-    updater: StateUpdater<StoredTransaction[]>
-  ) => void;
-  setTemplates: (
-    updater: StateUpdater<StoredSnapshotTemplate[]>
-  ) => void;
+  setTransactions: (updater: StateUpdater<StoredTransaction[]>) => void;
+  setTemplates: (updater: StateUpdater<StoredSnapshotTemplate[]>) => void;
   setFilter: (next: string) => void;
   clearFilter: () => void;
   setDraftPreset: (preset: SplitDraftPreset | null) => void;
@@ -171,9 +166,12 @@ export type RestoreFeedback =
   | { status: "error"; message: string }
   | null;
 
-export type AppStore = FriendsSlice & TransactionsSlice & UiSlice & SnapshotSlice;
+export type AppStore = FriendsSlice &
+  TransactionsSlice &
+  UiSlice &
+  SnapshotSlice;
 
-export const useAppStore = create<AppStore>()((set, get) => ({
+export const useAppStore = create<AppStore>()((set, _get) => ({
   friends: initialSnapshot.friends,
   selectedId: initialSnapshot.selectedId,
   transactions: initialSnapshot.transactions,
@@ -217,7 +215,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
       const friends = state.friends.filter((friend) => friend.id !== friendId);
       const transactions = state.transactions.filter((transaction) => {
         const participants = Array.isArray(transaction.friendIds)
-          ? (transaction.friendIds as string[])
+          ? transaction.friendIds
           : [];
         return !participants.includes(friendId);
       });
@@ -225,7 +223,9 @@ export const useAppStore = create<AppStore>()((set, get) => ({
         friends,
         transactions,
         selectedId:
-          state.selectedId === friendId ? null : ensureValidSelectedId(friends, state.selectedId),
+          state.selectedId === friendId
+            ? null
+            : ensureValidSelectedId(friends, state.selectedId),
       };
     });
   },
@@ -239,7 +239,9 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   setTemplates: (updater) => {
     set((state) => {
       const resolved = resolveStateUpdater(updater, state.templates);
-      return { templates: Array.isArray(resolved) ? [...resolved] : state.templates };
+      return {
+        templates: Array.isArray(resolved) ? [...resolved] : state.templates,
+      };
     });
   },
   setFilter: (next) => set(() => ({ filter: next })),

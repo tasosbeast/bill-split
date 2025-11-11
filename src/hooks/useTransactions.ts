@@ -6,7 +6,10 @@ import {
 import { useAppStore } from "../state/appStore";
 import type { StoredTransaction } from "../types/legacySnapshot";
 import type { TransactionEffect } from "../types/transaction";
-import { buildSettlementContext, normalizeSettlementStatus } from "../lib/settlements";
+import {
+  buildSettlementContext,
+  normalizeSettlementStatus,
+} from "../lib/settlements";
 import type {
   Transaction as DomainTransaction,
   Settlement as DomainSettlement,
@@ -42,10 +45,15 @@ function computeEffect(
   return effects.find((entry) => entry.friendId === friendId) ?? null;
 }
 
-function matchesFilter(filter: string, transaction: StoredTransaction): boolean {
+function matchesFilter(
+  filter: string,
+  transaction: StoredTransaction
+): boolean {
   if (filter === "All") return true;
   const category =
-    typeof transaction.category === "string" ? transaction.category.trim() : null;
+    typeof transaction.category === "string"
+      ? transaction.category.trim()
+      : null;
   return category === filter;
 }
 
@@ -114,7 +122,9 @@ export function useTransactions(): UseTransactionsResult {
   >(
     (transaction) => {
       setTransactions((previous) => {
-        const index = previous.findIndex((entry) => entry.id === transaction.id);
+        const index = previous.findIndex(
+          (entry) => entry.id === transaction.id
+        );
         if (index === -1) return previous;
         const next = [...previous];
         next[index] = transaction;
@@ -128,7 +138,9 @@ export function useTransactions(): UseTransactionsResult {
     UseTransactionsResult["removeTransaction"]
   >(
     (id) => {
-      setTransactions((previous) => previous.filter((entry) => entry.id !== id));
+      setTransactions((previous) =>
+        previous.filter((entry) => entry.id !== id)
+      );
     },
     [setTransactions]
   );
@@ -150,7 +162,9 @@ export function useTransactions(): UseTransactionsResult {
   };
 }
 
-function toDomainTransaction(transaction: StoredTransaction): DomainTransaction {
+function toDomainTransaction(
+  transaction: StoredTransaction
+): DomainTransaction {
   const payerId =
     typeof transaction.payer === "string" && transaction.payer.trim().length > 0
       ? transaction.payer.trim()
@@ -170,7 +184,8 @@ function toDomainTransaction(transaction: StoredTransaction): DomainTransaction 
       ? transaction.total
       : 0;
   const createdAt =
-    typeof transaction.createdAt === "number" && Number.isFinite(transaction.createdAt)
+    typeof transaction.createdAt === "number" &&
+    Number.isFinite(transaction.createdAt)
       ? transaction.createdAt
       : typeof transaction.createdAt === "string"
       ? safeTimestamp(transaction.createdAt, Date.now())
@@ -190,11 +205,14 @@ function toDomainTransaction(transaction: StoredTransaction): DomainTransaction 
   };
 }
 
-function toDomainSettlement(transaction: StoredTransaction): DomainSettlement | null {
+function toDomainSettlement(
+  transaction: StoredTransaction
+): DomainSettlement | null {
   if (transaction.type !== "settlement") return null;
   const { friendId, balance } = buildSettlementContext(transaction);
   const normalizedFriendId = friendId ?? "unknown";
-  const normalizedBalance = typeof balance === "number" && Number.isFinite(balance) ? balance : 0;
+  const normalizedBalance =
+    typeof balance === "number" && Number.isFinite(balance) ? balance : 0;
   const amount = Math.abs(normalizedBalance);
   const statusRecord = normalizeSettlementStatus(
     transaction.settlementStatus,
@@ -209,15 +227,16 @@ function toDomainSettlement(transaction: StoredTransaction): DomainSettlement | 
       : Date.now();
   const fromId = normalizedBalance > 0 ? normalizedFriendId : "you";
   const toId = normalizedBalance > 0 ? "you" : normalizedFriendId;
-  const payment = transaction.payment as Record<string, unknown> | null | undefined;
+  const payment = transaction.payment as
+    | Record<string, unknown>
+    | null
+    | undefined;
   const provider =
     payment && typeof payment.provider === "string"
       ? payment.provider.trim().toLowerCase()
       : undefined;
   const url =
-    payment && typeof (payment as Record<string, unknown>).url === "string"
-      ? ((payment as Record<string, unknown>).url as string).trim()
-      : undefined;
+    payment && typeof payment.url === "string" ? payment.url.trim() : undefined;
   const link =
     provider && url && isSupportedSettlementProvider(provider)
       ? { type: provider, url }
@@ -233,11 +252,16 @@ function toDomainSettlement(transaction: StoredTransaction): DomainSettlement | 
   };
 }
 
-function isSupportedSettlementProvider(value: string): value is SettlementLinkType {
+function isSupportedSettlementProvider(
+  value: string
+): value is SettlementLinkType {
   return value === "revolut" || value === "paypal" || value === "bank";
 }
 
-function safeTimestamp(value: string | null | undefined, fallback: number): number {
+function safeTimestamp(
+  value: string | null | undefined,
+  fallback: number
+): number {
   if (!value) return fallback;
   const parsed = Date.parse(value);
   return Number.isNaN(parsed) ? fallback : parsed;

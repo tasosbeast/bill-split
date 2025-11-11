@@ -118,7 +118,12 @@ export default function LegacyAppShell() {
 
   // Wrapper to make setDraftPreset compatible with Dispatch<SetStateAction<T>>
   const setDraftPresetWrapper = useCallback(
-    (action: SplitDraftPreset | null | ((prev: SplitDraftPreset | null) => SplitDraftPreset | null)) => {
+    (
+      action:
+        | SplitDraftPreset
+        | null
+        | ((prev: SplitDraftPreset | null) => SplitDraftPreset | null)
+    ) => {
       if (typeof action === "function") {
         setDraftPreset(action(draftPreset));
       } else {
@@ -347,7 +352,7 @@ export default function LegacyAppShell() {
         throw normalizedError;
       }
     },
-    [replaceSnapshot]
+    [replaceSnapshot, setRestoreFeedback]
   );
 
   return (
@@ -490,8 +495,9 @@ export default function LegacyAppShell() {
           <EditTransactionModal
             tx={editTx}
             friend={
-              friendsById.get((editTx.effect?.friendId || editTx.friendId) ?? "") ??
-              null
+              friendsById.get(
+                (editTx.effect?.friendId || editTx.friendId) ?? ""
+              ) ?? null
             }
             onClose={() => setEditTx(null)}
             onSave={handleSaveEditedTx}
@@ -512,7 +518,3 @@ export default function LegacyAppShell() {
     </div>
   );
 }
-
-
-
-

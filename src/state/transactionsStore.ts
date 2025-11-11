@@ -70,7 +70,9 @@ function normalizeCategoryName(category?: string | null): string {
   return trimmed;
 }
 
-function sanitizeParticipant(participant: unknown): TransactionParticipant | null {
+function sanitizeParticipant(
+  participant: unknown
+): TransactionParticipant | null {
   if (!participant || typeof participant !== "object") return null;
   const raw = participant as Record<string, unknown>;
   const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : null;
@@ -113,13 +115,17 @@ function sanitizeTransaction(input: unknown): TransactionRecord | null {
   return sanitized;
 }
 
-function sanitizeTransactions(transactions: readonly unknown[]): TransactionRecord[] {
+function sanitizeTransactions(
+  transactions: readonly unknown[]
+): TransactionRecord[] {
   return transactions
     .map((entry) => sanitizeTransaction(entry))
     .filter(Boolean) as TransactionRecord[];
 }
 
-function sanitizeBudgets(input: Record<string, number> | undefined): Record<string, number> {
+function sanitizeBudgets(
+  input: Record<string, number> | undefined
+): Record<string, number> {
   if (!input) return {};
   const result: Record<string, number> = {};
   for (const [rawCategory, rawValue] of Object.entries(input)) {
@@ -156,7 +162,9 @@ function emit(): void {
   }
 }
 
-function serializeState(current: TransactionsState): PersistedTransactionsState {
+function serializeState(
+  current: TransactionsState
+): PersistedTransactionsState {
   return {
     transactions: current.transactions.map((transaction) => ({
       ...transaction,
@@ -189,13 +197,18 @@ function applyState(next: TransactionsState): void {
   try {
     persistTransactionsState(serializeState(state));
   } catch (error) {
-    console.warn("Failed to persist transactions state to primary storage", error);
+    console.warn(
+      "Failed to persist transactions state to primary storage",
+      error
+    );
 
     try {
       const fallback = createMemoryStorage();
       setTransactionsPersistenceStorage(fallback);
       persistTransactionsState(serializeState(state));
-      console.info("Persisted transactions state to in-memory fallback storage");
+      console.info(
+        "Persisted transactions state to in-memory fallback storage"
+      );
     } catch (fallbackError) {
       console.error(
         "Failed to persist transactions state to fallback storage; state will remain in memory only",
@@ -208,7 +221,9 @@ function applyState(next: TransactionsState): void {
   }
 }
 
-function withState(producer: (previous: TransactionsState) => TransactionsState): void {
+function withState(
+  producer: (previous: TransactionsState) => TransactionsState
+): void {
   const draft: TransactionsState = {
     transactions: [...state.transactions],
     budgets: { ...state.budgets },
@@ -459,7 +474,7 @@ export function resetTransactionsStore(options?: ResetStoreOptions): void {
   }
   try {
     persistTransactionsState(serializeState(state));
-  } catch (_error) {
+  } catch {
     // If persist fails during reset, install fallback memory storage and try again,
     // but always emit to let UI reflect the reset result (persist may be best-effort).
     try {
@@ -468,7 +483,10 @@ export function resetTransactionsStore(options?: ResetStoreOptions): void {
       persistTransactionsState(serializeState(state));
       console.info("Persisted reset state to in-memory fallback storage");
     } catch (fallbackError) {
-      console.error("Failed to persist reset state to fallback storage", fallbackError);
+      console.error(
+        "Failed to persist reset state to fallback storage",
+        fallbackError
+      );
     }
   } finally {
     emit();

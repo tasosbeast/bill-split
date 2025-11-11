@@ -181,9 +181,10 @@ function sanitizeTransactions(input: unknown): {
     }
 
     if (normalized.type === "settlement") {
-      const nextStatus = normalizeSettlementStatus(
-        (normalized as { settlementStatus?: unknown }).settlementStatus
-      ) ?? "confirmed";
+      const nextStatus =
+        normalizeSettlementStatus(
+          (normalized as { settlementStatus?: unknown }).settlementStatus
+        ) ?? "confirmed";
       if (normalized.settlementStatus !== nextStatus) {
         normalized = { ...normalized, settlementStatus: nextStatus };
         entryChanged = true;
@@ -296,9 +297,10 @@ function sanitizeTemplateRecurrence(
   };
 }
 
-function sanitizeTemplate(
-  value: unknown
-): { template: StoredSnapshotTemplate | null; changed: boolean } {
+function sanitizeTemplate(value: unknown): {
+  template: StoredSnapshotTemplate | null;
+  changed: boolean;
+} {
   if (!isRecord(value)) return { template: null, changed: value !== undefined };
   const record = value;
   const id =
@@ -313,8 +315,7 @@ function sanitizeTemplate(
     return { template: null, changed: true };
   }
   const totalValue = Number(record.total);
-  const total =
-    Number.isFinite(totalValue) && totalValue >= 0 ? totalValue : 0;
+  const total = Number.isFinite(totalValue) && totalValue >= 0 ? totalValue : 0;
   const payer =
     typeof record.payer === "string" && record.payer.trim().length > 0
       ? record.payer.trim()
@@ -410,9 +411,10 @@ function sanitizeTemplates(input: unknown): {
   return { templates, changed };
 }
 
-function sanitizeSnapshot(
-  raw: unknown
-): { snapshot: UISnapshot | null; changed: boolean } {
+function sanitizeSnapshot(raw: unknown): {
+  snapshot: UISnapshot | null;
+  changed: boolean;
+} {
   if (!isRecord(raw)) {
     return { snapshot: null, changed: raw !== null && raw !== undefined };
   }
@@ -421,10 +423,8 @@ function sanitizeSnapshot(
   const { transactions, changed: transactionsChanged } = sanitizeTransactions(
     raw.transactions
   );
-  const {
-    transactions: settlements,
-    changed: settlementsChanged,
-  } = sanitizeTransactions(raw.settlements);
+  const { transactions: settlements, changed: settlementsChanged } =
+    sanitizeTransactions(raw.settlements);
   const { templates, changed: templatesChanged } = sanitizeTemplates(
     raw.templates
   );
@@ -454,7 +454,10 @@ function sanitizeSnapshot(
   };
 }
 
-function unwrapSnapshotEnvelope(raw: unknown): { version: number; data: unknown } {
+function unwrapSnapshotEnvelope(raw: unknown): {
+  version: number;
+  data: unknown;
+} {
   if (isRecord(raw)) {
     const versionCandidate = (raw as { version?: unknown }).version;
     if (
@@ -488,8 +491,10 @@ export function loadState(): UISnapshot | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw) as unknown;
-  } catch (cause) {
-    logStorageWarning("Stored UI snapshot could not be parsed and was ignored.");
+  } catch {
+    logStorageWarning(
+      "Stored UI snapshot could not be parsed and was ignored."
+    );
     return null;
   }
 
@@ -564,11 +569,13 @@ function sanitizeFriend(value: unknown): Friend | null {
     typeof value.avatarUrl === "string" && value.avatarUrl.trim().length > 0
       ? value.avatarUrl.trim()
       : undefined;
-  const active =
-    typeof value.active === "boolean" ? value.active : true;
-  const createdAtCandidate = (value as Record<string, unknown>).createdAt;
+  const active = typeof value.active === "boolean" ? value.active : true;
+  const createdAtCandidate = value.createdAt;
   let createdAt = Date.now();
-  if (typeof createdAtCandidate === "number" && Number.isFinite(createdAtCandidate)) {
+  if (
+    typeof createdAtCandidate === "number" &&
+    Number.isFinite(createdAtCandidate)
+  ) {
     createdAt = createdAtCandidate;
   } else if (typeof createdAtCandidate === "string") {
     const parsed = Date.parse(createdAtCandidate);

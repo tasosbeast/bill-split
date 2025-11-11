@@ -151,7 +151,6 @@ function emit(): void {
     } catch (err) {
       // Guard against subscriber errors so one bad listener doesn't break the store
       // (log and continue)
-      // eslint-disable-next-line no-console
       console.warn("Transactions listener error", err);
     }
   }
@@ -190,17 +189,14 @@ function applyState(next: TransactionsState): void {
   try {
     persistTransactionsState(serializeState(state));
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.warn("Failed to persist transactions state to primary storage", error);
 
     try {
       const fallback = createMemoryStorage();
       setTransactionsPersistenceStorage(fallback);
       persistTransactionsState(serializeState(state));
-      // eslint-disable-next-line no-console
       console.info("Persisted transactions state to in-memory fallback storage");
     } catch (fallbackError) {
-      // eslint-disable-next-line no-console
       console.error(
         "Failed to persist transactions state to fallback storage; state will remain in memory only",
         fallbackError
@@ -463,17 +459,15 @@ export function resetTransactionsStore(options?: ResetStoreOptions): void {
   }
   try {
     persistTransactionsState(serializeState(state));
-  } catch (error) {
+  } catch (_error) {
     // If persist fails during reset, install fallback memory storage and try again,
     // but always emit to let UI reflect the reset result (persist may be best-effort).
     try {
       const fallback = createMemoryStorage();
       setTransactionsPersistenceStorage(fallback);
       persistTransactionsState(serializeState(state));
-      // eslint-disable-next-line no-console
       console.info("Persisted reset state to in-memory fallback storage");
     } catch (fallbackError) {
-      // eslint-disable-next-line no-console
       console.error("Failed to persist reset state to fallback storage", fallbackError);
     }
   } finally {

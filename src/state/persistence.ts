@@ -5,7 +5,7 @@ import type {
   TransactionPaymentMetadata,
 } from "../types/transaction";
 
-export interface StorageAdapter extends StorageLike {}
+export type StorageAdapter = StorageLike;
 
 export interface PersistedParticipant {
   id?: unknown;

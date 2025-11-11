@@ -9,6 +9,10 @@ import {
   type PersistedTransaction,
   type PersistedTransactionsState,
 } from "./persistence";
+import {
+  isQuotaExceededError,
+  getStorageErrorMessage,
+} from "../services/storageMonitor";
 
 export interface TransactionParticipant {
   id: string;
@@ -197,10 +201,23 @@ function applyState(next: TransactionsState): void {
   try {
     persistTransactionsState(serializeState(state));
   } catch (error) {
-    console.warn(
-      "Failed to persist transactions state to primary storage",
-      error
-    );
+    const isQuotaError = isQuotaExceededError(error);
+    const errorMessage = getStorageErrorMessage(error);
+
+    if (isQuotaError) {
+      console.error(
+        "Storage quota exceeded when persisting transactions:",
+        errorMessage
+      );
+      console.info(
+        "Consider exporting and removing old transactions to free up space."
+      );
+    } else {
+      console.warn(
+        "Failed to persist transactions state to primary storage",
+        error
+      );
+    }
 
     try {
       const fallback = createMemoryStorage();

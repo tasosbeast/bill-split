@@ -14,6 +14,10 @@ import {
   writeStorageItem,
   removeStorageItem,
 } from "../services/storage";
+import {
+  isQuotaExceededError,
+  getStorageErrorMessage,
+} from "../services/storageMonitor";
 import type { Friend } from "../types/domain";
 
 const STORAGE_BASE_KEY = "bill-split";
@@ -531,8 +535,16 @@ export function saveState(snapshot: unknown): void {
   };
   const writeResult = writeStorageItem(KEY, JSON.stringify(envelope));
   if (!writeResult.ok) {
+    const errorMsg = writeResult.cause
+      ? getStorageErrorMessage(writeResult.cause)
+      : `Storage operation failed: ${writeResult.error}`;
+
     if (writeResult.error === "unavailable") {
       logStorageWarning("localStorage is not available; state was not saved");
+    } else if (writeResult.cause && isQuotaExceededError(writeResult.cause)) {
+      logStorageWarning(
+        `Storage quota exceeded. ${errorMsg} Consider exporting and removing old data.`
+      );
     } else {
       logStorageWarning(
         `Could not save state to localStorage (${writeResult.error}).`

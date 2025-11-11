@@ -1,5 +1,20 @@
-import PropTypes from "prop-types";
 import { memo } from "react";
+import type { LegacyFriend } from "../types/legacySnapshot";
+
+interface FriendSummary {
+  friend: LegacyFriend;
+  balance: number;
+  canRemove: boolean;
+}
+
+interface FriendListProps {
+  friends: LegacyFriend[];
+  selectedId?: string | null;
+  balances?: Map<string, number>;
+  friendSummaries?: FriendSummary[];
+  onSelect: (friendId: string | null) => void;
+  onRemove: (friendId: string) => void;
+}
 
 function FriendList({
   friends,
@@ -8,8 +23,8 @@ function FriendList({
   friendSummaries,
   onSelect,
   onRemove,
-}) {
-  const entries =
+}: FriendListProps) {
+  const entries: FriendSummary[] =
     friendSummaries ??
     friends.map((friend) => {
       const balance = balances?.get?.(friend.id) ?? 0;
@@ -68,11 +83,3 @@ function FriendList({
 }
 
 export default memo(FriendList);
-FriendList.propTypes = {
-  friends: PropTypes.array.isRequired,
-  selectedId: PropTypes.string,
-  balances: PropTypes.instanceOf(Map),
-  friendSummaries: PropTypes.array,
-  onSelect: PropTypes.func.isRequired,
-  onRemove: PropTypes.func.isRequired,
-};

@@ -1,21 +1,44 @@
-import PropTypes from "prop-types";
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useState,
+  type FormEvent,
+  type ChangeEvent,
+  type RefObject,
+} from "react";
 import Modal from "./Modal";
 import { CATEGORIES } from "../lib/categories";
 import { roundToCents } from "../lib/money";
 import { buildSplitTransaction } from "../lib/transactions";
+import type { StoredTransaction } from "../types/legacySnapshot";
+import type { LegacyFriend } from "../types/legacySnapshot";
 
-function parseAmountInput(value) {
-  const trimmed = String(value ?? "").trim();
+interface EditTransactionModalProps {
+  tx: StoredTransaction;
+  friend?: LegacyFriend | null;
+  onClose: () => void;
+  onSave: (transaction: StoredTransaction) => void;
+}
+
+function parseAmountInput(value: unknown): number | null {
+  if (value === null || value === undefined || typeof value === "object")
+    return null;
+  const str =
+    typeof value === "string" || typeof value === "number" ? String(value) : "";
+  const trimmed = str.trim();
   if (!trimmed) return null;
   const num = Number(trimmed);
   if (!Number.isFinite(num) || num < 0) return null;
   return roundToCents(num);
 }
 
-export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
+export default function EditTransactionModal({
+  tx,
+  friend,
+  onClose,
+  onSave,
+}: EditTransactionModalProps) {
   const isSplit = tx?.type === "split";
-  const friendId = tx?.effect?.friendId || tx?.friendId || friend?.id || null;
+  const friendId = tx?.friendId || friend?.id || null;
   const hasMultipleFriends = useMemo(() => {
     if (Array.isArray(tx?.friendIds)) {
       return tx.friendIds.filter(Boolean).length > 1;
@@ -29,17 +52,19 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
   const initialTotal = isSplit && tx?.total ? String(tx.total) : "";
   const initialFriendShare = useMemo(() => {
     if (!simpleEditable) return "";
+    // Try to extract share from effects array first
+    const effect = Array.isArray(tx?.effects)
+      ? tx.effects.find((e) => e.friendId === friendId)
+      : null;
     const raw =
-      typeof tx?.effect?.share === "number"
-        ? tx.effect.share
-        : typeof tx?.half === "number"
-        ? tx.half
+      typeof effect?.share === "number"
+        ? effect.share
         : tx?.total
         ? tx.total / 2
         : 0;
     if (!raw) return "";
     return roundToCents(raw).toFixed(2);
-  }, [simpleEditable, tx]);
+  }, [simpleEditable, tx, friendId]);
 
   const [bill, setBill] = useState(initialTotal);
   const [friendShare, setFriendShare] = useState(initialFriendShare);
@@ -54,7 +79,12 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
   const [note, setNote] = useState(tx?.note || "");
   const [error, setError] = useState("");
 
-  function validate() {
+  function validate(): {
+    error: string;
+    totalAmount?: number;
+    friendAmount?: number;
+    yourAmount?: number;
+  } {
     // For group splits, we won't validate amounts (they're locked)
     if (!simpleEditable) return { error: "" };
 
@@ -86,7 +116,7 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
     return { error: "", totalAmount, friendAmount, yourAmount };
   }
 
-  function handleSubmit(e) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>): void {
     e.preventDefault();
     const validation = validate();
     if (validation.error) {
@@ -98,7 +128,7 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
 
     if (!simpleEditable) {
       // Group split: only update metadata
-      const updated = {
+      const updated: StoredTransaction = {
         ...tx,
         category,
         note: note.trim(),
@@ -110,6 +140,16 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
     }
 
     const { totalAmount, friendAmount, yourAmount } = validation;
+    if (
+      totalAmount === undefined ||
+      friendAmount === undefined ||
+      yourAmount === undefined ||
+      !friendId
+    ) {
+      setError("Invalid amounts or missing friend.");
+      return;
+    }
+
     const updated = buildSplitTransaction({
       id: tx.id,
       total: totalAmount,
@@ -124,13 +164,17 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
       updatedAt: new Date().toISOString(),
     });
 
-    onSave(updated);
+    onSave(updated as StoredTransaction);
     onClose();
   }
 
   return (
     <Modal title="Edit transaction" onClose={onClose}>
-      {({ firstFieldRef }) => (
+      {({
+        firstFieldRef,
+      }: {
+        firstFieldRef: RefObject<HTMLInputElement | null>;
+      }) => (
         <form className="form-grid" onSubmit={handleSubmit}>
           {!isSplit && (
             <div className="error">Only split transactions can be edited.</div>
@@ -153,7 +197,9 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
               min="0"
               step="0.01"
               value={bill}
-              onChange={(e) => setBill(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setBill(e.target.value)
+              }
               disabled={!simpleEditable}
             />
           </div>
@@ -169,7 +215,9 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
               min="0"
               step="0.01"
               value={friendShare}
-              onChange={(e) => setFriendShare(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setFriendShare(e.target.value)
+              }
               disabled={!simpleEditable}
             />
             <div className="helper">
@@ -182,11 +230,13 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
             <select
               className="select"
               value={payer}
-              onChange={(e) => setPayer(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                setPayer(e.target.value)
+              }
               disabled={!simpleEditable}
             >
               <option value="you">You</option>
-              <option value={friendId}>{friend?.name ?? "Friend"}</option>
+              <option value={friendId ?? ""}>{friend?.name ?? "Friend"}</option>
             </select>
           </div>
 
@@ -195,7 +245,9 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
             <select
               className="select"
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                setCategory(e.target.value)
+              }
             >
               {CATEGORIES.map((c) => (
                 <option key={c} value={c}>
@@ -213,7 +265,9 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
               id="edit-note"
               className="input"
               value={note}
-              onChange={(e) => setNote(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setNote(e.target.value)
+              }
               placeholder="Describe the expense"
             />
           </div>
@@ -233,10 +287,3 @@ export default function EditTransactionModal({ tx, friend, onClose, onSave }) {
     </Modal>
   );
 }
-
-EditTransactionModal.propTypes = {
-  tx: PropTypes.object.isRequired,
-  friend: PropTypes.object,
-  onClose: PropTypes.func.isRequired,
-  onSave: PropTypes.func.isRequired,
-};

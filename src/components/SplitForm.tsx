@@ -1,8 +1,14 @@
-import PropTypes from "prop-types";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ChangeEvent,
+} from "react";
 import { CATEGORIES } from "../lib/categories";
 import { formatEUR, roundToCents } from "../lib/money";
 import { buildSplitTransaction } from "../lib/transactions";
+import type { LegacyFriend } from "../types/legacySnapshot";
 
 const YOU_ID = "you";
 
@@ -10,17 +16,85 @@ const FREQUENCY_OPTIONS = [
   { value: "monthly", label: "Monthly" },
   { value: "weekly", label: "Weekly" },
   { value: "yearly", label: "Yearly" },
-];
+] as const;
 
-function formatParticipantAmount(amount) {
+type FrequencyValue = (typeof FREQUENCY_OPTIONS)[number]["value"];
+
+interface Participant {
+  id: string;
+  amount: string;
+}
+
+interface DraftParticipant {
+  id: string;
+  amount?: number | string;
+}
+
+interface DraftTransaction {
+  id: string;
+  templateId?: string;
+  templateName?: string;
+  total?: number;
+  payer?: string;
+  category?: string;
+  note?: string;
+  participants?: DraftParticipant[];
+  recurrence?: {
+    frequency: FrequencyValue;
+    nextOccurrence: string;
+    reminderDaysBefore?: number | null;
+  };
+}
+
+interface AutomationRequest {
+  template: {
+    templateId: string | null;
+    name: string;
+    recurrence: {
+      frequency: FrequencyValue;
+      nextOccurrence: string;
+      reminderDaysBefore: number | null;
+    } | null;
+  };
+}
+
+interface TemplateIntent {
+  mode: "template" | "recurring";
+  includeSplit: boolean;
+}
+
+interface NormalizedParticipant {
+  id: string;
+  amount: number;
+}
+
+interface SplitFormProps {
+  friends: LegacyFriend[];
+  defaultFriendId?: string | null;
+  onSplit: (transaction: ReturnType<typeof buildSplitTransaction>) => void;
+  onAutomation?: (
+    transaction: ReturnType<typeof buildSplitTransaction>,
+    automation: AutomationRequest
+  ) => void;
+  onRequestTemplate?: (
+    transaction: ReturnType<typeof buildSplitTransaction>,
+    intent: TemplateIntent
+  ) => void;
+  draft?: DraftTransaction | null;
+  resetSignal?: number;
+}
+
+function formatParticipantAmount(amount: unknown): string {
   const numeric = Number(amount);
   if (!Number.isFinite(numeric) || numeric <= 0) return "";
   return numeric.toFixed(2);
 }
 
-function normalizeDraftParticipants(entries = []) {
-  const seen = new Set();
-  const mapped = [];
+function normalizeDraftParticipants(
+  entries: DraftParticipant[] = []
+): Participant[] {
+  const seen = new Set<string>();
+  const mapped: Participant[] = [];
   for (const entry of entries) {
     if (!entry || typeof entry.id !== "string") continue;
     const id = entry.id.trim();
@@ -34,17 +108,22 @@ function normalizeDraftParticipants(entries = []) {
   return mapped;
 }
 
-function createDefaultParticipants(defaultFriendId) {
-  const initial = [{ id: YOU_ID, amount: "" }];
+function createDefaultParticipants(
+  defaultFriendId?: string | null
+): Participant[] {
+  const initial: Participant[] = [{ id: YOU_ID, amount: "" }];
   if (defaultFriendId) {
     initial.push({ id: defaultFriendId, amount: "" });
   }
   return initial;
 }
 
-function parseAmount(value) {
-  if (value === null || value === undefined) return null;
-  const trimmed = String(value).trim();
+function parseAmount(value: unknown): number | null {
+  if (value === null || value === undefined || typeof value === "object")
+    return null;
+  const str =
+    typeof value === "string" || typeof value === "number" ? String(value) : "";
+  const trimmed = str.trim();
   if (!trimmed) return null;
   const num = Number(trimmed);
   if (!Number.isFinite(num) || num < 0) return null;
@@ -59,25 +138,25 @@ export default function SplitForm({
   onRequestTemplate,
   draft,
   resetSignal,
-}) {
+}: SplitFormProps) {
   const [bill, setBill] = useState("");
   const [payer, setPayer] = useState(YOU_ID);
   const [category, setCategory] = useState("Other");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
-  const [participants, setParticipants] = useState(() =>
+  const [participants, setParticipants] = useState<Participant[]>(() =>
     createDefaultParticipants(defaultFriendId)
   );
   const [addFriendId, setAddFriendId] = useState("");
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [scheduleRecurring, setScheduleRecurring] = useState(false);
-  const [frequency, setFrequency] = useState("monthly");
+  const [frequency, setFrequency] = useState<FrequencyValue>("monthly");
   const [nextOccurrence, setNextOccurrence] = useState("");
   const [reminderDays, setReminderDays] = useState("2");
 
   const friendsById = useMemo(() => {
-    const map = new Map();
+    const map = new Map<string, LegacyFriend>();
     for (const f of friends) {
       map.set(f.id, f);
     }
@@ -139,32 +218,32 @@ export default function SplitForm({
 
   const canSplitEvenly = totalNumber !== null && totalParticipants > 0;
 
-  function updateParticipant(id, value) {
+  function updateParticipant(id: string, value: string): void {
     setParticipants((prev) =>
       prev.map((p) => (p.id === id ? { ...p, amount: value } : p))
     );
   }
 
-  function removeParticipant(id) {
+  function removeParticipant(id: string): void {
     if (id === YOU_ID) return;
     setParticipants((prev) => prev.filter((p) => p.id !== id));
     setPayer((prev) => (prev === id ? YOU_ID : prev));
   }
 
-  function addParticipant(id) {
+  function addParticipant(id: string): void {
     if (!id || participantIds.has(id)) return;
     setParticipants((prev) => [...prev, { id, amount: "" }]);
     setAddFriendId("");
   }
 
-  function handleAddFriend(e) {
+  function handleAddFriend(e: ChangeEvent<HTMLSelectElement>): void {
     const id = e.target.value;
     if (!id) return;
     addParticipant(id);
   }
 
-  function splitEvenly() {
-    if (!canSplitEvenly) return;
+  function splitEvenly(): void {
+    if (!canSplitEvenly || totalNumber === null) return;
     setParticipants((prev) => {
       const parsedPrev = prev.map((p) => {
         const value = parseAmount(p.amount);
@@ -207,7 +286,9 @@ export default function SplitForm({
     });
   }
 
-  function normalizeParticipants(total) {
+  function normalizeParticipants(
+    total: number
+  ): NormalizedParticipant[] | null {
     const rawYou = participants.find((p) => p.id === YOU_ID);
     const youAmountInput = parseAmount(rawYou?.amount ?? "");
     const friendEntries = friendParticipants;
@@ -217,7 +298,7 @@ export default function SplitForm({
       return null;
     }
 
-    const friendParts = friendEntries.map((p) => ({
+    const friendParts: NormalizedParticipant[] = friendEntries.map((p) => ({
       id: p.id,
       amount: parseAmount(p.amount) ?? 0,
     }));
@@ -226,7 +307,7 @@ export default function SplitForm({
       friendParts.reduce((acc, p) => acc + (p.amount || 0), 0)
     );
 
-    let yourShare;
+    let yourShare: number;
     if (youAmountInput !== null) {
       yourShare = youAmountInput;
     } else {
@@ -244,13 +325,16 @@ export default function SplitForm({
       return null;
     }
 
-    return [
-      { id: YOU_ID, amount: yourShare },
-      ...friendParts,
-    ];
+    return [{ id: YOU_ID, amount: yourShare }, ...friendParts];
   }
 
-  function buildTransactionPayload(rawTotal, normalizedParticipants) {
+  function buildTransactionPayload(
+    rawTotal: number,
+    normalizedParticipants: NormalizedParticipant[]
+  ): {
+    transaction: ReturnType<typeof buildSplitTransaction>;
+    automationRequest: AutomationRequest | null;
+  } | null {
     const friendIds = normalizedParticipants
       .map((p) => p.id)
       .filter((id) => id !== YOU_ID);
@@ -266,19 +350,23 @@ export default function SplitForm({
       nextPayer = YOU_ID;
     }
 
-    let automationRequest = null;
+    let automationRequest: AutomationRequest | null = null;
     if (saveAsTemplate || scheduleRecurring) {
       const trimmedName = templateName.trim();
       if (!trimmedName) {
         setError("Name your template to save it for later.");
-        return;
+        return null;
       }
-      let recurrence = null;
+      let recurrence: {
+        frequency: FrequencyValue;
+        nextOccurrence: string;
+        reminderDaysBefore: number | null;
+      } | null = null;
       if (scheduleRecurring) {
         const dateValue = nextOccurrence.trim();
         if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(dateValue)) {
           setError("Select the next occurrence date.");
-          return;
+          return null;
         }
         const parsedReminder = Number(reminderDays);
         const reminderDaysBefore =
@@ -320,7 +408,7 @@ export default function SplitForm({
     return { transaction, automationRequest };
   }
 
-  function handleSubmit(e) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>): void {
     e.preventDefault();
     setError("");
 
@@ -333,10 +421,7 @@ export default function SplitForm({
     const normalizedParticipants = normalizeParticipants(rawTotal);
     if (!normalizedParticipants) return;
 
-    const payload = buildTransactionPayload(
-      rawTotal,
-      normalizedParticipants
-    );
+    const payload = buildTransactionPayload(rawTotal, normalizedParticipants);
     if (!payload) return;
 
     const { transaction, automationRequest } = payload;
@@ -361,7 +446,7 @@ export default function SplitForm({
     setReminderDays("2");
   }
 
-  function handleRequestTemplate(intent) {
+  function handleRequestTemplate(intent: TemplateIntent): void {
     if (!onRequestTemplate) return;
     setError("");
 
@@ -374,10 +459,7 @@ export default function SplitForm({
     const normalizedParticipants = normalizeParticipants(rawTotal);
     if (!normalizedParticipants) return;
 
-    const payload = buildTransactionPayload(
-      rawTotal,
-      normalizedParticipants
-    );
+    const payload = buildTransactionPayload(rawTotal, normalizedParticipants);
     if (!payload) return;
 
     const { transaction } = payload;
@@ -398,14 +480,14 @@ export default function SplitForm({
           min="0"
           step="0.01"
           value={bill}
-          onChange={(e) => setBill(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+            setBill(e.target.value)
+          }
           placeholder="e.g. 120.50"
           required
         />
         {totalNumber !== null && (
-          <div className="helper">
-            Total: {formatEUR(totalNumber)}
-          </div>
+          <div className="helper">Total: {formatEUR(totalNumber)}</div>
         )}
       </div>
 
@@ -469,7 +551,9 @@ export default function SplitForm({
                     min="0"
                     step="0.01"
                     value={p.amount}
-                    onChange={(e) => updateParticipant(p.id, e.target.value)}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                      updateParticipant(p.id, e.target.value)
+                    }
                     placeholder={p.id === YOU_ID ? "auto" : "0.00"}
                   />
                 </div>
@@ -501,7 +585,7 @@ export default function SplitForm({
 
         {totalNumber !== null && (
           <div className="helper participants-helper">
-            Make sure everyone’s shares add up to {formatEUR(totalNumber)}.
+            Make sure everyone's shares add up to {formatEUR(totalNumber)}.
             Current sum: {formatEUR(sumOfInputs)}
           </div>
         )}
@@ -512,7 +596,9 @@ export default function SplitForm({
         <select
           className="select"
           value={payer}
-          onChange={(e) => setPayer(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+            setPayer(e.target.value)
+          }
         >
           <option value={YOU_ID}>You</option>
           {participants
@@ -536,7 +622,9 @@ export default function SplitForm({
           id="category"
           className="select"
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+            setCategory(e.target.value)
+          }
         >
           {CATEGORIES.map((c) => (
             <option key={c} value={c}>
@@ -553,9 +641,11 @@ export default function SplitForm({
         <textarea
           id="note"
           className="input"
-          rows="2"
+          rows={2}
           value={note}
-          onChange={(e) => setNote(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+            setNote(e.target.value)
+          }
           placeholder="Optional description"
         />
       </div>
@@ -573,7 +663,7 @@ export default function SplitForm({
             id="template-toggle"
             type="checkbox"
             checked={saveAsTemplate}
-            onChange={(e) => {
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
               const checked = e.target.checked;
               setSaveAsTemplate(checked);
               if (!checked) {
@@ -589,7 +679,7 @@ export default function SplitForm({
             id="recurring-toggle"
             type="checkbox"
             checked={scheduleRecurring}
-            onChange={(e) => {
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
               const checked = e.target.checked;
               setScheduleRecurring(checked);
               if (checked) {
@@ -609,7 +699,9 @@ export default function SplitForm({
               id="template-name"
               className="input"
               value={templateName}
-              onChange={(e) => setTemplateName(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setTemplateName(e.target.value)
+              }
               placeholder="e.g. Monthly rent with Alex"
             />
           </div>
@@ -625,7 +717,9 @@ export default function SplitForm({
                 id="recurrence-frequency"
                 className="select"
                 value={frequency}
-                onChange={(e) => setFrequency(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                  setFrequency(e.target.value as FrequencyValue)
+                }
               >
                 {FREQUENCY_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -644,7 +738,9 @@ export default function SplitForm({
                 className="input"
                 type="date"
                 value={nextOccurrence}
-                onChange={(e) => setNextOccurrence(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setNextOccurrence(e.target.value)
+                }
               />
             </div>
 
@@ -658,13 +754,15 @@ export default function SplitForm({
                 type="number"
                 min="0"
                 value={reminderDays}
-                onChange={(e) => setReminderDays(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setReminderDays(e.target.value)
+                }
               />
             </div>
 
             <div className="helper">
-              Recurring templates appear above with a “Generate now” button when
-              they’re due.
+              Recurring templates appear above with a "Generate now" button when
+              they're due.
             </div>
           </div>
         )}
@@ -702,38 +800,3 @@ export default function SplitForm({
     </form>
   );
 }
-
-SplitForm.propTypes = {
-  friends: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      name: PropTypes.string.isRequired,
-      email: PropTypes.string,
-    })
-  ).isRequired,
-  defaultFriendId: PropTypes.string,
-  onSplit: PropTypes.func.isRequired,
-  onAutomation: PropTypes.func,
-  onRequestTemplate: PropTypes.func,
-  draft: PropTypes.shape({
-    id: PropTypes.string.isRequired,
-    templateId: PropTypes.string,
-    templateName: PropTypes.string,
-    total: PropTypes.number,
-    payer: PropTypes.string,
-    category: PropTypes.string,
-    note: PropTypes.string,
-    participants: PropTypes.arrayOf(
-      PropTypes.shape({
-        id: PropTypes.string.isRequired,
-        amount: PropTypes.number,
-      })
-    ),
-    recurrence: PropTypes.shape({
-      frequency: PropTypes.oneOf(["monthly", "weekly", "yearly"]).isRequired,
-      nextOccurrence: PropTypes.string.isRequired,
-      reminderDaysBefore: PropTypes.number,
-    }),
-  }),
-  resetSignal: PropTypes.number,
-};

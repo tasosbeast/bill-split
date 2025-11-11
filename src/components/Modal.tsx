@@ -1,15 +1,36 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import PropTypes from "prop-types";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  type ReactNode,
+  type RefObject,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 
 const FOCUSABLE_SELECTORS =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export default function Modal({ title, children, onClose }) {
-  const backdropRef = useRef(null);
-  const dialogRef = useRef(null);
-  const firstFieldRef = useRef(null);
-  const previouslyFocusedElementRef = useRef(null);
-  const titleId = useMemo(() => `modal-title-${Math.random().toString(36).slice(2)}`, []);
+interface ModalProps {
+  title: string;
+  children:
+    | ReactNode
+    | ((props: {
+        firstFieldRef: RefObject<HTMLInputElement | null>;
+      }) => ReactNode);
+  onClose: () => void;
+}
+
+export default function Modal({ title, children, onClose }: ModalProps) {
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const firstFieldRef = useRef<HTMLInputElement>(null);
+  const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
+  const titleId = useMemo(
+    () => `modal-title-${Math.random().toString(36).slice(2)}`,
+    []
+  );
 
   const focusFirstInput = useCallback(() => {
     const firstField = firstFieldRef.current;
@@ -21,7 +42,12 @@ export default function Modal({ title, children, onClose }) {
     if (!dialog) return false;
     const focusables = dialog.querySelectorAll(FOCUSABLE_SELECTORS);
     if (focusables.length > 0) {
-      (focusables[0] instanceof HTMLElement ? focusables[0] : dialog).focus();
+      const firstFocusable = focusables[0];
+      if (firstFocusable instanceof HTMLElement) {
+        firstFocusable.focus();
+      } else {
+        dialog.focus();
+      }
       return true;
     }
     dialog.focus();
@@ -30,7 +56,9 @@ export default function Modal({ title, children, onClose }) {
 
   useEffect(() => {
     previouslyFocusedElementRef.current =
-      (document.activeElement instanceof HTMLElement && document.activeElement) || null;
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     const focusTimer = window.setTimeout(() => {
       focusFirstInput();
     }, 0);
@@ -44,7 +72,7 @@ export default function Modal({ title, children, onClose }) {
   }, [focusFirstInput]);
 
   const handleKeyDown = useCallback(
-    (event) => {
+    (event: KeyboardEvent<HTMLDivElement>) => {
       if (event.key === "Escape") {
         event.stopPropagation();
         event.preventDefault();
@@ -56,8 +84,11 @@ export default function Modal({ title, children, onClose }) {
       }
       const dialog = dialogRef.current;
       if (!dialog) return;
-      const focusables = Array.from(dialog.querySelectorAll(FOCUSABLE_SELECTORS)).filter(
-        (element) => element instanceof HTMLElement && !element.hasAttribute("disabled")
+      const focusables = Array.from(
+        dialog.querySelectorAll(FOCUSABLE_SELECTORS)
+      ).filter(
+        (element): element is HTMLElement =>
+          element instanceof HTMLElement && !element.hasAttribute("disabled")
       );
       if (focusables.length === 0) {
         event.preventDefault();
@@ -83,12 +114,15 @@ export default function Modal({ title, children, onClose }) {
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    dialog.addEventListener("keydown", handleKeyDown);
-    return () => dialog.removeEventListener("keydown", handleKeyDown);
+    const handler = (event: globalThis.KeyboardEvent) => {
+      handleKeyDown(event as unknown as KeyboardEvent<HTMLDivElement>);
+    };
+    dialog.addEventListener("keydown", handler);
+    return () => dialog.removeEventListener("keydown", handler);
   }, [handleKeyDown]);
 
   const handleBackdropMouseDown = useCallback(
-    (event) => {
+    (event: MouseEvent<HTMLDivElement>) => {
       if (event.target === backdropRef.current) {
         onClose();
       }
@@ -97,7 +131,7 @@ export default function Modal({ title, children, onClose }) {
   );
 
   const handleBackdropKeyDown = useCallback(
-    (event) => {
+    (event: KeyboardEvent<HTMLDivElement>) => {
       if (event.key === "Tab") {
         event.preventDefault();
         focusFirstInput();
@@ -127,7 +161,9 @@ export default function Modal({ title, children, onClose }) {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        onMouseDown={(event) => event.stopPropagation()}
+        onMouseDown={(event: MouseEvent<HTMLDivElement>) =>
+          event.stopPropagation()
+        }
       >
         <header className="modal__header">
           <h3 id={titleId}>{title}</h3>
@@ -145,9 +181,3 @@ export default function Modal({ title, children, onClose }) {
     </div>
   );
 }
-
-Modal.propTypes = {
-  title: PropTypes.string.isRequired,
-  children: PropTypes.oneOfType([PropTypes.node, PropTypes.func]).isRequired,
-  onClose: PropTypes.func.isRequired,
-};

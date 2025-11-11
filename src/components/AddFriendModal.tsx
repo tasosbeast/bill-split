@@ -1,11 +1,35 @@
-import PropTypes from "prop-types";
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useState,
+  type FormEvent,
+  type ChangeEvent,
+  type RefObject,
+} from "react";
 import Modal from "./Modal";
 import { useToasts } from "../state/toastStore";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export default function AddFriendModal({ onClose, onCreate }) {
+interface AddFriendModalProps {
+  onClose: () => void;
+  onCreate: (friend: NewFriend) => CreateFriendResult;
+}
+
+interface NewFriend {
+  id: string;
+  name: string;
+  email: string;
+  tag: string;
+  active: boolean;
+  createdAt: number;
+}
+
+type CreateFriendResult = { ok: true } | { ok: false; reason: string };
+
+export default function AddFriendModal({
+  onClose,
+  onCreate,
+}: AddFriendModalProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
@@ -19,14 +43,14 @@ export default function AddFriendModal({ onClose, onCreate }) {
     []
   );
 
-  function validate() {
+  function validate(): string {
     if (!name.trim()) return "Name is required.";
     if (!email.trim()) return "Email is required.";
     if (!EMAIL_REGEX.test(email)) return "Email address looks invalid.";
     return "";
   }
 
-  function handleSubmit(event) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     const validationMessage = validate();
     if (validationMessage) {
@@ -35,7 +59,7 @@ export default function AddFriendModal({ onClose, onCreate }) {
       return;
     }
 
-    const payload = {
+    const payload: NewFriend = {
       id: crypto.randomUUID(),
       name: name.trim(),
       email: email.trim().toLowerCase(),
@@ -55,16 +79,19 @@ export default function AddFriendModal({ onClose, onCreate }) {
       return;
     }
 
-    addToast({ kind: "success", message: `${payload.name} added to your friends.` });
+    addToast({
+      kind: "success",
+      message: `${payload.name} added to your friends.`,
+    });
     onClose();
   }
 
-  function handleNameChange(event) {
+  function handleNameChange(event: ChangeEvent<HTMLInputElement>): void {
     setName(event.target.value);
     if (error) setError("");
   }
 
-  function handleEmailChange(event) {
+  function handleEmailChange(event: ChangeEvent<HTMLInputElement>): void {
     setEmail(event.target.value);
     if (error) setError("");
   }
@@ -74,7 +101,11 @@ export default function AddFriendModal({ onClose, onCreate }) {
 
   return (
     <Modal title="Add Friend" onClose={onClose}>
-      {({ firstFieldRef }) => (
+      {({
+        firstFieldRef,
+      }: {
+        firstFieldRef: RefObject<HTMLInputElement | null>;
+      }) => (
         <form className="form-grid" onSubmit={handleSubmit} noValidate>
           <div>
             <label className="kicker" htmlFor="friend-name">
@@ -109,7 +140,7 @@ export default function AddFriendModal({ onClose, onCreate }) {
               aria-describedby={describedBy}
             />
             <div className="helper" id={helperId}>
-              We won’t send anything; it’s just a label.
+              We won't send anything; it's just a label.
             </div>
           </div>
 
@@ -132,8 +163,3 @@ export default function AddFriendModal({ onClose, onCreate }) {
     </Modal>
   );
 }
-
-AddFriendModal.propTypes = {
-  onClose: PropTypes.func.isRequired,
-  onCreate: PropTypes.func.isRequired,
-};

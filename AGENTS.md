@@ -19,7 +19,7 @@
 ## Tech & Runtime
 
 - **Framework:** React 19 plus Vite 7.
-- **Language:** TypeScript (strict mode) for all new code. Core utilities (`src/lib/*.ts`) and state management (`src/state/*.ts`) are fully typed. UI components remain primarily `.jsx` for incremental migration.
+- **Language:** TypeScript (strict mode) for all new code. Core utilities (`src/lib/*.ts`) and state management (`src/state/*.ts`) are fully typed. High-value UI components (forms, modals, lists) have been migrated to `.tsx`. Remaining presentational and complex stateful components are `.jsx` for incremental migration.
 - **State:** Legacy UI state is managed inside `src/App.jsx`. Normalized transaction and budget state for analytics lives in `src/state/transactionsStore.ts` with a publish/subscribe pattern and persistence helpers.
 - **Styling:** CSS Modules plus global styles in `src/index.css`. Follow the module naming conventions already used in `src/components`.
 - **Linting:** ESLint via `npm run lint` (see `eslint.config.js`). There is no Prettier config; match the prevailing style and rely on ESLint autofix when possible.
@@ -153,6 +153,38 @@ When adding a new agent, define its loop (inputs and outputs), implement it in i
   - Improved IntelliSense and compile-time safety across 20+ import sites
   - Foundation for future component migrations to TSX
 - **Remaining JS:** Only test files (`*.test.js`) and UI components (`*.jsx`) remain as JavaScript
+
+**JSX→TSX Component Migration:** ✅ **COMPLETE** (Phase 2 - Tier 2 High-Value Components)
+
+- **Completed:** 7 high-value components migrated to TypeScript (November 2025)
+  - **Infrastructure (1):**
+    - `Modal.tsx`: Render props with RefObject typing, keyboard trap, focus management
+  - **Forms/Modals (3):**
+    - `AddFriendModal.tsx`: Form validation, email checking, typed error states
+    - `EditTransactionModal.tsx`: Complex validation logic, conditional amount editing
+    - `BudgetManager.tsx`: Inline editing, category aggregation, keyboard handlers
+  - **Complex Forms (1):**
+    - `SplitForm.tsx`: 675 lines - participant management, template/recurring automation, split-evenly logic
+  - **Lists (2):**
+    - `FriendList.tsx`: Balance display, selection handlers, memoized rendering
+    - `TransactionList.tsx`: Filter integration, settlement handlers, type-safe data flow
+- **Key Patterns Established:**
+  - Render props: `children: ReactNode | ((props: { firstFieldRef: RefObject<HTMLInputElement | null> }) => ReactNode)`
+  - Type-safe event handlers: `FormEvent`, `ChangeEvent<T>`, `KeyboardEvent<T>`, `MouseEvent<T>`
+  - Safe type conversions: Check for object types before `String()` conversion
+  - Optional handler props: Settlement callbacks typed with `?` for flexibility
+  - Map/Record compatibility: Helper functions to normalize data structures
+  - Type assertions: `Parameters<typeof func>[0]` for complex filter compatibility
+- **Benefits:**
+  - Full IntelliSense for all form fields and event handlers
+  - Compile-time validation of prop types and callbacks
+  - Eliminated PropTypes dependencies in migrated components
+  - Improved refactoring safety with typed interfaces
+  - Better code navigation and documentation
+- **Remaining JSX (26 files):**
+  - **Tier 1 (Presentational):** Analytics components, filters (low complexity, defer)
+  - **Tier 3 (Complex State):** App.jsx, Transactions.jsx, Balances.jsx (high complexity, defer)
+- **Quality Gates:** All migrations validated with 0 lint errors, 174/174 tests passing, successful production builds
 
 **State Management:**
 
@@ -313,6 +345,104 @@ localStorage.getItem("bill-split:transactions"); // Analytics state
 
 ---
 
+## TypeScript Conventions
+
+### JSX→TSX Migration Patterns
+
+**Established patterns for component migrations:**
+
+1. **Interface Definitions**
+
+   - Define props interface above component: `interface ComponentNameProps { ... }`
+   - Use `?` for optional props, avoid `| undefined` redundancy
+   - Import types from `src/types/`: `LegacyFriend`, `StoredTransaction`, etc.
+
+2. **Event Handler Typing**
+
+   ```typescript
+   // Form events
+   const handleSubmit = (e: FormEvent<HTMLFormElement>) => { ... };
+
+   // Input changes
+   const handleChange = (e: ChangeEvent<HTMLInputElement>) => { ... };
+
+   // Keyboard events
+   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => { ... };
+
+   // Mouse events
+   const handleClick = (e: MouseEvent<HTMLButtonElement>) => { ... };
+   ```
+
+3. **Ref Object Typing**
+
+   ```typescript
+   // Allow null in ref types
+   const inputRef = useRef<HTMLInputElement>(null);
+
+   // Render props with refs
+   children: ReactNode |
+     ((props: { firstFieldRef: RefObject<HTMLInputElement | null> }) =>
+       ReactNode);
+   ```
+
+4. **Safe Type Conversions**
+
+   ```typescript
+   // Check for objects before String() conversion
+   if (value === null || value === undefined || typeof value === "object")
+     return null;
+   const str =
+     typeof value === "string" || typeof value === "number"
+       ? String(value)
+       : "";
+   ```
+
+5. **Type Assertions for Library Compatibility**
+
+   ```typescript
+   // When library types don't match exactly
+   const filtered = applyFilters(
+     sourceTransactions as Parameters<typeof applyFilters>[0]
+   );
+   ```
+
+6. **Optional Callback Props**
+
+   ```typescript
+   // Use `?` and pass undefined explicitly if needed
+   interface Props {
+     onConfirm?: (id: string) => void;
+   }
+
+   <Component onConfirm={onConfirm ?? undefined} />;
+   ```
+
+7. **Union Types with Literals**
+
+   ```typescript
+   // Use `as const` for strict literal types
+   const OPTIONS = [
+     { value: "monthly", label: "Monthly" },
+     { value: "weekly", label: "Weekly" },
+   ] as const;
+
+   type FrequencyValue = (typeof OPTIONS)[number]["value"];
+   ```
+
+### Migration Checklist
+
+- [ ] Create `ComponentName.tsx` with interface definitions
+- [ ] Type all event handlers (`FormEvent`, `ChangeEvent`, etc.)
+- [ ] Type all refs with proper generic parameters
+- [ ] Add safe type conversions for `unknown` inputs
+- [ ] Remove PropTypes imports and definitions
+- [ ] Delete legacy `.jsx` file
+- [ ] Run `npm run lint` (0 errors required)
+- [ ] Run `npm test` (all tests passing)
+- [ ] Run `npm run build` (successful build)
+
+---
+
 ## Suggested Codex Tasks
 
 1. **Health audit:** Run lint, test, and build; summarize failures and propose targeted fixes.
@@ -343,4 +473,4 @@ Always attach diffs and explain trade-offs when proposing changes.
 ## Last Verified
 
 - Update this date whenever you edit this file.
-- **YYYY-MM-DD:** 2025-11-12
+- **YYYY-MM-DD:** 2025-11-12 (JSX→TSX Phase 2 completed)

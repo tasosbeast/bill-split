@@ -10,5 +10,8 @@ export function formatEUR(value) {
 export function roundToCents(value) {
   const num = Number(value);
   if (!Number.isFinite(num)) return 0;
-  return Math.round(num * 100 + Number.EPSILON) / 100;
+  // Add a small epsilon before rounding to mitigate floating point issues,
+  // then normalize to two decimal places to avoid -0 and representation artifacts.
+  const rounded = Math.round((num + Number.EPSILON) * 100) / 100;
+  return Number(rounded.toFixed(2));
 }

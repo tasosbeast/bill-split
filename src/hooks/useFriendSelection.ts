@@ -1,6 +1,9 @@
 import { useCallback, useMemo } from "react";
 import { computeBalances } from "../lib/compute";
-import { transactionIncludesFriend } from "../lib/transactions";
+import {
+  transactionIncludesFriend,
+  type TransactionLike,
+} from "../lib/transactions";
 import {
   useLegacySnapshot,
   type UseLegacySnapshotResult,
@@ -65,10 +68,7 @@ export function useFriendSelection(): UseFriendSelectionResult {
     return map;
   }, [friends]);
 
-  const balances = useMemo(
-    () => computeBalances(transactions) as Map<string, number>,
-    [transactions]
-  );
+  const balances = useMemo(() => computeBalances(transactions), [transactions]);
 
   const selectedFriend = useMemo(
     () => (selectedId ? friendsById.get(selectedId) ?? null : null),
@@ -100,23 +100,22 @@ export function useFriendSelection(): UseFriendSelectionResult {
     [setSelectedId]
   );
 
-  const ensureSettle = useCallback<UseFriendSelectionResult["ensureSettle"]>(
-    () => {
-      if (!selectedId) {
-        return { allowed: false, reason: "no-selection" };
-      }
-      const balance = balances.get(selectedId) ?? 0;
-      if (balance === 0) {
-        return { allowed: false, reason: "no-balance" };
-      }
-      return {
-        allowed: true,
-        friendId: selectedId,
-        balance,
-      };
-    },
-    [balances, selectedId]
-  );
+  const ensureSettle = useCallback<
+    UseFriendSelectionResult["ensureSettle"]
+  >(() => {
+    if (!selectedId) {
+      return { allowed: false, reason: "no-selection" };
+    }
+    const balance = balances.get(selectedId) ?? 0;
+    if (balance === 0) {
+      return { allowed: false, reason: "no-balance" };
+    }
+    return {
+      allowed: true,
+      friendId: selectedId,
+      balance,
+    };
+  }, [balances, selectedId]);
 
   const removeFriend = useCallback<UseFriendSelectionResult["removeFriend"]>(
     (friendId) => {
@@ -130,7 +129,81 @@ export function useFriendSelection(): UseFriendSelectionResult {
 
       setFriends((prev) => prev.filter((friend) => friend.id !== friendId));
       setTransactions((prev) =>
-        prev.filter((transaction) => !transactionIncludesFriend(transaction, friendId))
+        prev.filter((transaction) => {
+          // Normalize legacy StoredTransaction to TransactionLike shape
+          const normalizedEffects = Array.isArray(transaction.effects)
+            ? transaction.effects
+                .map((e) => {
+                  if (!e || typeof e !== "object") return null;
+                  const friendId =
+                    typeof e.friendId === "string" ? e.friendId : "";
+                  if (!friendId) return null;
+                  return {
+                    friendId,
+                    delta: Number(e.delta) || 0,
+                    share: Number(e.share) || 0,
+                  };
+                })
+                .filter(
+                  (
+                    e
+                  ): e is { friendId: string; delta: number; share: number } =>
+                    e !== null
+                )
+            : undefined;
+          const normalizedParticipants = Array.isArray(transaction.participants)
+            ? transaction.participants
+                .map((p) => {
+                  if (!p || typeof p !== "object") return null;
+                  const id = typeof p.id === "string" ? p.id : "";
+                  if (!id) return null;
+                  return { id, amount: Number(p.amount) || 0 };
+                })
+                .filter((p): p is { id: string; amount: number } => p !== null)
+            : undefined;
+          const normalized: TransactionLike = {
+            id: transaction.id,
+            type: transaction.type,
+            total: transaction.total,
+            payer: transaction.payer ?? null,
+            participants: normalizedParticipants,
+            effects: normalizedEffects,
+            friendId: transaction.friendId ?? null,
+            friendIds: Array.isArray(transaction.friendIds)
+              ? transaction.friendIds.filter(
+                  (id): id is string => typeof id === "string"
+                )
+              : null,
+            category:
+              typeof transaction.category === "string"
+                ? transaction.category
+                : undefined,
+            note:
+              typeof transaction.note === "string"
+                ? transaction.note
+                : undefined,
+            createdAt:
+              typeof transaction.createdAt === "string"
+                ? transaction.createdAt
+                : undefined,
+            updatedAt:
+              typeof transaction.updatedAt === "string" ||
+              transaction.updatedAt === null
+                ? transaction.updatedAt
+                : undefined,
+            templateId:
+              typeof transaction.templateId === "string" ||
+              transaction.templateId === null
+                ? transaction.templateId
+                : undefined,
+            templateName:
+              typeof transaction.templateName === "string" ||
+              transaction.templateName === null
+                ? transaction.templateName
+                : undefined,
+          };
+          return !transactionIncludesFriend(normalized, friendId);
+        })
       );
       if (selectedId === friendId) {
         setSelectedId(null);
@@ -138,7 +211,14 @@ export function useFriendSelection(): UseFriendSelectionResult {
 
       return { ok: true };
     },
-    [balances, friendsById, selectedId, setFriends, setSelectedId, setTransactions]
+    [
+      balances,
+      friendsById,
+      selectedId,
+      setFriends,
+      setSelectedId,
+      setTransactions,
+    ]
   );
 
   return {

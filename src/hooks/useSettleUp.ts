@@ -87,10 +87,7 @@ export function useSettleUp(): UseSettleUpResult {
   const selectedFriendId = useAppStore((state) => state.selectedId);
   const setTransactions = useAppStore((state) => state.setTransactions);
 
-  const balances = useMemo(
-    () => computeBalances(transactions) as Map<string, number>,
-    [transactions]
-  );
+  const balances = useMemo(() => computeBalances(transactions), [transactions]);
 
   const ensureSettle = useCallback<UseSettleUpResult["ensureSettle"]>(() => {
     if (!selectedFriendId) {
@@ -158,7 +155,8 @@ export function useSettleUp(): UseSettleUpResult {
         confirmedAt,
         cancelledAt,
       } = draft;
-      const trimmedFriendId = typeof friendId === "string" ? friendId.trim() : "";
+      const trimmedFriendId =
+        typeof friendId === "string" ? friendId.trim() : "";
       if (trimmedFriendId.length === 0) return;
 
       const now = new Date().toISOString();
@@ -280,15 +278,12 @@ export function useSettleUp(): UseSettleUpResult {
         }
 
         const normalizedStatus = status ?? "initiated";
-        const {
-          delta,
-          friendShare,
-          youShare,
-          share,
-        } = deriveSettlementAmounts(balance, 0);
+        const { delta, friendShare, youShare, share } = deriveSettlementAmounts(
+          balance,
+          0
+        );
         const createdAt = initiatedAt ?? now;
-        const resolvedPayment =
-          payment === undefined ? null : payment ?? null;
+        const resolvedPayment = payment === undefined ? null : payment ?? null;
 
         const settlement: StoredTransaction = {
           id:
@@ -327,9 +322,7 @@ export function useSettleUp(): UseSettleUpResult {
     [setTransactions]
   );
 
-  const confirmSettlement = useCallback<
-    UseSettleUpResult["confirmSettlement"]
-  >(
+  const confirmSettlement = useCallback<UseSettleUpResult["confirmSettlement"]>(
     (transactionId) => {
       const existing = transactionsRef.current.find(
         (entry) => entry.id === transactionId && entry.type === "settlement"

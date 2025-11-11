@@ -19,7 +19,7 @@
 ## Tech & Runtime
 
 - **Framework:** React 19 plus Vite 7.
-- **Language:** Mixed TypeScript and modern JavaScript. Prefer TypeScript (or JSDoc with clear types) when adding new modules.
+- **Language:** TypeScript (strict mode) for all new code. Core utilities (`src/lib/*.ts`) and state management (`src/state/*.ts`) are fully typed. UI components remain primarily `.jsx` for incremental migration.
 - **State:** Legacy UI state is managed inside `src/App.jsx`. Normalized transaction and budget state for analytics lives in `src/state/transactionsStore.ts` with a publish/subscribe pattern and persistence helpers.
 - **Styling:** CSS Modules plus global styles in `src/index.css`. Follow the module naming conventions already used in `src/components`.
 - **Linting:** ESLint via `npm run lint` (see `eslint.config.js`). There is no Prettier config; match the prevailing style and rely on ESLint autofix when possible.
@@ -33,8 +33,8 @@
 ```
 src/
   assets/          # Static images and icons
-  components/      # Reusable UI (Analytics*, Transactions, Modals, etc.)
-  lib/             # Domain utilities (money, storage, transactions, categories)
+  components/      # Reusable UI (Analytics*, Transactions, Modals, etc.) - primarily JSX
+  lib/             # Domain utilities (TypeScript: money, compute, selectors, transactions, categories, filters)
   state/           # Transaction store and persistence helpers (TypeScript)
   types/           # Shared TypeScript declarations
   utils/           # TypeScript analytics utilities plus tests
@@ -107,13 +107,13 @@ Transaction Creation/Edit
 
 ## Agents & Responsibilities
 
-| Agent                  | Responsibility                                                  | Implementation                                                                      | Inputs                               | Outputs                                                                             | Status                             |
-| ---------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------- | ---------------------------------- |
-| Transactions Agent     | Normalize, store, and broadcast transactions and budgets.       | `src/state/transactionsStore.ts`, `src/state/persistence.ts`                        | Raw persisted payloads, UI mutations | In-memory `TransactionsState`, persistence side effects                             | Active                             |
-| Analytics Agent        | Compute spend totals, monthly buckets, and comparisons.         | `src/utils/analytics.ts`, `src/utils/__tests__/analytics-legacy-port.test.ts`      | Sanitized transactions, budgets      | All analytics functions: overview, category breakdown, monthly trends, friend balances, budget status | Active                             |
-| Balances Agent         | Determine friend balances and settlements for UI cards.         | `src/lib/analytics.js` (`computeFriendBalances`)                                    | Transaction effects                  | `Map<friendId, { balance, owedTo, owedFrom }>`                                      | Active                             |
-| UI Orchestrator        | Compose agent outputs into dashboard and transactions UI.       | `src/App.jsx`, `src/components/AnalyticsDashboard.jsx`, `src/components/Analytics*` | Selectors, agent outputs             | Rendered React components                                                           | Active (needs refactoring)         |
-| Settlement Agent       | Calculate and create settlement transactions between friends.   | `src/lib/transactions.js` (`buildSplitTransaction`)                                 | Friends list, balances               | Settlement transaction objects                                                      | Active                             |
+| Agent              | Responsibility                                                | Implementation                                                                      | Inputs                               | Outputs                                                                                               | Status                     |
+| ------------------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- | -------------------------- |
+| Transactions Agent | Normalize, store, and broadcast transactions and budgets.     | `src/state/transactionsStore.ts`, `src/state/persistence.ts`                        | Raw persisted payloads, UI mutations | In-memory `TransactionsState`, persistence side effects                                               | Active                     |
+| Analytics Agent    | Compute spend totals, monthly buckets, and comparisons.       | `src/utils/analytics.ts`, `src/utils/__tests__/analytics-legacy-port.test.ts`       | Sanitized transactions, budgets      | All analytics functions: overview, category breakdown, monthly trends, friend balances, budget status | Active                     |
+| Balances Agent     | Determine friend balances and settlements for UI cards.       | `src/lib/analytics.js` (`computeFriendBalances`)                                    | Transaction effects                  | `Map<friendId, { balance, owedTo, owedFrom }>`                                                        | Active                     |
+| UI Orchestrator    | Compose agent outputs into dashboard and transactions UI.     | `src/App.jsx`, `src/components/AnalyticsDashboard.jsx`, `src/components/Analytics*` | Selectors, agent outputs             | Rendered React components                                                                             | Active (needs refactoring) |
+| Settlement Agent   | Calculate and create settlement transactions between friends. | `src/lib/transactions.js` (`buildSplitTransaction`)                                 | Friends list, balances               | Settlement transaction objects                                                                        | Active                     |
 
 Status legend: Active = implemented, Deprecated = scheduled for removal, In Progress = being built, Planned = design only.
 
@@ -139,6 +139,21 @@ When adding a new agent, define its loop (inputs and outputs), implement it in i
   - 100% test coverage with comprehensive edge case handling
   - Improved maintainability and accuracy
 
+**Core Utilities TypeScript Migration:** ✅ **COMPLETE** (Phase 1.6)
+
+- **Completed:** All core `src/lib` utilities migrated to TypeScript
+  - `categories.ts`: Typed CATEGORIES array
+  - `money.ts`: Typed formatEUR and roundToCents with locale pinning
+  - `compute.ts`: Typed computeBalances with TransactionLike interface
+  - `selectors.ts`: Typed state selectors with safe property access
+  - `transactionFilters.ts`: Typed filterTransactions with DateRange and TransactionFilters types
+  - `useTransactionFilters.ts`: Typed React hook with explicit return types
+- **Benefits:**
+  - Eliminated type assertions in consuming hooks (useSettleUp, useFriendSelection, useFriends)
+  - Improved IntelliSense and compile-time safety across 20+ import sites
+  - Foundation for future component migrations to TSX
+- **Remaining JS:** Only test files (`*.test.js`) and UI components (`*.jsx`) remain as JavaScript
+
 **State Management:**
 
 - **Current state:** Mixed approach with App.jsx holding UI state and transactionsStore for analytics.
@@ -156,9 +171,8 @@ When adding a new agent, define its loop (inputs and outputs), implement it in i
 
 ### Why two analytics systems?
 
-- **Decision:** Incremental rewrite to TypeScript with proper testing.
-- **Trade-offs:** Temporary code duplication, higher maintenance burden.
-- **Timeline:** Complete migration in Q1 2026.
+- **Decision:** ~~Incremental rewrite to TypeScript with proper testing.~~ **RESOLVED:** Migration completed in Phase 1.6.
+- **Status:** Single TypeScript implementation in `src/utils/analytics.ts`.
 
 ### Why React 19?
 
@@ -187,11 +201,11 @@ When adding a new agent, define its loop (inputs and outputs), implement it in i
 
 ### ❌ Do not change without explicit approval:
 
-- `src/lib/transactions.js` core splitting algorithm
+- `src/lib/transactions.ts` core splitting algorithm
 - Storage keys (`bill-split@v1`, `bill-split:transactions`)
 - Test expectations (fix the code, not the tests)
 - React/Vite versions (ensure compatibility first)
-- `CATEGORIES` list in `src/lib/categories.js` (normalization depends on it)
+- `CATEGORIES` list in `src/lib/categories.ts` (normalization depends on it)
 
 ### General principles:
 
@@ -302,10 +316,11 @@ localStorage.getItem("bill-split:transactions"); // Analytics state
 ## Suggested Codex Tasks
 
 1. **Health audit:** Run lint, test, and build; summarize failures and propose targeted fixes.
-2. **Analytics hardening:** Add edge-case tests (null totals, unknown categories) or port additional JS helpers to TypeScript incrementally.
+2. **Analytics hardening:** Add edge-case tests (null totals, unknown categories) or extend TypeScript utilities with deeper type coverage.
 3. **Performance trims:** Memoize heavy list rendering in analytics components or split bundles if initial load grows.
 4. **Accessibility polish:** Verify keyboard and focus handling in modals and analytics cards; add tests or utilities if gaps are found.
 5. **Persistence resilience:** Expand error handling for storage adapters and add migration regression tests.
+6. **JSX → TSX migration:** Incrementally convert UI components to TSX starting with forms and modals that have rich prop interfaces.
 
 Always attach diffs and explain trade-offs when proposing changes.
 
@@ -328,4 +343,4 @@ Always attach diffs and explain trade-offs when proposing changes.
 ## Last Verified
 
 - Update this date whenever you edit this file.
-- **YYYY-MM-DD:** 2025-11-10
+- **YYYY-MM-DD:** 2025-11-12

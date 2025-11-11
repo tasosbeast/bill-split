@@ -58,10 +58,7 @@ export function useFriends(): UseFriendsResult {
     return map;
   }, [friends]);
 
-  const balances = useMemo(
-    () => computeBalances(transactions) as Map<string, number>,
-    [transactions]
-  );
+  const balances = useMemo(() => computeBalances(transactions), [transactions]);
 
   const selectedFriend = useMemo(
     () => (selectedId ? friendsById.get(selectedId) ?? null : null),
@@ -83,7 +80,8 @@ export function useFriends(): UseFriendsResult {
         active: friend.active ?? true,
         createdAt: friend.createdAt ?? now,
         avatarUrl:
-          typeof friend.avatarUrl === "string" && friend.avatarUrl.trim().length > 0
+          typeof friend.avatarUrl === "string" &&
+          friend.avatarUrl.trim().length > 0
             ? friend.avatarUrl.trim()
             : friend.avatarUrl,
       });
@@ -136,4 +134,3 @@ export function useFriends(): UseFriendsResult {
     friendSummaries,
   };
 }
-

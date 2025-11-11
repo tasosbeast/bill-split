@@ -109,25 +109,31 @@ describe("useLegacySnapshot", () => {
   });
 
   it("drops selectedId when the selected friend is removed", () => {
-    storageMock.loadState.mockReturnValueOnce({
+    // Populate store directly instead of mocking loadState
+    useAppStore.getState().replaceSnapshot({
       friends: [
-        { id: "friend-1", name: "Alex" },
-        { id: "friend-2", name: "Maria" },
+        { id: "friend-1", name: "Alex", active: true, createdAt: Date.now() },
+        { id: "friend-2", name: "Maria", active: true, createdAt: Date.now() },
       ],
       selectedId: "friend-1",
       transactions: [],
+      templates: [],
     });
 
-    const { result, unmount } = renderHook(() => useLegacySnapshot());
+    vi.clearAllMocks(); // Clear saveState calls from replaceSnapshot
+
+    const { result, rerender, unmount } = renderHook(() => useLegacySnapshot());
 
     act(() => {
       result.current.updaters.setFriends((prev) =>
         prev.filter((friend) => friend.id !== "friend-1")
       );
     });
+    rerender();
 
     expect(result.current.snapshot.friends).toHaveLength(1);
     expect(result.current.snapshot.selectedId).toBeNull();
+    // saveState is called: once on initial render after clearMocks, once after setFriends
     expect(storageMock.saveState).toHaveBeenCalledTimes(2);
 
     unmount();
@@ -155,14 +161,25 @@ describe("useLegacySnapshot", () => {
   });
 
   it("resets snapshot and clears storage", () => {
-    const { result, unmount } = renderHook(() => useLegacySnapshot());
+    // First populate with some data
+    useAppStore.getState().replaceSnapshot({
+      friends: [{ id: "friend-test", name: "Test Friend", active: true, createdAt: Date.now() }],
+      selectedId: "friend-test",
+      transactions: [{ id: "tx-test" } as StoredTransaction],
+      templates: [],
+    });
+
+    vi.clearAllMocks(); // Clear saveState calls from above
+
+    const { result, rerender, unmount } = renderHook(() => useLegacySnapshot());
 
     act(() => {
       result.current.updaters.reset();
     });
+    rerender();
 
     expect(storageMock.clearState).toHaveBeenCalledTimes(1);
-    expect(result.current.snapshot.friends).toHaveLength(2);
+    expect(result.current.snapshot.friends).toHaveLength(2); // Default snapshot has 2 friends
     expect(result.current.snapshot.transactions).toEqual([]);
 
     unmount();

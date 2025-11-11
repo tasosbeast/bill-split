@@ -98,7 +98,12 @@ describe("useLegacyFriendManagement", () => {
       result.current.openAddModal();
     });
 
-    const friend: LegacyFriend = { id: "friend-1", name: "Alex" };
+    const friend: LegacyFriend = { 
+      id: "friend-1", 
+      name: "Alex",
+      active: true,
+      createdAt: Date.now()
+    };
 
     act(() => {
       result.current.createFriend(friend);
@@ -119,7 +124,12 @@ describe("useLegacyFriendManagement", () => {
     });
 
     act(() => {
-      result.current.createFriend({ id: "friend-2", name: "Maria" });
+      result.current.createFriend({ 
+        id: "friend-2", 
+        name: "Maria",
+        active: true,
+        createdAt: Date.now()
+      });
     });
 
     expect(result.current.showAddModal).toBe(true);

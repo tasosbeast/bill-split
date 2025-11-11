@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MutableRefObject } from "react";
+import React, { useEffect, useMemo, useState, type MutableRefObject } from "react";
 import Modal from "./Modal";
 import { formatEUR, roundToCents } from "../lib/money";
 import type { LegacyFriend } from "../types/legacySnapshot";
@@ -42,7 +42,7 @@ export default function SettlementAssistantModal({
   balance,
   onClose,
   onSubmit,
-}: SettlementAssistantModalProps): JSX.Element {
+}: SettlementAssistantModalProps): React.JSX.Element {
   const [method, setMethod] = useState("");
   const [amount, setAmount] = useState(() =>
     Math.abs(balance) > 0 ? Math.abs(balance).toFixed(2) : ""

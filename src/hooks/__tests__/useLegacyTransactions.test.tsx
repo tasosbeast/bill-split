@@ -77,11 +77,12 @@ const baseTransactions: StoredTransaction[] = [
 
 const snapshot: UISnapshot = {
   friends: [
-    { id: "friend-1", name: "Alex" },
-    { id: "friend-2", name: "Maria" },
+    { id: "friend-1", name: "Alex", active: true, createdAt: Date.now() },
+    { id: "friend-2", name: "Maria", active: true, createdAt: Date.now() },
   ],
   selectedId: "friend-1",
   transactions: baseTransactions,
+  templates: [],
 };
 
 describe("useLegacyTransactions", () => {

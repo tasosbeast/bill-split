@@ -347,7 +347,13 @@ function sanitizeFriendRaw(
     return null;
   }
 
-  const entry: LegacyFriend = { id, name, tag };
+  const entry: LegacyFriend = { 
+    id, 
+    name, 
+    tag,
+    active: true,
+    createdAt: Date.now()
+  };
   if (email) {
     entry.email = email;
     emailIndex.set(email, entry);

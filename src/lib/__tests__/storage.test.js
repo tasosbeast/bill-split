@@ -68,7 +68,11 @@ describe("storage", () => {
 
     const snapshot = loadState();
 
-    expect(snapshot).toEqual(payload);
+    // Friends will have active and createdAt added during restoration
+    expect(snapshot).toMatchObject({
+      ...payload,
+      friends: payload.friends.map(f => expect.objectContaining(f))
+    });
     expect(warnSpy).not.toHaveBeenCalled();
   });
 

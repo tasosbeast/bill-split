@@ -27,7 +27,7 @@ function AnalyticsPanel({ state }: AnalyticsPanelProps) {
         </section>
       }
     >
-      <AnalyticsDashboard state={state} />
+      <AnalyticsDashboard transactions={state.transactions} state={state} />
     </Suspense>
   );
 }

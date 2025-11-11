@@ -40,12 +40,16 @@ describe("restoreSnapshot", () => {
     const result = restoreSnapshot(data);
 
     expect(result.friends).toHaveLength(1);
-    expect(result.friends[0]).toEqual({
+    expect(result.friends[0]).toMatchObject({
       id: "friend-1",
       name: "Alex",
       email: "alex@example.com",
       tag: "friend",
     });
+    // active and createdAt are added during restoration
+    expect(result.friends[0]).toHaveProperty("active", true);
+    expect(result.friends[0]).toHaveProperty("createdAt");
+    expect(typeof result.friends[0].createdAt).toBe("number");
 
     expect(result.selectedId).toBe("friend-1");
     expect(result.transactions).toHaveLength(1);

@@ -3,7 +3,12 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SettlementAssistantModal from "../SettlementAssistantModal";
 
-const friend = { id: "friend-1", name: "Taylor" };
+const friend = { 
+  id: "friend-1", 
+  name: "Taylor",
+  active: true,
+  createdAt: Date.now()
+};
 
 afterEach(() => {
   cleanup();

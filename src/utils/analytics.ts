@@ -4,7 +4,7 @@ import { CATEGORIES } from "../lib/categories";
 const UNCATEGORIZED = "Uncategorized";
 const UNKNOWN_MONTH = "unknown";
 const KNOWN_CATEGORIES = new Map(
-  CATEGORIES.map((category) => [category.toLowerCase(), category]),
+  CATEGORIES.map((category) => [category.toLowerCase(), category])
 );
 
 function roundToCents(value: number): number {
@@ -52,12 +52,15 @@ function getMonthKey(createdAt: string | null | undefined): string {
   return `${year}-${month}`;
 }
 
-function isConfirmedSettlement(transaction: Transaction | null | undefined): boolean {
+function isConfirmedSettlement(
+  transaction: Transaction | null | undefined
+): boolean {
   if (!transaction) return true;
   if (transaction.type !== "settlement") return true;
-  const status = typeof transaction.settlementStatus === "string"
-    ? transaction.settlementStatus.trim().toLowerCase()
-    : null;
+  const status =
+    typeof transaction.settlementStatus === "string"
+      ? transaction.settlementStatus.trim().toLowerCase()
+      : null;
   if (!status) return true;
   return status === "confirmed";
 }
@@ -83,12 +86,15 @@ type TransactionAmountOptions = {
 
 function getTransactionAmount(
   transaction: Transaction | null | undefined,
-  options: TransactionAmountOptions = {},
+  options: TransactionAmountOptions = {}
 ): number {
   if (!transaction) return 0;
   const { allowParticipantFallback = true } = options;
 
-  if (transaction.type === "settlement" && !isConfirmedSettlement(transaction)) {
+  if (
+    transaction.type === "settlement" &&
+    !isConfirmedSettlement(transaction)
+  ) {
     return 0;
   }
 
@@ -98,17 +104,23 @@ function getTransactionAmount(
   }
 
   if (Array.isArray(transaction.effects) && transaction.effects.length > 0) {
-    const amount = transaction.effects.reduce((sum, effect) => sum + effectAmount(effect), 0);
+    const amount = transaction.effects.reduce(
+      (sum, effect) => sum + effectAmount(effect),
+      0
+    );
     if (amount > 0) {
       return roundToCents(amount);
     }
   }
 
   if (allowParticipantFallback) {
-    if (Array.isArray(transaction.participants) && transaction.participants.length > 0) {
+    if (
+      Array.isArray(transaction.participants) &&
+      transaction.participants.length > 0
+    ) {
       const amount = transaction.participants.reduce(
         (sum, participant) => sum + safePositiveNumber(participant?.amount),
-        0,
+        0
       );
       if (amount > 0) {
         return roundToCents(amount);
@@ -119,10 +131,14 @@ function getTransactionAmount(
   return 0;
 }
 
-export function totalSpendPerCategory(transactions: Transaction[] = []): Record<string, number> {
+export function totalSpendPerCategory(
+  transactions: Transaction[] = []
+): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const transaction of transactions) {
-    const amount = getTransactionAmount(transaction, { allowParticipantFallback: false });
+    const amount = getTransactionAmount(transaction, {
+      allowParticipantFallback: false,
+    });
     if (amount <= 0) continue;
     const category = normalizeCategory(transaction?.category ?? null);
     const current = totals[category] ?? 0;
@@ -132,11 +148,13 @@ export function totalSpendPerCategory(transactions: Transaction[] = []): Record<
 }
 
 export function monthlySpendPerCategory(
-  transactions: Transaction[] = [],
+  transactions: Transaction[] = []
 ): Record<string, Record<string, number>> {
   const totals: Record<string, Record<string, number>> = {};
   for (const transaction of transactions) {
-    const amount = getTransactionAmount(transaction, { allowParticipantFallback: false });
+    const amount = getTransactionAmount(transaction, {
+      allowParticipantFallback: false,
+    });
     if (amount <= 0) continue;
     const monthKey = getMonthKey(transaction?.createdAt ?? null);
     if (!totals[monthKey]) {
@@ -157,7 +175,7 @@ export interface BudgetComparisonEntry {
 
 export function compareBudgetByCategory(
   actuals: Record<string, number> = {},
-  targets: Record<string, number> = {},
+  targets: Record<string, number> = {}
 ): Record<string, BudgetComparisonEntry> {
   const categories = new Set<string>([
     ...Object.keys(actuals ?? {}),
@@ -243,7 +261,9 @@ interface LegacyTransaction {
   half?: number;
 }
 
-function getTransactionEffects(tx: Transaction | null | undefined): TransactionEffect[] {
+function getTransactionEffects(
+  tx: Transaction | null | undefined
+): TransactionEffect[] {
   if (!tx || typeof tx !== "object") return [];
   if (Array.isArray(tx.effects)) {
     return tx.effects
@@ -309,10 +329,13 @@ function getPersonalShare(transaction: Transaction | null | undefined): number {
   return 0;
 }
 
-function getTransactionVolume(transaction: Transaction | null | undefined): number {
+function getTransactionVolume(
+  transaction: Transaction | null | undefined
+): number {
   if (!transaction || typeof transaction !== "object") return 0;
 
-  const rawTotal = typeof transaction.total === "number" ? transaction.total : 0;
+  const rawTotal =
+    typeof transaction.total === "number" ? transaction.total : 0;
   if (Number.isFinite(rawTotal) && rawTotal !== 0) {
     return Math.abs(rawTotal);
   }
@@ -340,7 +363,9 @@ function getTransactionVolume(transaction: Transaction | null | undefined): numb
 
 // Main analytics functions
 
-export function computeAnalyticsOverview(transactions: Transaction[]): AnalyticsOverview {
+export function computeAnalyticsOverview(
+  transactions: Transaction[]
+): AnalyticsOverview {
   let count = 0;
   let totalVolume = 0;
   let owedToYou = 0;
@@ -385,7 +410,9 @@ export function computeAnalyticsOverview(transactions: Transaction[]): Analytics
   };
 }
 
-export function computeCategoryBreakdown(transactions: Transaction[]): CategoryBreakdown[] {
+export function computeCategoryBreakdown(
+  transactions: Transaction[]
+): CategoryBreakdown[] {
   const categories = new Map<string, { count: number; total: number }>();
   let overall = 0;
 
@@ -425,7 +452,9 @@ export function computeCategoryBreakdown(transactions: Transaction[]): CategoryB
     .sort((a, b) => b.total - a.total);
 }
 
-export function computeCategoryTotals(transactions: Transaction[]): CategoryTotal[] {
+export function computeCategoryTotals(
+  transactions: Transaction[]
+): CategoryTotal[] {
   const totals = new Map<string, number>();
 
   for (const tx of transactions || []) {
@@ -449,7 +478,10 @@ export function computeCategoryTotals(transactions: Transaction[]): CategoryTota
     .sort((a, b) => b.amount - a.amount);
 }
 
-export function computeMonthlyTrend(transactions: Transaction[], months = 6): MonthlyDataPoint[] {
+export function computeMonthlyTrend(
+  transactions: Transaction[],
+  months = 6
+): MonthlyDataPoint[] {
   const buckets = new Map<string, number>();
 
   for (const tx of transactions || []) {
@@ -462,7 +494,7 @@ export function computeMonthlyTrend(transactions: Transaction[], months = 6): Mo
     const year = createdAt.getFullYear();
     const month = String(createdAt.getMonth() + 1).padStart(2, "0");
     const key = `${year}-${month}`;
-    
+
     const current = buckets.get(key) || 0;
     buckets.set(key, roundToCents(current + share));
   }
@@ -477,7 +509,9 @@ export function computeMonthlyTrend(transactions: Transaction[], months = 6): Mo
   }));
 }
 
-export function computeFriendBalances(transactions: Transaction[]): FriendBalance[] {
+export function computeFriendBalances(
+  transactions: Transaction[]
+): FriendBalance[] {
   const totals = new Map<string, number>();
 
   for (const tx of transactions || []) {
@@ -485,7 +519,8 @@ export function computeFriendBalances(transactions: Transaction[]): FriendBalanc
     if (tx.type === "settlement" && !isConfirmedSettlement(tx)) continue;
     const effects = getTransactionEffects(tx);
     for (const effect of effects) {
-      const friendId = typeof effect?.friendId === "string" ? effect.friendId : null;
+      const friendId =
+        typeof effect?.friendId === "string" ? effect.friendId : null;
       if (!friendId) continue;
       const delta = typeof effect?.delta === "number" ? effect.delta : 0;
       if (!Number.isFinite(delta) || delta === 0) continue;
@@ -500,7 +535,10 @@ export function computeFriendBalances(transactions: Transaction[]): FriendBalanc
     .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
 }
 
-export function computeMonthlyVolume(transactions: Transaction[], months = 6): MonthlyDataPoint[] {
+export function computeMonthlyVolume(
+  transactions: Transaction[],
+  months = 6
+): MonthlyDataPoint[] {
   const buckets = new Map<string, number>();
   let latestDate: Date | null = null;
 
@@ -514,7 +552,7 @@ export function computeMonthlyVolume(transactions: Transaction[], months = 6): M
     const year = createdAt.getFullYear();
     const month = String(createdAt.getMonth() + 1).padStart(2, "0");
     const key = `${year}-${month}`;
-    
+
     const current = buckets.get(key) || 0;
     buckets.set(key, current + volume);
     if (!latestDate || createdAt > latestDate) {
@@ -526,7 +564,10 @@ export function computeMonthlyVolume(transactions: Transaction[], months = 6): M
     return [];
   }
 
-  const safeMonths = Math.max(1, Number.isFinite(months) ? Math.floor(months) : 1);
+  const safeMonths = Math.max(
+    1,
+    Number.isFinite(months) ? Math.floor(months) : 1
+  );
   const result: MonthlyDataPoint[] = [];
   let hasData = false;
 
@@ -539,7 +580,7 @@ export function computeMonthlyVolume(transactions: Transaction[], months = 6): M
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const key = `${year}-${month}`;
-    
+
     const amount = roundToCents(buckets.get(key) || 0);
     if (amount > 0) {
       hasData = true;
@@ -559,7 +600,9 @@ export function computeBudgetStatus(
   monthlyBudget = 0,
   today: Date = new Date()
 ): BudgetStatus {
-  const budget = roundToCents(Math.max(0, typeof monthlyBudget === "number" ? (monthlyBudget || 0) : 0));
+  const budget = roundToCents(
+    Math.max(0, typeof monthlyBudget === "number" ? monthlyBudget || 0 : 0)
+  );
 
   const safeToday =
     today instanceof Date && !Number.isNaN(today.getTime())
@@ -574,11 +617,11 @@ export function computeBudgetStatus(
   for (const tx of transactions || []) {
     const createdAt = toDate(tx?.createdAt || tx?.updatedAt);
     if (!createdAt) continue;
-    
+
     const year = createdAt.getFullYear();
     const month = String(createdAt.getMonth() + 1).padStart(2, "0");
     const key = `${year}-${month}`;
-    
+
     if (key !== currentMonthKey) continue;
 
     const share = getPersonalShare(tx);

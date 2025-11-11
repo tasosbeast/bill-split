@@ -123,9 +123,13 @@ function sanitizeTransactions(
     .filter(Boolean) as TransactionRecord[];
 }
 
+<<<<<<< HEAD
 function sanitizeBudgets(
   input: Record<string, number> | undefined
 ): Record<string, number> {
+=======
+function sanitizeBudgets(input: Record<string, unknown> | undefined): Record<string, number> {
+>>>>>>> 4cc034352a1b8d51aa411e0c5200c5f996da2328
   if (!input) return {};
   const result: Record<string, number> = {};
   for (const [rawCategory, rawValue] of Object.entries(input)) {

@@ -63,9 +63,16 @@ function renderHook<T>(callback: () => T) {
 }
 
 const baseSnapshot: UISnapshot = {
-  friends: [{ id: "friend-1", name: "Alex", email: "alex@example.com" }],
+  friends: [{ 
+    id: "friend-1", 
+    name: "Alex", 
+    email: "alex@example.com",
+    active: true,
+    createdAt: Date.now()
+  }],
   selectedId: null,
   transactions: [],
+  templates: [],
 };
 
 const createUpdaters = () => {
@@ -78,6 +85,9 @@ const createUpdaters = () => {
   const setTransactions = vi.fn<
     UseLegacySnapshotResult["updaters"]["setTransactions"]
   >();
+  const setTemplates = vi.fn<
+    UseLegacySnapshotResult["updaters"]["setTemplates"]
+  >();
   const replaceSnapshot = vi.fn<
     UseLegacySnapshotResult["updaters"]["replaceSnapshot"]
   >();
@@ -88,6 +98,7 @@ const createUpdaters = () => {
       setFriends,
       setSelectedId,
       setTransactions,
+      setTemplates,
       replaceSnapshot,
       reset,
     } as UseLegacySnapshotResult["updaters"],
@@ -95,6 +106,7 @@ const createUpdaters = () => {
       setFriends,
       setSelectedId,
       setTransactions,
+      setTemplates,
       replaceSnapshot,
       reset,
     },
@@ -122,6 +134,8 @@ describe("useFriendSelection", () => {
       id: "friend-2",
       name: "Maria",
       email: "maria@example.com",
+      active: true,
+      createdAt: Date.now()
     };
 
     let outcome: ReturnType<UseFriendSelectionResult["createFriend"]>;
@@ -161,6 +175,8 @@ describe("useFriendSelection", () => {
         id: "friend-3",
         name: "Alex Clone",
         email: "alex@example.com",
+        active: true,
+        createdAt: Date.now()
       });
       expect(outcome).toEqual({ ok: false, reason: "duplicate-email" });
     });
@@ -179,11 +195,12 @@ describe("useFriendSelection", () => {
     const { updaters } = createUpdaters();
     const snapshot: UISnapshot = {
       friends: [
-        { id: "friend-1", name: "Alex", email: "alex@example.com" },
-        { id: "friend-2", name: "Maria", email: "maria@example.com" },
+        { id: "friend-1", name: "Alex", email: "alex@example.com", active: true, createdAt: Date.now() },
+        { id: "friend-2", name: "Maria", email: "maria@example.com", active: true, createdAt: Date.now() },
       ],
       selectedId: "friend-2",
       transactions: [{ id: "tx-1" }] as unknown as UISnapshot["transactions"],
+      templates: [],
     };
     useLegacySnapshotMock.mockReturnValue({
       snapshot,
@@ -303,6 +320,8 @@ describe("useFriendSelection", () => {
       id: "friend-1",
       name: "Alex",
       email: "alex@example.com",
+      active: true,
+      createdAt: Date.now()
     };
     const snapshot: UISnapshot = {
       friends: [friend],
@@ -316,6 +335,7 @@ describe("useFriendSelection", () => {
           effects: [{ friendId: "friend-1", delta: 10, share: 10 }],
         },
       ] as unknown as UISnapshot["transactions"],
+      templates: [],
     };
 
     useLegacySnapshotMock.mockReturnValue({
@@ -326,12 +346,12 @@ describe("useFriendSelection", () => {
 
     const { result, unmount } = renderHook(() => useFriendSelection());
 
-    let outcome: ReturnType<UseFriendSelectionResult["removeFriend"]>;
+    let outcome: ReturnType<UseFriendSelectionResult["removeFriend"]> | undefined;
     act(() => {
       outcome = result.current.removeFriend("friend-1");
     });
 
-    expect(outcome).toEqual({ ok: true });
+    expect(outcome!).toEqual({ ok: true });
     expect(mocks.setFriends).toHaveBeenCalledTimes(1);
     const nextFriends = mocks.setFriends.mock.calls[0]?.[0];
     expect(typeof nextFriends).toBe("function");
@@ -357,11 +377,14 @@ describe("useFriendSelection", () => {
       id: "friend-1",
       name: "Alex",
       email: "alex@example.com",
+      active: true,
+      createdAt: Date.now()
     };
     const snapshot: UISnapshot = {
       friends: [friend],
       selectedId: "friend-1",
       transactions: [] as UISnapshot["transactions"],
+      templates: [],
     };
 
     useLegacySnapshotMock.mockReturnValue({
@@ -378,12 +401,12 @@ describe("useFriendSelection", () => {
 
     const { result, unmount } = renderHook(() => useFriendSelection());
 
-    let outcome: ReturnType<UseFriendSelectionResult["removeFriend"]>;
+    let outcome: ReturnType<UseFriendSelectionResult["removeFriend"]> | undefined;
     act(() => {
       outcome = result.current.removeFriend("friend-1");
     });
 
-    expect(outcome).toEqual({ ok: false, reason: "outstanding-balance" });
+    expect(outcome!).toEqual({ ok: false, reason: "outstanding-balance" });
     expect(alertSpy).toHaveBeenCalledWith(
       "Settle any outstanding balance with this friend before removing them."
     );

@@ -116,6 +116,18 @@ export default function LegacyAppShell() {
   const toastApi = useToasts();
   const addToast = toastApi.addToast;
 
+  // Wrapper to make setDraftPreset compatible with Dispatch<SetStateAction<T>>
+  const setDraftPresetWrapper = useCallback(
+    (action: SplitDraftPreset | null | ((prev: SplitDraftPreset | null) => SplitDraftPreset | null)) => {
+      if (typeof action === "function") {
+        setDraftPreset(action(draftPreset));
+      } else {
+        setDraftPreset(action);
+      }
+    },
+    [setDraftPreset, draftPreset]
+  );
+
   const {
     handleAutomation,
     handleApplyTemplate,
@@ -124,7 +136,7 @@ export default function LegacyAppShell() {
   } = useTransactionTemplates({
     setTemplates,
     addTransaction,
-    setDraftPreset,
+    setDraftPreset: setDraftPresetWrapper,
   });
 
   const storeSnapshot = useMemo<
@@ -478,7 +490,7 @@ export default function LegacyAppShell() {
           <EditTransactionModal
             tx={editTx}
             friend={
-              friendsById.get(editTx.effect?.friendId || editTx.friendId) ??
+              friendsById.get((editTx.effect?.friendId || editTx.friendId) ?? "") ??
               null
             }
             onClose={() => setEditTx(null)}

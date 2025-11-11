@@ -2,13 +2,14 @@ import { useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { roundToCents } from "../lib/money";
 import { buildSplitTransaction } from "../lib/transactions";
-import type { StoredTransaction } from "../types/legacySnapshot";
+import type { StoredTransaction, StoredSnapshotTemplate } from "../types/legacySnapshot";
 import type {
   TransactionTemplate,
   TransactionTemplateRecurrence,
   SplitDraftPreset,
   RecurrenceFrequency,
 } from "../types/transactionTemplate";
+import type { TransactionParticipant } from "../types/transaction";
 import type { LegacySnapshotUpdaters } from "./useLegacySnapshot";
 
 export interface SplitAutomationTemplateRequest {
@@ -49,7 +50,7 @@ function generateTemplateId(): string {
 
 function cloneParticipants(
   participants: StoredTransaction["participants"] | undefined
-): StoredTransaction["participants"] {
+): TransactionParticipant[] {
   if (!Array.isArray(participants)) return [];
   return participants.map((participant) => ({
     id: participant.id,
@@ -173,9 +174,9 @@ export function useTransactionTemplates({
         const next = [...prev];
         const index = next.findIndex((entry) => entry.id === record.id);
         if (index >= 0) {
-          next[index] = record;
+          next[index] = record as StoredSnapshotTemplate;
         } else {
-          next.unshift(record);
+          next.unshift(record as StoredSnapshotTemplate);
         }
         return next;
       });

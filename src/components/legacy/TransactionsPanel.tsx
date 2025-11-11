@@ -5,13 +5,14 @@ import type {
   TransactionTemplate,
   SplitDraftPreset,
 } from "../../types/transactionTemplate";
+import type { SplitAutomationRequest } from "../../hooks/useTransactionTemplates";
 import TransactionTemplatesPanel from "../TransactionTemplatesPanel";
 import { useDebouncedCallback } from "../../hooks/useDebouncedCallback";
 
 const SplitForm = lazy(() => import("../SplitForm"));
 const Transactions = lazy(() => import("../Transactions"));
 
-interface FriendTransaction extends Transaction {
+interface FriendTransaction extends StoredTransaction {
   effect?: {
     friendId: string;
     delta: number;
@@ -27,8 +28,8 @@ interface TransactionsPanelProps {
   transactions: FriendTransaction[];
   txFilter: string;
   categories: string[];
-  onSplit: (transaction: Transaction) => void;
-  onAutomation?: (transaction: Transaction, automation: unknown) => void;
+  onSplit: (transaction: StoredTransaction) => void;
+  onAutomation?: (transaction: StoredTransaction, automation: SplitAutomationRequest | null) => void;
   onOpenSettlement: () => void;
   onFilterChange: (value: string) => void;
   onClearFilter: () => void;

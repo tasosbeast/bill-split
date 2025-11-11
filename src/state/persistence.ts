@@ -98,18 +98,18 @@ function sanitizeTransaction(input: unknown): PersistedTransaction | null {
 
   if (Array.isArray(raw.participants)) {
     safe.participants = raw.participants
-      .map((participant) => {
+      .map((participant): { id: string; amount: number } | null => {
         if (!participant || typeof participant !== "object") return null;
         const pid =
           typeof participant.id === "string" ? participant.id : undefined;
         if (!pid) return null;
         const amount = Number(participant.amount);
         const normalized = Number.isFinite(amount) ? roundToCents(amount) : 0;
-        return { id: pid, amount: normalized } satisfies PersistedParticipant;
+        return { id: pid, amount: normalized };
       })
       .filter(
-        (value): value is PersistedParticipant => value !== null
-      );
+        (value): value is { id: string; amount: number } => value !== null
+      ) as PersistedParticipant[];
   }
 
   if (safe.type === "settlement") {

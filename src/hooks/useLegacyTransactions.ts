@@ -30,7 +30,14 @@ export interface LegacyTransactionsHandlers {
   reopenSettlement: (transactionId: string) => void;
 }
 
-export function useLegacyTransactions(): {
+export function useLegacyTransactions(
+  // Legacy parameters kept for backwards compatibility but ignored
+  _legacyParams?: {
+    transactions?: StoredTransaction[];
+    selectedFriendId?: string | null;
+    setTransactions?: (updater: StoredTransaction[] | ((prev: StoredTransaction[]) => StoredTransaction[])) => void;
+  }
+): {
   state: LegacyTransactionsState;
   handlers: LegacyTransactionsHandlers;
 } {

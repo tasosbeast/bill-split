@@ -137,15 +137,18 @@ Add `npm run size` to CI pipeline to fail builds that exceed limits. This preven
 Client-side error tracking is integrated via Sentry and is disabled by default. It only activates when a DSN is provided.
 
 - Config: `.env` or build environment
+
   - `VITE_SENTRY_DSN` — Sentry DSN (empty disables tracking)
   - Optional: `VITE_APP_VERSION` — release identifier
   - Optional (source maps upload during CI): `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_RELEASE`
 
 - Initialization: `src/services/errorTracking.ts` (no-op if DSN missing)
+
   - Safe defaults: tracesSampleRate = 0.05, replays disabled except on error
   - Privacy: basic scrubbing in `beforeSend` (no headers, no user email/username)
 
 - React Error Boundary:
+
   - `src/components/ErrorBoundary.tsx` wraps the app in `src/main.jsx`
   - Shows a minimal fallback on runtime errors and reports to Sentry if enabled
 
@@ -154,8 +157,9 @@ Client-side error tracking is integrated via Sentry and is disabled by default. 
   - Builds continue normally without Sentry env configured
 
 Disable/Enable:
-  - To disable, leave `VITE_SENTRY_DSN` empty (default)
-  - To enable, set `VITE_SENTRY_DSN` and rebuild
+
+- To disable, leave `VITE_SENTRY_DSN` empty (default)
+- To enable, set `VITE_SENTRY_DSN` and rebuild
 
 ---
 

@@ -1,21 +1,33 @@
 import { getStorage, type StorageLike } from "../services/storage";
 import type { SettlementStatus } from "../types/transaction";
 import { parsePersistedEnvelope } from "./schemas";
-import type {
-  PersistedTransaction as SchemaPersistedTransaction,
-  PersistedParticipant as SchemaPersistedParticipant,
-} from "./schemas";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StorageAdapter extends StorageLike {}
 
-// Re-export types from schemas for backward compatibility
-export type PersistedParticipant = SchemaPersistedParticipant;
-export type PersistedTransaction = SchemaPersistedTransaction;
+// Keep the original flexible input types for the public API
+export interface PersistedParticipant {
+  id?: unknown;
+  amount?: unknown;
+}
+
+export interface PersistedTransaction {
+  [key: string]: unknown;
+  id?: unknown;
+  type?: unknown;
+  category?: unknown;
+  total?: unknown;
+  participants?: PersistedParticipant[];
+  settlementStatus?: unknown;
+  settlementInitiatedAt?: unknown;
+  settlementConfirmedAt?: unknown;
+  settlementCancelledAt?: unknown;
+  payment?: unknown;
+}
 
 export interface PersistedTransactionsState {
   transactions: PersistedTransaction[];
-  budgets: Record<string, number>;
+  budgets: Record<string, unknown>;
 }
 
 const STORAGE_KEY = "bill-split:transactions";

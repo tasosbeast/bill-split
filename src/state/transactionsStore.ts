@@ -119,7 +119,7 @@ function sanitizeTransactions(transactions: readonly unknown[]): TransactionReco
     .filter(Boolean) as TransactionRecord[];
 }
 
-function sanitizeBudgets(input: Record<string, number> | undefined): Record<string, number> {
+function sanitizeBudgets(input: Record<string, unknown> | undefined): Record<string, number> {
   if (!input) return {};
   const result: Record<string, number> = {};
   for (const [rawCategory, rawValue] of Object.entries(input)) {

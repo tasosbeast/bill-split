@@ -86,6 +86,7 @@ export const PersistedTransactionSchema = z
       .unknown()
       .optional()
       .transform((val) => {
+        if (val === undefined) return undefined;
         if (!val || typeof val !== "object" || Array.isArray(val)) {
           return null;
         }

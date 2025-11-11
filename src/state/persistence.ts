@@ -1,13 +1,11 @@
-import { roundToCents } from "../lib/money";
 import { getStorage, type StorageLike } from "../services/storage";
-import type {
-  SettlementStatus,
-  TransactionPaymentMetadata,
-} from "../types/transaction";
+import type { SettlementStatus } from "../types/transaction";
+import { parsePersistedEnvelope } from "./schemas";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StorageAdapter extends StorageLike {}
 
+// Keep the original flexible input types for the public API
 export interface PersistedParticipant {
   id?: unknown;
   amount?: unknown;
@@ -29,41 +27,13 @@ export interface PersistedTransaction {
 
 export interface PersistedTransactionsState {
   transactions: PersistedTransaction[];
-  budgets: Record<string, number>;
+  budgets: Record<string, unknown>;
 }
 
 const STORAGE_KEY = "bill-split:transactions";
 
 let customStorage: StorageAdapter | null = null;
 let fallbackStorage: StorageAdapter | null = null;
-
-const SETTLEMENT_STATUSES = new Set<SettlementStatus>([
-  "initiated",
-  "pending",
-  "confirmed",
-  "cancelled",
-]);
-
-function normalizeSettlementStatus(value: unknown): SettlementStatus | null {
-  if (typeof value !== "string") return null;
-  const lowered = value.trim().toLowerCase();
-  if (lowered === "canceled") {
-    return "cancelled";
-  }
-  if (SETTLEMENT_STATUSES.has(lowered as SettlementStatus)) {
-    return lowered as SettlementStatus;
-  }
-  return null;
-}
-
-function sanitizePaymentMetadata(
-  value: unknown
-): TransactionPaymentMetadata | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-  return value as TransactionPaymentMetadata;
-}
 
 function resolveNativeStorage(): StorageAdapter | null {
   return getStorage();
@@ -79,78 +49,53 @@ function ensureStorage(): StorageAdapter {
   return fallbackStorage;
 }
 
-function sanitizeBudgets(input: unknown): Record<string, number> {
-  if (!input || typeof input !== "object") return {};
-  const result: Record<string, number> = {};
-  for (const [rawKey, rawValue] of Object.entries(input as Record<string, unknown>)) {
-    if (typeof rawKey !== "string") continue;
-    const value = Number(rawValue);
-    if (!Number.isFinite(value) || value < 0) continue;
-    result[rawKey] = roundToCents(value);
-  }
-  return result;
-}
-
-function sanitizeTransaction(input: unknown): PersistedTransaction | null {
-  if (!input || typeof input !== "object") return null;
-  const raw = input as PersistedTransaction;
-  const safe: PersistedTransaction = { ...raw };
-
-  if (Array.isArray(raw.participants)) {
-    safe.participants = raw.participants
-      .map((participant): { id: string; amount: number } | null => {
-        if (!participant || typeof participant !== "object") return null;
-        const pid =
-          typeof participant.id === "string" ? participant.id : undefined;
-        if (!pid) return null;
-        const amount = Number(participant.amount);
-        const normalized = Number.isFinite(amount) ? roundToCents(amount) : 0;
-        return { id: pid, amount: normalized };
-      })
-      .filter(
-        (value): value is { id: string; amount: number } => value !== null
-      ) as PersistedParticipant[];
+/**
+ * Apply settlement-specific timestamp normalization.
+ * This function handles the settlement transaction timestamps that need
+ * to be filled in based on status and other timestamps.
+ */
+function normalizeSettlementTimestamps(
+  transaction: PersistedTransaction
+): PersistedTransaction {
+  if (transaction.type !== "settlement") {
+    return transaction;
   }
 
-  if (safe.type === "settlement") {
-    const nextStatus =
-      normalizeSettlementStatus(safe.settlementStatus) ?? "confirmed";
-    safe.settlementStatus = nextStatus;
+  const safe = { ...transaction };
+  
+  // Determine the status, defaulting to "confirmed" for settlements
+  const status = (safe.settlementStatus as SettlementStatus | undefined) ?? "confirmed";
+  safe.settlementStatus = status;
 
-    const createdAtString =
-      typeof safe.createdAt === "string" && safe.createdAt
-        ? safe.createdAt
-        : null;
-    const initiatedAt =
-      typeof safe.settlementInitiatedAt === "string" && safe.settlementInitiatedAt
-        ? safe.settlementInitiatedAt
-        : createdAtString;
-    safe.settlementInitiatedAt = initiatedAt;
+  const createdAtString =
+    typeof safe.createdAt === "string" && safe.createdAt
+      ? safe.createdAt
+      : null;
+  const initiatedAt =
+    typeof safe.settlementInitiatedAt === "string" && safe.settlementInitiatedAt
+      ? safe.settlementInitiatedAt
+      : createdAtString;
+  safe.settlementInitiatedAt = initiatedAt;
 
-    const updatedAtString =
-      typeof safe.updatedAt === "string" && safe.updatedAt ? safe.updatedAt : null;
-    const confirmedFallback = updatedAtString ?? initiatedAt;
-    const confirmedAt =
-      typeof safe.settlementConfirmedAt === "string" && safe.settlementConfirmedAt
-        ? safe.settlementConfirmedAt
-        : nextStatus === "confirmed"
-        ? confirmedFallback
-        : null;
-    safe.settlementConfirmedAt = confirmedAt;
+  const updatedAtString =
+    typeof safe.updatedAt === "string" && safe.updatedAt ? safe.updatedAt : null;
+  const confirmedFallback = updatedAtString ?? initiatedAt;
+  const confirmedAt =
+    typeof safe.settlementConfirmedAt === "string" && safe.settlementConfirmedAt
+      ? safe.settlementConfirmedAt
+      : status === "confirmed"
+      ? confirmedFallback
+      : null;
+  safe.settlementConfirmedAt = confirmedAt;
 
-    const cancelledFallback = updatedAtString ?? initiatedAt;
-    const cancelledAt =
-      typeof safe.settlementCancelledAt === "string" && safe.settlementCancelledAt
-        ? safe.settlementCancelledAt
-        : nextStatus === "cancelled"
-        ? cancelledFallback
-        : null;
-    safe.settlementCancelledAt = cancelledAt;
-
-    safe.payment = sanitizePaymentMetadata(safe.payment);
-  } else if (safe.payment !== undefined) {
-    safe.payment = sanitizePaymentMetadata(safe.payment);
-  }
+  const cancelledFallback = updatedAtString ?? initiatedAt;
+  const cancelledAt =
+    typeof safe.settlementCancelledAt === "string" && safe.settlementCancelledAt
+      ? safe.settlementCancelledAt
+      : status === "cancelled"
+      ? cancelledFallback
+      : null;
+  safe.settlementCancelledAt = cancelledAt;
 
   return safe;
 }
@@ -186,15 +131,24 @@ export function loadTransactionsState(): PersistedTransactionsState | null {
   try {
     const raw = storage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Record<string, unknown> | null;
-    if (!parsed || typeof parsed !== "object") return null;
-    const transactions = Array.isArray(parsed.transactions)
-      ? (parsed.transactions
-          .map((entry) => sanitizeTransaction(entry))
-          .filter(Boolean) as PersistedTransaction[])
-      : [];
-    const budgets = sanitizeBudgets(parsed.budgets);
-    return { transactions, budgets };
+    const parsed: unknown = JSON.parse(raw);
+    
+    // Use Zod-based parsing
+    const envelope = parsePersistedEnvelope(parsed);
+    if (!envelope) {
+      console.warn("Failed to parse transactions state with Zod schemas");
+      return null;
+    }
+    
+    // Apply settlement-specific timestamp normalization
+    const normalizedTransactions = envelope.payload.transactions.map(
+      normalizeSettlementTimestamps
+    );
+    
+    return {
+      transactions: normalizedTransactions,
+      budgets: envelope.payload.budgets,
+    };
   } catch (error) {
     console.warn("Failed to load transactions state", error);
     return null;
@@ -205,14 +159,37 @@ export function persistTransactionsState(
   state: PersistedTransactionsState
 ): void {
   const storage = ensureStorage();
-  const safeTransactions = Array.isArray(state.transactions)
-    ? (state.transactions
-        .map((entry) => sanitizeTransaction(entry))
-        .filter(Boolean) as PersistedTransaction[])
-    : [];
+  
+  // Use Zod-based parsing to validate and sanitize before persisting
+  const envelope = parsePersistedEnvelope({
+    transactions: state.transactions,
+    budgets: state.budgets,
+  });
+  
+  if (!envelope) {
+    console.warn("Failed to sanitize transactions state for persistence");
+    // Use the state as-is if parsing fails (defensive)
+    const payload = JSON.stringify({
+      transactions: state.transactions,
+      budgets: state.budgets,
+    });
+    try {
+      storage.setItem(STORAGE_KEY, payload);
+    } catch (error) {
+      console.warn("Failed to persist transactions state to storage", error);
+      throw error;
+    }
+    return;
+  }
+  
+  // Apply settlement-specific timestamp normalization
+  const normalizedTransactions = envelope.payload.transactions.map(
+    normalizeSettlementTimestamps
+  );
+  
   const payload = JSON.stringify({
-    transactions: safeTransactions,
-    budgets: sanitizeBudgets(state.budgets),
+    transactions: normalizedTransactions,
+    budgets: envelope.payload.budgets,
   });
 
   // Wrap setItem in try/catch so callers don't get an uncaught exception.

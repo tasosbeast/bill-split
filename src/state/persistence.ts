@@ -5,7 +5,8 @@ import type {
   TransactionPaymentMetadata,
 } from "../types/transaction";
 
-export type StorageAdapter = StorageLike;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StorageAdapter extends StorageLike {}
 
 export interface PersistedParticipant {
   id?: unknown;

@@ -18,8 +18,14 @@ type TransactionFiltersApi = {
   setCategory: (category: string) => void;
   setDateRange: (range: DateRangeValue) => void;
   resetFilters: () => void;
-  applyFilters: <T extends { category?: string | undefined; createdAt?: string | null | undefined; updatedAt?: string | null | undefined }>(
-    transactions?: T[],
+  applyFilters: <
+    T extends {
+      category?: string | undefined;
+      createdAt?: string | null | undefined;
+      updatedAt?: string | null | undefined;
+    }
+  >(
+    transactions?: T[]
   ) => T[];
   hasActiveFilters: boolean;
 };
@@ -52,7 +58,7 @@ declare module "../components/AnalyticsTrendChart" {
   };
 
   export default function AnalyticsTrendChart(
-    props: AnalyticsTrendChartProps,
+    props: AnalyticsTrendChartProps
   ): JSX.Element;
 }
 
@@ -67,6 +73,6 @@ declare module "../components/AnalyticsCategoryList" {
   };
 
   export default function AnalyticsCategoryList(
-    props: AnalyticsCategoryListProps,
+    props: AnalyticsCategoryListProps
   ): JSX.Element;
 }

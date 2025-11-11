@@ -46,11 +46,11 @@ export type TransactionLike = {
   friendIds?: string[] | null;
   half?: number;
   delta?: number;
-    effects?: Effect[] | null;
-    participants?: Participant[] | null;
-    category?: string | null;
-    note?: string | null;
-    createdAt?: string | null;
+  effects?: Effect[] | null;
+  participants?: Participant[] | null;
+  category?: string | null;
+  note?: string | null;
+  createdAt?: string | null;
   updatedAt?: string | null;
   templateId?: string | null;
   templateName?: string | null;

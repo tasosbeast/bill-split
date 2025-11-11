@@ -27,6 +27,7 @@ vi.mock("../../lib/transactions", () => ({
 }));
 
 const { useLegacySnapshot } = await import("../useLegacySnapshot");
+const { useAppStore } = await import("../../state/appStore");
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
@@ -68,6 +69,8 @@ describe("useLegacySnapshot", () => {
   });
 
   beforeEach(() => {
+    // Reset store state before each test
+    useAppStore.getState().reset();
     storageMock.loadState.mockReturnValue(null);
     upgradeTransactionsMock.mockImplementation(
       (list: StoredTransaction[] = []) => [...list]

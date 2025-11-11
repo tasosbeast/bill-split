@@ -164,10 +164,6 @@ describe("useFriendSelection", () => {
       updaters,
     });
 
-    const alertSpy = vi
-      .spyOn(window, "alert")
-      .mockImplementation(() => undefined);
-
     const { result, unmount } = renderHook(() => useFriendSelection());
 
     act(() => {
@@ -181,13 +177,9 @@ describe("useFriendSelection", () => {
       expect(outcome).toEqual({ ok: false, reason: "duplicate-email" });
     });
 
-    expect(alertSpy).toHaveBeenCalledWith(
-      "A friend with this email already exists."
-    );
     expect(mocks.setFriends).not.toHaveBeenCalled();
     expect(mocks.setSelectedId).not.toHaveBeenCalled();
 
-    alertSpy.mockRestore();
     unmount();
   });
 
@@ -229,10 +221,6 @@ describe("useFriendSelection", () => {
       updaters,
     });
 
-    const alertSpy = vi
-      .spyOn(window, "alert")
-      .mockImplementation(() => undefined);
-
     const { result, unmount } = renderHook(() => useFriendSelection());
 
     let outcome: ReturnType<UseFriendSelectionResult["ensureSettle"]>;
@@ -242,11 +230,7 @@ describe("useFriendSelection", () => {
 
     const outcomeValue = outcome!;
     expect(outcomeValue).toEqual({ allowed: false, reason: "no-selection" });
-    expect(alertSpy).toHaveBeenCalledWith(
-      "Select a friend before settling the balance."
-    );
 
-    alertSpy.mockRestore();
     unmount();
   });
 
@@ -262,10 +246,6 @@ describe("useFriendSelection", () => {
     });
     computeBalancesMock.mockReturnValue(new Map<string, number>([["friend-1", 0]]));
 
-    const alertSpy = vi
-      .spyOn(window, "alert")
-      .mockImplementation(() => undefined);
-
     const { result, unmount } = renderHook(() => useFriendSelection());
 
     let outcome: ReturnType<UseFriendSelectionResult["ensureSettle"]>;
@@ -275,11 +255,7 @@ describe("useFriendSelection", () => {
 
     const outcomeValue = outcome!;
     expect(outcomeValue).toEqual({ allowed: false, reason: "no-balance" });
-    expect(alertSpy).toHaveBeenCalledWith(
-      "This friend is already settled."
-    );
 
-    alertSpy.mockRestore();
     unmount();
   });
 
@@ -395,10 +371,6 @@ describe("useFriendSelection", () => {
       new Map<string, number>([["friend-1", 12.5]])
     );
 
-    const alertSpy = vi
-      .spyOn(window, "alert")
-      .mockImplementation(() => undefined);
-
     const { result, unmount } = renderHook(() => useFriendSelection());
 
     let outcome: ReturnType<UseFriendSelectionResult["removeFriend"]> | undefined;
@@ -407,13 +379,9 @@ describe("useFriendSelection", () => {
     });
 
     expect(outcome!).toEqual({ ok: false, reason: "outstanding-balance" });
-    expect(alertSpy).toHaveBeenCalledWith(
-      "Settle any outstanding balance with this friend before removing them."
-    );
     expect(mocks.setFriends).not.toHaveBeenCalled();
     expect(mocks.setTransactions).not.toHaveBeenCalled();
 
-    alertSpy.mockRestore();
     unmount();
   });
 });

@@ -10,13 +10,16 @@ const getTransactionEffectsMock = vi.fn<
 const transactionIncludesFriendMock = vi.fn<
   (transaction: StoredTransaction, friendId: string) => boolean
 >();
+const upgradeTransactionsMock = vi.fn<(list: any[]) => any[]>();
 
 vi.mock("../../lib/transactions", () => ({
   getTransactionEffects: getTransactionEffectsMock,
   transactionIncludesFriend: transactionIncludesFriendMock,
+  upgradeTransactions: upgradeTransactionsMock,
 }));
 
 const { useLegacyTransactions } = await import("../useLegacyTransactions");
+const { useAppStore } = await import("../../state/appStore");
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
@@ -88,10 +91,13 @@ const snapshot: UISnapshot = {
 describe("useLegacyTransactions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset store to clean state
+    useAppStore.getState().reset();
     getTransactionEffectsMock.mockReturnValue([]);
     transactionIncludesFriendMock.mockImplementation((transaction, friendId) =>
       (transaction.friendIds || []).includes(friendId)
     );
+    upgradeTransactionsMock.mockImplementation((list) => list);
     vi.stubGlobal("crypto", {
       randomUUID: vi.fn(() => "generated-id"),
     });
@@ -104,26 +110,14 @@ describe("useLegacyTransactions", () => {
   });
 
   it("exposes transactions and default filter", () => {
-    let store = snapshot.transactions;
-    const setTransactions = vi.fn(
-      (
-        updater:
-          | StoredTransaction[]
-          | ((previous: StoredTransaction[]) => StoredTransaction[])
-      ) => {
-        store = typeof updater === "function" ? updater(store) : updater;
-      }
-    );
+    // Populate store with test data
+    useAppStore.getState().replaceSnapshot(snapshot);
 
     const { result, unmount } = renderHook(() =>
-      useLegacyTransactions({
-        transactions: store,
-        selectedFriendId: snapshot.selectedId,
-        setTransactions,
-      })
+      useLegacyTransactions()
     );
 
-    expect(result.current.state.transactions).toEqual(store);
+    expect(result.current.state.transactions).toEqual(snapshot.transactions);
     expect(result.current.state.filter).toBe("All");
     expect(result.current.state.transactionsByFilter).toHaveLength(2);
 
@@ -131,13 +125,11 @@ describe("useLegacyTransactions", () => {
   });
 
   it("updates the filter and clears it", () => {
-    const setTransactions = vi.fn();
+    // Populate store with test data
+    useAppStore.getState().replaceSnapshot(snapshot);
+
     const { result, rerender, unmount } = renderHook(() =>
-      useLegacyTransactions({
-        transactions: snapshot.transactions,
-        selectedFriendId: snapshot.selectedId,
-        setTransactions,
-      })
+      useLegacyTransactions()
     );
 
     act(() => {
@@ -163,12 +155,11 @@ describe("useLegacyTransactions", () => {
       transaction.id === "tx-1" ? effects : []
     );
 
+    // Populate store with test data
+    useAppStore.getState().replaceSnapshot(snapshot);
+
     const { result, unmount } = renderHook(() =>
-      useLegacyTransactions({
-        transactions: snapshot.transactions,
-        selectedFriendId: "friend-1",
-        setTransactions: vi.fn(),
-      })
+      useLegacyTransactions()
     );
 
     expect(result.current.state.transactionsForSelectedFriend).toHaveLength(1);
@@ -180,23 +171,11 @@ describe("useLegacyTransactions", () => {
   });
 
   it("adds, updates, and removes transactions", () => {
-    let store = [...snapshot.transactions];
-    const setTransactions = vi.fn(
-      (
-        updater:
-          | StoredTransaction[]
-          | ((previous: StoredTransaction[]) => StoredTransaction[])
-      ) => {
-        store = typeof updater === "function" ? updater(store) : updater;
-      }
-    );
+    // Populate store with test data
+    useAppStore.getState().replaceSnapshot(snapshot);
 
-    const { result, unmount } = renderHook(() =>
-      useLegacyTransactions({
-        transactions: store,
-        selectedFriendId: snapshot.selectedId,
-        setTransactions,
-      })
+    const { result, unmount, rerender } = renderHook(() =>
+      useLegacyTransactions()
     );
 
     const newTransaction: StoredTransaction = {
@@ -213,40 +192,31 @@ describe("useLegacyTransactions", () => {
     act(() => {
       result.current.handlers.addTransaction(newTransaction);
     });
-    expect(store[0]).toEqual(newTransaction);
+    rerender();
+    expect(result.current.state.transactions[0]).toEqual(newTransaction);
 
     const updated = { ...newTransaction, total: 60 } as StoredTransaction;
     act(() => {
       result.current.handlers.updateTransaction(updated);
     });
-    expect(store[0]).toEqual(updated);
+    rerender();
+    expect(result.current.state.transactions[0]).toEqual(updated);
 
     act(() => {
       result.current.handlers.removeTransaction(updated.id);
     });
-    expect(store.find((tx) => tx.id === updated.id)).toBeUndefined();
+    rerender();
+    expect(result.current.state.transactions.find((tx) => tx.id === updated.id)).toBeUndefined();
 
     unmount();
   });
 
   it("creates a settlement transaction with pending status metadata", () => {
-    let store = [...snapshot.transactions];
-    const setTransactions = vi.fn(
-      (
-        updater:
-          | StoredTransaction[]
-          | ((previous: StoredTransaction[]) => StoredTransaction[])
-      ) => {
-        store = typeof updater === "function" ? updater(store) : updater;
-      }
-    );
+    // Populate store with test data
+    useAppStore.getState().replaceSnapshot(snapshot);
 
     const { result, unmount, rerender } = renderHook(() =>
-      useLegacyTransactions({
-        transactions: store,
-        selectedFriendId: "friend-1",
-        setTransactions,
-      })
+      useLegacyTransactions()
     );
 
     vi.useFakeTimers();
@@ -257,7 +227,7 @@ describe("useLegacyTransactions", () => {
     });
     rerender();
 
-    const settlement = store[0];
+    const settlement = result.current.state.transactions[0];
     expect(settlement.type).toBe("settlement");
     expect(settlement.friendId).toBe("friend-1");
     expect(settlement.effects?.[0]?.delta).toBe(-15);
@@ -272,23 +242,11 @@ describe("useLegacyTransactions", () => {
   });
 
   it("supports confirming, cancelling, and reopening settlements", () => {
-    let store = [...snapshot.transactions];
-    const setTransactions = vi.fn(
-      (
-        updater:
-          | StoredTransaction[]
-          | ((previous: StoredTransaction[]) => StoredTransaction[])
-      ) => {
-        store = typeof updater === "function" ? updater(store) : updater;
-      }
-    );
+    // Populate store with test data
+    useAppStore.getState().replaceSnapshot(snapshot);
 
     const { result, unmount, rerender } = renderHook(() =>
-      useLegacyTransactions({
-        transactions: store,
-        selectedFriendId: "friend-1",
-        setTransactions,
-      })
+      useLegacyTransactions()
     );
 
     vi.useFakeTimers();
@@ -297,7 +255,7 @@ describe("useLegacyTransactions", () => {
       result.current.handlers.addSettlement({ friendId: "friend-1", balance: 20 });
     });
     rerender();
-    const pending = store[0];
+    const pending = result.current.state.transactions[0];
     expect(pending.settlementStatus).toBe("initiated");
 
     vi.setSystemTime(new Date("2024-05-02T09:30:00.000Z"));
@@ -306,7 +264,7 @@ describe("useLegacyTransactions", () => {
     });
     rerender();
 
-    const confirmed = store.find((tx) => tx.id === pending.id)!;
+    const confirmed = result.current.state.transactions.find((tx) => tx.id === pending.id)!;
     expect(confirmed.settlementStatus).toBe("confirmed");
     expect(confirmed.settlementConfirmedAt).toBe("2024-05-02T09:30:00.000Z");
     expect(confirmed.settlementInitiatedAt).toBe("2024-05-01T08:00:00.000Z");
@@ -318,7 +276,7 @@ describe("useLegacyTransactions", () => {
     });
     rerender();
 
-    const cancelled = store.find((tx) => tx.id === pending.id)!;
+    const cancelled = result.current.state.transactions.find((tx) => tx.id === pending.id)!;
     expect(cancelled.settlementStatus).toBe("cancelled");
     expect(cancelled.settlementCancelledAt).toBe("2024-05-03T10:00:00.000Z");
     expect(cancelled.settlementConfirmedAt).toBeNull();
@@ -329,7 +287,7 @@ describe("useLegacyTransactions", () => {
     });
     rerender();
 
-    const reopened = store.find((tx) => tx.id === pending.id)!;
+    const reopened = result.current.state.transactions.find((tx) => tx.id === pending.id)!;
     expect(reopened.settlementStatus).toBe("initiated");
     expect(reopened.settlementCancelledAt).toBeNull();
     expect(reopened.settlementConfirmedAt).toBeNull();

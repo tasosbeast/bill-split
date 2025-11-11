@@ -9,6 +9,7 @@ import { CATEGORIES } from "../lib/categories";
 import { formatEUR, roundToCents } from "../lib/money";
 import { buildSplitTransaction } from "../lib/transactions";
 import type { LegacyFriend } from "../types/legacySnapshot";
+import type { SplitDraftPreset } from "../types/transactionTemplate";
 
 const YOU_ID = "you";
 
@@ -80,7 +81,7 @@ interface SplitFormProps {
     transaction: ReturnType<typeof buildSplitTransaction>,
     intent: TemplateIntent
   ) => void;
-  draft?: DraftTransaction | null;
+  draft?: DraftTransaction | SplitDraftPreset | null;
   resetSignal?: number;
 }
 

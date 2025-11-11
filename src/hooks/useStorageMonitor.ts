@@ -33,14 +33,18 @@ export function useStorageMonitor(
             lastChecked: new Date(),
           });
 
-          // Schedule next check
-          timeoutId = setTimeout(check, checkIntervalMs);
+          // Schedule next check (wrap async in void to satisfy lint rule)
+          timeoutId = setTimeout(() => {
+            void check();
+          }, checkIntervalMs);
         }
       } catch (error) {
         console.warn("Failed to check storage health:", error);
         // Retry after interval even on error
         if (mounted) {
-          timeoutId = setTimeout(check, checkIntervalMs);
+          timeoutId = setTimeout(() => {
+            void check();
+          }, checkIntervalMs);
         }
       }
     }

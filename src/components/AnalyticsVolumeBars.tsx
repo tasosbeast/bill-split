@@ -1,8 +1,17 @@
-import PropTypes from "prop-types";
 import { formatEUR } from "../lib/money";
 import styles from "./AnalyticsVolumeBars.module.css";
 
-export default function AnalyticsVolumeBars({ data }) {
+interface VolumeEntry {
+  key?: string;
+  label: string;
+  amount: number;
+}
+
+interface AnalyticsVolumeBarsProps {
+  data?: VolumeEntry[];
+}
+
+export default function AnalyticsVolumeBars({ data }: AnalyticsVolumeBarsProps) {
   if (!data || data.length === 0) {
     return <div className="kicker">No tracked volume yet.</div>;
   }
@@ -20,8 +29,7 @@ export default function AnalyticsVolumeBars({ data }) {
       {data.map((entry, index) => {
         const amount = amounts[index];
         const width = Math.max((amount / max) * 100, 6);
-        const share =
-          total > 0 ? Math.round((amount / total) * 100) : 0;
+        const share = total > 0 ? Math.round((amount / total) * 100) : 0;
 
         return (
           <div
@@ -42,13 +50,3 @@ export default function AnalyticsVolumeBars({ data }) {
     </div>
   );
 }
-
-AnalyticsVolumeBars.propTypes = {
-  data: PropTypes.arrayOf(
-    PropTypes.shape({
-      key: PropTypes.string,
-      label: PropTypes.string.isRequired,
-      amount: PropTypes.number.isRequired,
-    })
-  ),
-};

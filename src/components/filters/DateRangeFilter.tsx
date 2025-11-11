@@ -1,7 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { useDebouncedCallback } from "../../hooks/useDebouncedCallback";
+import type { DateRange } from "../../lib/transactionFilters";
 
-const EMPTY_RANGE = Object.freeze({ start: null, end: null });
+const EMPTY_RANGE: DateRange = Object.freeze({ start: null, end: null });
+
+interface DateRangeFilterProps {
+  value?: DateRange;
+  onChange?: (range: DateRange) => void;
+  idPrefix?: string;
+  label?: string;
+  disabled?: boolean;
+  debounceMs?: number;
+}
 
 export function DateRangeFilter({
   value = EMPTY_RANGE,
@@ -10,7 +20,7 @@ export function DateRangeFilter({
   label = "Date range",
   disabled = false,
   debounceMs = 250,
-}) {
+}: DateRangeFilterProps) {
   const state = value ?? EMPTY_RANGE;
   const [draftStart, setDraftStart] = useState(state.start ?? "");
   const [draftEnd, setDraftEnd] = useState(state.end ?? "");
@@ -21,7 +31,7 @@ export function DateRangeFilter({
   }, [state.start, state.end]);
 
   const emitChange = useDebouncedCallback(
-    (nextStart, nextEnd) => {
+    (nextStart: string, nextEnd: string) => {
       onChange({
         start: nextStart || null,
         end: nextEnd || null,
@@ -30,13 +40,13 @@ export function DateRangeFilter({
     debounceMs
   );
 
-  const handleStartChange = (event) => {
+  const handleStartChange = (event: ChangeEvent<HTMLInputElement>) => {
     const next = event.target.value ?? "";
     setDraftStart(next);
     emitChange(next, draftEnd);
   };
 
-  const handleEndChange = (event) => {
+  const handleEndChange = (event: ChangeEvent<HTMLInputElement>) => {
     const next = event.target.value ?? "";
     setDraftEnd(next);
     emitChange(draftStart, next);
@@ -58,7 +68,11 @@ export function DateRangeFilter({
         {label}
       </legend>
       <div className="row gap-8">
-        <label className="sr-only" id={`${idPrefix}-start-label`} htmlFor={`${idPrefix}-start`}>
+        <label
+          className="sr-only"
+          id={`${idPrefix}-start-label`}
+          htmlFor={`${idPrefix}-start`}
+        >
           {`${label} start`}
         </label>
         <input
@@ -70,9 +84,13 @@ export function DateRangeFilter({
           aria-describedby={describedBy}
         />
         <span aria-hidden="true" className="filter-separator">
-          –
+          â†’
         </span>
-        <label className="sr-only" id={`${idPrefix}-end-label`} htmlFor={`${idPrefix}-end`}>
+        <label
+          className="sr-only"
+          id={`${idPrefix}-end-label`}
+          htmlFor={`${idPrefix}-end`}
+        >
           {`${label} end`}
         </label>
         <input
@@ -89,8 +107,3 @@ export function DateRangeFilter({
 }
 
 export default DateRangeFilter;
-
-
-
-
-

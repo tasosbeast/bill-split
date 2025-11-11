@@ -1,8 +1,19 @@
-import PropTypes from "prop-types";
 import { formatEUR } from "../lib/money";
 import styles from "./AnalyticsFriendBalances.module.css";
 
-export default function AnalyticsFriendBalances({ entries }) {
+interface FriendBalanceEntry {
+  friendId: string;
+  name: string;
+  balance: number;
+}
+
+interface AnalyticsFriendBalancesProps {
+  entries?: FriendBalanceEntry[];
+}
+
+export default function AnalyticsFriendBalances({
+  entries,
+}: AnalyticsFriendBalancesProps) {
   if (!entries || entries.length === 0) {
     return <div className="kicker">No balances tracked for friends yet.</div>;
   }
@@ -18,10 +29,7 @@ export default function AnalyticsFriendBalances({ entries }) {
       {entries.map((entry) => {
         const isPositive = entry.balance > 0;
         const amount = formatEUR(Math.abs(entry.balance));
-        const width = Math.max(
-          (Math.abs(entry.balance) / safeMax) * 100,
-          6
-        );
+        const width = Math.max((Math.abs(entry.balance) / safeMax) * 100, 6);
 
         return (
           <div key={entry.friendId} className={styles.item}>
@@ -55,13 +63,3 @@ export default function AnalyticsFriendBalances({ entries }) {
     </div>
   );
 }
-
-AnalyticsFriendBalances.propTypes = {
-  entries: PropTypes.arrayOf(
-    PropTypes.shape({
-      friendId: PropTypes.string.isRequired,
-      name: PropTypes.string.isRequired,
-      balance: PropTypes.number.isRequired,
-    })
-  ),
-};

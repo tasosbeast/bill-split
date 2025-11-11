@@ -1,8 +1,15 @@
-import PropTypes from "prop-types";
 import { formatEUR } from "../lib/money";
 import styles from "./AnalyticsNetBalanceChart.module.css";
 
-export default function AnalyticsNetBalanceChart({ owedToYou, youOwe }) {
+interface AnalyticsNetBalanceChartProps {
+  owedToYou: number;
+  youOwe: number;
+}
+
+export default function AnalyticsNetBalanceChart({
+  owedToYou,
+  youOwe,
+}: AnalyticsNetBalanceChartProps) {
   const positive = Math.max(0, owedToYou);
   const negative = Math.max(0, youOwe);
   const total = positive + negative;
@@ -24,14 +31,8 @@ export default function AnalyticsNetBalanceChart({ owedToYou, youOwe }) {
       )}, you owe ${formatEUR(negative)}.`}
     >
       <div className={styles.barTrack} aria-hidden="true">
-        <div
-          className={styles.barPositive}
-          style={{ flexGrow: positive }}
-        />
-        <div
-          className={styles.barNegative}
-          style={{ flexGrow: negative }}
-        />
+        <div className={styles.barPositive} style={{ flexGrow: positive }} />
+        <div className={styles.barNegative} style={{ flexGrow: negative }} />
       </div>
       <dl className={styles.legend}>
         <div className={styles.legendItem}>
@@ -46,8 +47,3 @@ export default function AnalyticsNetBalanceChart({ owedToYou, youOwe }) {
     </div>
   );
 }
-
-AnalyticsNetBalanceChart.propTypes = {
-  owedToYou: PropTypes.number.isRequired,
-  youOwe: PropTypes.number.isRequired,
-};

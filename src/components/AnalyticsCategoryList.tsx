@@ -1,8 +1,18 @@
-import PropTypes from "prop-types";
 import { formatEUR } from "../lib/money";
 import styles from "./AnalyticsCategoryList.module.css";
 
-export default function AnalyticsCategoryList({ categories }) {
+interface CategoryItem {
+  category: string;
+  amount: number;
+}
+
+interface AnalyticsCategoryListProps {
+  categories?: CategoryItem[];
+}
+
+export default function AnalyticsCategoryList({
+  categories,
+}: AnalyticsCategoryListProps) {
   if (!categories || categories.length === 0) {
     return <div className="kicker">No categorized expenses yet.</div>;
   }
@@ -33,12 +43,3 @@ export default function AnalyticsCategoryList({ categories }) {
     </div>
   );
 }
-
-AnalyticsCategoryList.propTypes = {
-  categories: PropTypes.arrayOf(
-    PropTypes.shape({
-      category: PropTypes.string.isRequired,
-      amount: PropTypes.number.isRequired,
-    })
-  ),
-};

@@ -5,7 +5,7 @@ const KIND_ROLE = {
   success: "status",
   info: "status",
   error: "alert",
-};
+} as const;
 
 export default function ToastRegion() {
   const toasts = useToastStore((state) => state.toasts);
@@ -29,7 +29,11 @@ export default function ToastRegion() {
   }
 
   return (
-    <div className="toast-region" aria-live="polite" aria-relevant="additions removals">
+    <div
+      className="toast-region"
+      aria-live="polite"
+      aria-relevant="additions removals"
+    >
       {toasts.map((toast) => (
         <div
           key={toast.id}
@@ -43,15 +47,10 @@ export default function ToastRegion() {
             onClick={() => removeToast(toast.id)}
             aria-label="Dismiss notification"
           >
-            ×
+            âœ•
           </button>
         </div>
       ))}
     </div>
   );
 }
-
-
-
-
-

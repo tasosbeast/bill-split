@@ -1,7 +1,17 @@
-import { useCallback } from "react";
+import { useCallback, type ChangeEvent } from "react";
 import { CATEGORY_FILTER_ALL } from "../../lib/transactionFilters";
 
 const EMPTY_LIST = Object.freeze([]);
+
+interface CategoryFilterProps {
+  categories?: readonly string[];
+  value?: string;
+  onChange?: (value: string) => void;
+  label?: string;
+  id?: string;
+  includeAllOption?: boolean;
+  disabled?: boolean;
+}
 
 export function CategoryFilter({
   categories = EMPTY_LIST,
@@ -11,12 +21,12 @@ export function CategoryFilter({
   id = "category-filter",
   includeAllOption = true,
   disabled = false,
-}) {
+}: CategoryFilterProps) {
   const handleChange = useCallback(
-    (event) => {
+    (event: ChangeEvent<HTMLSelectElement>) => {
       onChange(event.target.value);
     },
-    [onChange],
+    [onChange]
   );
 
   return (

@@ -1,11 +1,23 @@
-import PropTypes from "prop-types";
+import type { ReactNode } from "react";
 import styles from "./AnalyticsCard.module.css";
 
 const ACCENT_CLASS = {
   brand: styles.valueBrand,
   danger: styles.valueDanger,
   neutral: styles.valueNeutral,
-};
+} as const;
+
+type AccentType = keyof typeof ACCENT_CLASS;
+
+interface AnalyticsCardProps {
+  title: string;
+  value?: ReactNode;
+  description?: ReactNode;
+  footer?: ReactNode;
+  accent?: AccentType;
+  className?: string;
+  children?: ReactNode;
+}
 
 export default function AnalyticsCard({
   title,
@@ -15,7 +27,7 @@ export default function AnalyticsCard({
   accent = "brand",
   className = "",
   children,
-}) {
+}: AnalyticsCardProps) {
   const accentClass = ACCENT_CLASS[accent] || styles.valueNeutral;
 
   return (
@@ -38,13 +50,3 @@ export default function AnalyticsCard({
     </section>
   );
 }
-
-AnalyticsCard.propTypes = {
-  title: PropTypes.string.isRequired,
-  value: PropTypes.node,
-  description: PropTypes.node,
-  footer: PropTypes.node,
-  accent: PropTypes.oneOf(["brand", "danger", "neutral"]),
-  className: PropTypes.string,
-  children: PropTypes.node,
-};

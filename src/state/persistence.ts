@@ -5,6 +5,7 @@ import type {
   TransactionPaymentMetadata,
 } from "../types/transaction";
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StorageAdapter extends StorageLike {}
 
 export interface PersistedParticipant {
@@ -213,12 +214,26 @@ export function persistTransactionsState(
     transactions: safeTransactions,
     budgets: sanitizeBudgets(state.budgets),
   });
-  storage.setItem(STORAGE_KEY, payload);
+
+  // Wrap setItem in try/catch so callers don't get an uncaught exception.
+  // Re-throw after logging so callers can implement fallback strategies if desired.
+  try {
+    storage.setItem(STORAGE_KEY, payload);
+  } catch (error) {
+    // Log the error with context and rethrow so the caller can decide what to do.
+    // Typical errors are QuotaExceededError on browsers or storage implementation failures.
+    console.warn("Failed to persist transactions state to storage", error);
+    throw error;
+  }
 }
 
 export function clearTransactionsStatePersistence(): void {
   const storage = ensureStorage();
-  storage.removeItem(STORAGE_KEY);
+  try {
+    storage.removeItem(STORAGE_KEY);
+  } catch (error) {
+    console.warn("Failed to clear transactions state persistence", error);
+  }
 }
 
 export const TRANSACTIONS_STATE_STORAGE_KEY = STORAGE_KEY;

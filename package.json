@@ -15,6 +15,7 @@
     "size:why": "npm run build && size-limit --why"
   },
   "dependencies": {
+    "@sentry/react": "^10.25.0",
     "prop-types": "^15.8.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
+    "@sentry/vite-plugin": "^4.6.0",
     "@size-limit/preset-app": "^11.2.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",

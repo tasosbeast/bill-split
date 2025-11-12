@@ -156,6 +156,11 @@ Client-side error tracking is integrated via Sentry and is disabled by default. 
   - `@sentry/vite-plugin` conditionally enabled in `vite.config.js` when env vars are present
   - Builds continue normally without Sentry env configured
 
+- Content Security Policy (CSP):
+  - `index.html` includes `connect-src` directive allowing Sentry ingest endpoint
+  - Required: `https://o4510348890800128.ingest.de.sentry.io` (or your project's ingest URL)
+  - Without this CSP exception, error transmission will be blocked by the browser
+
 Disable/Enable:
 
 - To disable, leave `VITE_SENTRY_DSN` empty (default)

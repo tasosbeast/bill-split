@@ -15,7 +15,10 @@ function safeEnvString(v: unknown): string | undefined {
 export function initErrorTracking(options: InitOptions = {}): void {
   if (initialized) return;
   const dsn = options.dsn || safeEnvString(import.meta.env.VITE_SENTRY_DSN);
-  if (!dsn) return; // no-op if not configured
+
+  if (!dsn) {
+    return; // no-op if not configured
+  }
 
   Sentry.init({
     dsn,

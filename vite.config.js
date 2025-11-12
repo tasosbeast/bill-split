@@ -12,7 +12,7 @@ export default defineConfig(() => {
       open: false,
       gzipSize: true,
       brotliSize: true,
-      template: "treemap", // or "sunburst", "network"
+      template: "network", // or "sunburst", "network"
     }),
   ];
 
@@ -46,6 +46,20 @@ export default defineConfig(() => {
     plugins,
     test: {
       environment: "jsdom",
+      setupFiles: ["./src/test/setup.ts"],
+      coverage: {
+        provider: "v8",
+        reporter: ["text", "json", "html"],
+        reportsDirectory: "./coverage",
+        reportOnFailure: true,
+        clean: false,
+        include: ["src/**/*.{js,jsx,ts,tsx}"],
+        exclude: [
+          "src/**/__tests__/**",
+          "src/**/*.test.{js,jsx,ts,tsx}",
+          "src/test/**",
+        ],
+      },
     },
     build: {
       sourcemap: "hidden", // Generate source maps but don't reference them in built files

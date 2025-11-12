@@ -46,6 +46,11 @@ export default function EditTransactionModal({
     return false;
   }, [tx]);
 
+  const errorId = useMemo(
+    () => `edit-tx-error-${Math.random().toString(36).slice(2)}`,
+    []
+  );
+
   // Only one-on-one splits allow amount/payer editing; group splits lock amounts
   const simpleEditable = isSplit && friendId && !hasMultipleFriends;
 
@@ -201,6 +206,8 @@ export default function EditTransactionModal({
                 setBill(e.target.value)
               }
               disabled={!simpleEditable}
+              aria-invalid={error ? "true" : "false"}
+              aria-describedby={error ? errorId : undefined}
             />
           </div>
 
@@ -219,6 +226,8 @@ export default function EditTransactionModal({
                 setFriendShare(e.target.value)
               }
               disabled={!simpleEditable}
+              aria-invalid={error ? "true" : "false"}
+              aria-describedby={error ? errorId : undefined}
             />
             <div className="helper">
               Your share will adjust to match the total automatically.
@@ -272,7 +281,11 @@ export default function EditTransactionModal({
             />
           </div>
 
-          {error && <div className="error">{error}</div>}
+          {error && (
+            <div className="error" id={errorId} role="alert">
+              {error}
+            </div>
+          )}
 
           <div className="row justify-end gap-8">
             <button type="button" className="button" onClick={onClose}>

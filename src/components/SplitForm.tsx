@@ -156,6 +156,11 @@ export default function SplitForm({
   const [nextOccurrence, setNextOccurrence] = useState("");
   const [reminderDays, setReminderDays] = useState("2");
 
+  const errorId = useMemo(
+    () => `split-form-error-${Math.random().toString(36).slice(2)}`,
+    []
+  );
+
   const friendsById = useMemo(() => {
     const map = new Map<string, LegacyFriend>();
     for (const f of friends) {
@@ -486,6 +491,8 @@ export default function SplitForm({
           }
           placeholder="e.g. 120.50"
           required
+          aria-invalid={error ? "true" : "false"}
+          aria-describedby={error ? errorId : undefined}
         />
         {totalNumber !== null && (
           <div className="helper">Total: {formatEUR(totalNumber)}</div>
@@ -769,7 +776,11 @@ export default function SplitForm({
         )}
       </div>
 
-      {error && <div className="error">{error}</div>}
+      {error && (
+        <div className="error" id={errorId} role="alert">
+          {error}
+        </div>
+      )}
 
       <div className="row gap-8 flex-wrap">
         <button className="button" type="submit">

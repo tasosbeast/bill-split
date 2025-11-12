@@ -153,6 +153,7 @@ Client-side error tracking is integrated via Sentry and is disabled by default. 
   - Shows a minimal fallback on runtime errors and reports to Sentry if enabled
 
 - Vite Plugin (optional):
+
   - `@sentry/vite-plugin` conditionally enabled in `vite.config.js` when env vars are present
   - Builds continue normally without Sentry env configured
 

@@ -421,50 +421,52 @@ export default function LegacyAppShell() {
         </div>
       </header>
 
-      {view === "analytics" ? (
-        <AnalyticsPanel state={storeSnapshot} />
-      ) : (
-        <div className="layout">
-          <FriendsPanel
-            friends={friends}
-            friendSummaries={friendSummaries}
-            selectedFriendId={selectedId}
-            balances={balances}
-            onAddFriend={openAddModal}
-            onSelectFriend={selectFriend}
-            onRemoveFriend={handleRemoveFriend}
-            settlementSummaries={settlementSummaries}
-            onConfirmSettlement={confirmSettlement}
-          />
+      <main id="main-content">
+        {view === "analytics" ? (
+          <AnalyticsPanel state={storeSnapshot} />
+        ) : (
+          <div className="layout">
+            <FriendsPanel
+              friends={friends}
+              friendSummaries={friendSummaries}
+              selectedFriendId={selectedId}
+              balances={balances}
+              onAddFriend={openAddModal}
+              onSelectFriend={selectFriend}
+              onRemoveFriend={handleRemoveFriend}
+              settlementSummaries={settlementSummaries}
+              onConfirmSettlement={confirmSettlement}
+            />
 
-          <TransactionsPanel
-            friends={friends}
-            selectedFriend={selectedFriend}
-            selectedBalance={selectedBalance}
-            friendsById={friendsById}
-            transactions={transactionsForSelectedFriend}
-            txFilter={txFilter}
-            categories={CATEGORIES}
-            onSplit={handleSplit}
-            onAutomation={handleAutomation}
-            onOpenSettlement={handleOpenSettlementAssistant}
-            onFilterChange={setTxFilter}
-            onClearFilter={clearFilter}
-            onRequestEdit={handleRequestEdit}
-            onDeleteTransaction={handleDeleteTx}
-            onConfirmSettlement={confirmSettlement}
-            onCancelSettlement={cancelSettlement}
-            onReopenSettlement={reopenSettlement}
-            templates={templates}
-            onUseTemplate={handleApplyTemplate}
-            onGenerateRecurring={handleGenerateFromTemplate}
-            onDeleteTemplate={handleDeleteTemplate}
-            draft={draftPreset}
-            onRequestTemplate={handleRequestTemplate}
-            splitFormResetSignal={splitFormResetSignal}
-          />
-        </div>
-      )}
+            <TransactionsPanel
+              friends={friends}
+              selectedFriend={selectedFriend}
+              selectedBalance={selectedBalance}
+              friendsById={friendsById}
+              transactions={transactionsForSelectedFriend}
+              txFilter={txFilter}
+              categories={CATEGORIES}
+              onSplit={handleSplit}
+              onAutomation={handleAutomation}
+              onOpenSettlement={handleOpenSettlementAssistant}
+              onFilterChange={setTxFilter}
+              onClearFilter={clearFilter}
+              onRequestEdit={handleRequestEdit}
+              onDeleteTransaction={handleDeleteTx}
+              onConfirmSettlement={confirmSettlement}
+              onCancelSettlement={cancelSettlement}
+              onReopenSettlement={reopenSettlement}
+              templates={templates}
+              onUseTemplate={handleApplyTemplate}
+              onGenerateRecurring={handleGenerateFromTemplate}
+              onDeleteTemplate={handleDeleteTemplate}
+              draft={draftPreset}
+              onRequestTemplate={handleRequestTemplate}
+              splitFormResetSignal={splitFormResetSignal}
+            />
+          </div>
+        )}
+      </main>
 
       {showRestoreModal && (
         <Suspense fallback={null}>

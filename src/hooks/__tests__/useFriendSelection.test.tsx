@@ -2,19 +2,19 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Friend, UISnapshot } from "../../types/legacySnapshot";
-import type { UseLegacySnapshotResult } from "../useLegacySnapshot";
+import type { UseSnapshotResult } from "../useSnapshot";
 import type { UseFriendSelectionResult } from "../useFriendSelection";
 
 const computeBalancesMock =
   vi.fn<(...args: unknown[]) => Map<string, number>>();
-const useLegacySnapshotMock = vi.fn<() => UseLegacySnapshotResult>();
+const useSnapshotMock = vi.fn<() => UseSnapshotResult>();
 
 vi.mock(
-  "../useLegacySnapshot",
+  "../useSnapshot",
   () =>
     ({
-      useLegacySnapshot: useLegacySnapshotMock,
-    } satisfies { useLegacySnapshot: () => UseLegacySnapshotResult })
+      useSnapshot: useSnapshotMock,
+    } satisfies { useSnapshot: () => UseSnapshotResult })
 );
 
 vi.mock(
@@ -78,16 +78,14 @@ const baseSnapshot: UISnapshot = {
 };
 
 const createUpdaters = () => {
-  const setFriends = vi.fn<UseLegacySnapshotResult["updaters"]["setFriends"]>();
-  const setSelectedId =
-    vi.fn<UseLegacySnapshotResult["updaters"]["setSelectedId"]>();
+  const setFriends = vi.fn<UseSnapshotResult["updaters"]["setFriends"]>();
+  const setSelectedId = vi.fn<UseSnapshotResult["updaters"]["setSelectedId"]>();
   const setTransactions =
-    vi.fn<UseLegacySnapshotResult["updaters"]["setTransactions"]>();
-  const setTemplates =
-    vi.fn<UseLegacySnapshotResult["updaters"]["setTemplates"]>();
+    vi.fn<UseSnapshotResult["updaters"]["setTransactions"]>();
+  const setTemplates = vi.fn<UseSnapshotResult["updaters"]["setTemplates"]>();
   const replaceSnapshot =
-    vi.fn<UseLegacySnapshotResult["updaters"]["replaceSnapshot"]>();
-  const reset = vi.fn<UseLegacySnapshotResult["updaters"]["reset"]>();
+    vi.fn<UseSnapshotResult["updaters"]["replaceSnapshot"]>();
+  const reset = vi.fn<UseSnapshotResult["updaters"]["reset"]>();
 
   return {
     updaters: {
@@ -97,7 +95,7 @@ const createUpdaters = () => {
       setTemplates,
       replaceSnapshot,
       reset,
-    } as UseLegacySnapshotResult["updaters"],
+    } as UseSnapshotResult["updaters"],
     mocks: {
       setFriends,
       setSelectedId,
@@ -112,14 +110,14 @@ const createUpdaters = () => {
 describe("useFriendSelection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useLegacySnapshotMock.mockReset();
+    useSnapshotMock.mockReset();
     computeBalancesMock.mockReset();
     computeBalancesMock.mockReturnValue(new Map<string, number>());
   });
 
   it("appends a friend and selects it when createFriend succeeds", () => {
     const { updaters, mocks } = createUpdaters();
-    useLegacySnapshotMock.mockReturnValue({
+    useSnapshotMock.mockReturnValue({
       snapshot: baseSnapshot,
       updaters,
     });
@@ -155,7 +153,7 @@ describe("useFriendSelection", () => {
 
   it("guards against duplicate friend emails", () => {
     const { updaters, mocks } = createUpdaters();
-    useLegacySnapshotMock.mockReturnValue({
+    useSnapshotMock.mockReturnValue({
       snapshot: baseSnapshot,
       updaters,
     });
@@ -202,7 +200,7 @@ describe("useFriendSelection", () => {
       transactions: [{ id: "tx-1" }] as unknown as UISnapshot["transactions"],
       templates: [],
     };
-    useLegacySnapshotMock.mockReturnValue({
+    useSnapshotMock.mockReturnValue({
       snapshot,
       updaters,
     });
@@ -224,7 +222,7 @@ describe("useFriendSelection", () => {
 
   it("alerts when settle is attempted without a selected friend", () => {
     const { updaters } = createUpdaters();
-    useLegacySnapshotMock.mockReturnValue({
+    useSnapshotMock.mockReturnValue({
       snapshot: baseSnapshot,
       updaters,
     });
@@ -248,7 +246,7 @@ describe("useFriendSelection", () => {
       ...baseSnapshot,
       selectedId: "friend-1",
     };
-    useLegacySnapshotMock.mockReturnValue({
+    useSnapshotMock.mockReturnValue({
       snapshot,
       updaters,
     });
@@ -275,7 +273,7 @@ describe("useFriendSelection", () => {
       ...baseSnapshot,
       selectedId: "friend-1",
     };
-    useLegacySnapshotMock.mockReturnValue({
+    useSnapshotMock.mockReturnValue({
       snapshot,
       updaters,
     });
@@ -324,7 +322,7 @@ describe("useFriendSelection", () => {
       templates: [],
     };
 
-    useLegacySnapshotMock.mockReturnValue({
+    useSnapshotMock.mockReturnValue({
       snapshot,
       updaters,
     });
@@ -381,7 +379,7 @@ describe("useFriendSelection", () => {
       templates: [],
     };
 
-    useLegacySnapshotMock.mockReturnValue({
+    useSnapshotMock.mockReturnValue({
       snapshot,
       updaters,
     });

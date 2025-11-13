@@ -1,0 +1,154 @@
+import { act } from "react";
+import { createRoot } from "react-dom/client";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Friend, StoredTransaction } from "../../types/legacySnapshot"; // TODO Phase 5 rename
+
+const createFriendMock =
+  vi.fn<(friend: Friend) => { ok: boolean; reason?: string }>();
+const ensureSettleMock = vi.fn();
+const removeFriendMock = vi.fn();
+
+const baseSelection = {
+  snapshot: {
+    friends: [] as Friend[],
+    selectedId: null,
+    transactions: [] as StoredTransaction[],
+  },
+  updaters: {
+    setFriends: vi.fn(),
+    setSelectedId: vi.fn(),
+    setTransactions: vi.fn(),
+    replaceSnapshot: vi.fn(),
+    reset: vi.fn(),
+  },
+  friends: [] as Friend[],
+  selectedId: null as string | null,
+  selectedFriend: null as Friend | null,
+  friendsById: new Map<string, Friend>(),
+  balances: new Map<string, number>(),
+  selectedBalance: 0,
+  createFriend: createFriendMock,
+  selectFriend: vi.fn(),
+  ensureSettle: ensureSettleMock,
+  removeFriend: removeFriendMock,
+} as const;
+
+vi.mock("../useFriendSelection", () => ({
+  useFriendSelection: () => baseSelection,
+}));
+
+const { useFriendManagement } = await import("../useFriendManagement");
+
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
+
+function renderHook<T>(callback: () => T) {
+  const result: { current: T | null } = { current: null };
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+
+  function TestComponent() {
+    result.current = callback();
+    return null;
+  }
+
+  act(() => {
+    root.render(<TestComponent />);
+  });
+
+  return {
+    result: result as { current: T },
+    unmount: () => {
+      act(() => root.unmount());
+      container.remove();
+    },
+  };
+}
+
+describe("useFriendManagement", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("toggles add friend modal state", () => {
+    const { result, unmount } = renderHook(() => useFriendManagement());
+
+    expect(result.current.showAddModal).toBe(false);
+
+    act(() => {
+      result.current.openAddModal();
+    });
+    expect(result.current.showAddModal).toBe(true);
+
+    act(() => {
+      result.current.closeAddModal();
+    });
+    expect(result.current.showAddModal).toBe(false);
+
+    unmount();
+  });
+
+  it("invokes createFriend and closes modal on success", () => {
+    createFriendMock.mockReturnValueOnce({ ok: true });
+    const { result, unmount } = renderHook(() => useFriendManagement());
+
+    act(() => {
+      result.current.openAddModal();
+    });
+
+    const friend: Friend = {
+      id: "friend-1",
+      name: "Alex",
+      active: true,
+      createdAt: Date.now(),
+    };
+
+    act(() => {
+      result.current.createFriend(friend);
+    });
+
+    expect(createFriendMock).toHaveBeenCalledWith(friend);
+    expect(result.current.showAddModal).toBe(false);
+
+    unmount();
+  });
+
+  it("keeps modal open when creation fails", () => {
+    createFriendMock.mockReturnValueOnce({
+      ok: false,
+      reason: "duplicate-email",
+    });
+    const { result, unmount } = renderHook(() => useFriendManagement());
+
+    act(() => {
+      result.current.openAddModal();
+    });
+
+    act(() => {
+      result.current.createFriend({
+        id: "friend-2",
+        name: "Maria",
+        active: true,
+        createdAt: Date.now(),
+      });
+    });
+
+    expect(result.current.showAddModal).toBe(true);
+
+    unmount();
+  });
+
+  it("exposes removeFriend from the underlying selection hook", () => {
+    const { result, unmount } = renderHook(() => useFriendManagement());
+    expect(result.current.removeFriend).toBe(removeFriendMock);
+
+    act(() => {
+      result.current.removeFriend("friend-1");
+    });
+    expect(removeFriendMock).toHaveBeenCalledWith("friend-1");
+
+    unmount();
+  });
+});

@@ -2,7 +2,10 @@ import { useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { roundToCents } from "../lib/money";
 import { buildSplitTransaction } from "../lib/transactions";
-import type { StoredTransaction, StoredSnapshotTemplate } from "../types/legacySnapshot";
+import type {
+  StoredTransaction,
+  StoredSnapshotTemplate,
+} from "../types/legacySnapshot";
 import type {
   TransactionTemplate,
   TransactionTemplateRecurrence,
@@ -10,7 +13,7 @@ import type {
   RecurrenceFrequency,
 } from "../types/transactionTemplate";
 import type { TransactionParticipant } from "../types/transaction";
-import type { LegacySnapshotUpdaters } from "./useLegacySnapshot";
+import type { SnapshotUpdaters } from "./useSnapshot";
 
 export interface SplitAutomationTemplateRequest {
   templateId?: string | null;
@@ -38,8 +41,13 @@ function generateTemplateId(): string {
     const bytes = cryptoRef.getRandomValues(new Uint8Array(16));
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    const hex = Array.from(bytes, (byte) =>
+      byte.toString(16).padStart(2, "0")
+    ).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(
+      12,
+      16
+    )}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   }
 
   fallbackTemplateCounter = (fallbackTemplateCounter + 1) & 0xffff;
@@ -104,7 +112,11 @@ function addInterval(
   const year = Number(yearStr);
   const month = Number(monthStr) - 1;
   const day = Number(dayStr);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day)
+  ) {
     return dateString;
   }
   const date = new Date(Date.UTC(year, month, day));
@@ -137,12 +149,15 @@ function advanceNextOccurrence(
 ): TransactionTemplateRecurrence {
   return {
     ...recurrence,
-    nextOccurrence: addInterval(recurrence.nextOccurrence, recurrence.frequency),
+    nextOccurrence: addInterval(
+      recurrence.nextOccurrence,
+      recurrence.frequency
+    ),
   };
 }
 
 interface UseTransactionTemplatesParams {
-  setTemplates: LegacySnapshotUpdaters["setTemplates"];
+  setTemplates: SnapshotUpdaters["setTemplates"];
   addTransaction: (transaction: StoredTransaction) => void;
   setDraftPreset?: Dispatch<SetStateAction<SplitDraftPreset | null>>;
 }
@@ -162,15 +177,22 @@ export function useTransactionTemplates({
   addTransaction,
   setDraftPreset,
 }: UseTransactionTemplatesParams): UseTransactionTemplatesResult {
-  const handleAutomation = useCallback<UseTransactionTemplatesResult["handleAutomation"]>(
+  const handleAutomation = useCallback<
+    UseTransactionTemplatesResult["handleAutomation"]
+  >(
     (transaction, automation) => {
       if (!automation || !automation.template) return;
       const templateRequest = automation.template;
       setTemplates((prev) => {
         const existing = templateRequest.templateId
-          ? prev.find((entry) => entry.id === templateRequest.templateId) ?? null
+          ? prev.find((entry) => entry.id === templateRequest.templateId) ??
+            null
           : null;
-        const record = templateFromTransaction(transaction, templateRequest, existing);
+        const record = templateFromTransaction(
+          transaction,
+          templateRequest,
+          existing
+        );
         const next = [...prev];
         const index = next.findIndex((entry) => entry.id === record.id);
         if (index >= 0) {
@@ -184,7 +206,9 @@ export function useTransactionTemplates({
     [setTemplates]
   );
 
-  const handleApplyTemplate = useCallback<UseTransactionTemplatesResult["handleApplyTemplate"]>(
+  const handleApplyTemplate = useCallback<
+    UseTransactionTemplatesResult["handleApplyTemplate"]
+  >(
     (template) => {
       if (!setDraftPreset) return;
       setDraftPreset(buildDraftFromTemplate(template));
@@ -192,11 +216,15 @@ export function useTransactionTemplates({
     [setDraftPreset]
   );
 
-  const handleDeleteTemplate = useCallback<UseTransactionTemplatesResult["handleDeleteTemplate"]>(
+  const handleDeleteTemplate = useCallback<
+    UseTransactionTemplatesResult["handleDeleteTemplate"]
+  >(
     (templateId) => {
       setTemplates((prev) => prev.filter((entry) => entry.id !== templateId));
       if (setDraftPreset) {
-        setDraftPreset((prev) => (prev?.templateId === templateId ? null : prev));
+        setDraftPreset((prev) =>
+          prev?.templateId === templateId ? null : prev
+        );
       }
     },
     [setTemplates, setDraftPreset]
@@ -220,7 +248,9 @@ export function useTransactionTemplates({
         const nextRecurrence = advanceNextOccurrence(template.recurrence);
         setTemplates((prev) =>
           prev.map((entry) =>
-            entry.id === template.id ? { ...entry, recurrence: nextRecurrence } : entry
+            entry.id === template.id
+              ? { ...entry, recurrence: nextRecurrence }
+              : entry
           )
         );
       }

@@ -4,10 +4,7 @@ import {
   transactionIncludesFriend,
   type TransactionLike,
 } from "../lib/transactions";
-import {
-  useLegacySnapshot,
-  type UseLegacySnapshotResult,
-} from "./useLegacySnapshot";
+import { useSnapshot, type UseSnapshotResult } from "./useSnapshot";
 import type { Friend, UISnapshot } from "../types/legacySnapshot";
 
 type CreateFriendOutcome =
@@ -44,11 +41,11 @@ export interface UseFriendSelectionResult {
   selectFriend: (friendId: string | null) => void;
   ensureSettle: () => SettleGuardOutcome;
   removeFriend: (friendId: string) => RemoveFriendOutcome;
-  updaters: UseLegacySnapshotResult["updaters"];
+  updaters: UseSnapshotResult["updaters"];
 }
 
 export function useFriendSelection(): UseFriendSelectionResult {
-  const { snapshot, updaters } = useLegacySnapshot();
+  const { snapshot, updaters } = useSnapshot();
   const { friends, selectedId, transactions } = snapshot;
   const { setFriends, setSelectedId, setTransactions } = updaters;
 

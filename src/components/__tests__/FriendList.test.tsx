@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import FriendList from "../FriendList";
-import type { LegacyFriend } from "../../types/legacySnapshot";
+import type { Friend } from "../../types/legacySnapshot";
 
 afterEach(() => {
   cleanup();
@@ -13,7 +13,7 @@ describe("FriendList", () => {
   const mockOnSelect = vi.fn();
   const mockOnRemove = vi.fn();
 
-  const mockFriends: LegacyFriend[] = [
+  const mockFriends: Friend[] = [
     {
       id: "1",
       name: "Alice",

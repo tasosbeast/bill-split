@@ -1,17 +1,17 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { LegacyFriend, StoredTransaction } from "../../types/legacySnapshot";
+import type { Friend, StoredTransaction } from "../../types/legacySnapshot";
 
 const createFriendMock = vi.fn<
-  (friend: LegacyFriend) => { ok: boolean; reason?: string }
+  (friend: Friend) => { ok: boolean; reason?: string }
 >();
 const ensureSettleMock = vi.fn();
 const removeFriendMock = vi.fn();
 
 const baseSelection = {
   snapshot: {
-    friends: [] as LegacyFriend[],
+    friends: [] as Friend[],
     selectedId: null,
     transactions: [] as StoredTransaction[],
   },
@@ -22,10 +22,10 @@ const baseSelection = {
     replaceSnapshot: vi.fn(),
     reset: vi.fn(),
   },
-  friends: [] as LegacyFriend[],
+  friends: [] as Friend[],
   selectedId: null as string | null,
-  selectedFriend: null as LegacyFriend | null,
-  friendsById: new Map<string, LegacyFriend>(),
+  selectedFriend: null as Friend | null,
+  friendsById: new Map<string, Friend>(),
   balances: new Map<string, number>(),
   selectedBalance: 0,
   createFriend: createFriendMock,
@@ -98,7 +98,7 @@ describe("useLegacyFriendManagement", () => {
       result.current.openAddModal();
     });
 
-    const friend: LegacyFriend = { 
+    const friend: Friend = { 
       id: "friend-1", 
       name: "Alex",
       active: true,

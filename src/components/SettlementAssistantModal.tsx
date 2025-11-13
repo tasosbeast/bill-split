@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useState, type MutableRefObject } from "react";
 import Modal from "./Modal";
 import { formatEUR, roundToCents } from "../lib/money";
-import type { LegacyFriend } from "../types/legacySnapshot";
+import type { Friend } from "../types/legacySnapshot";
 import type {
   SettlementStatus,
   TransactionPaymentMetadata,
 } from "../types/transaction";
 
 interface SettlementAssistantModalProps {
-  friend: LegacyFriend;
+  friend: Friend;
   balance: number;
   onClose: () => void;
   onSubmit: (result: SettlementAssistantResult) => void;

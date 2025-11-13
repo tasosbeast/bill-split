@@ -8,7 +8,7 @@ import {
 import { CATEGORIES } from "../lib/categories";
 import { formatEUR, roundToCents } from "../lib/money";
 import { buildSplitTransaction } from "../lib/transactions";
-import type { LegacyFriend } from "../types/legacySnapshot";
+import type { Friend } from "../types/legacySnapshot";
 import type { SplitDraftPreset } from "../types/transactionTemplate";
 
 const YOU_ID = "you";
@@ -70,7 +70,7 @@ interface NormalizedParticipant {
 }
 
 interface SplitFormProps {
-  friends: LegacyFriend[];
+  friends: Friend[];
   defaultFriendId?: string | null;
   onSplit: (transaction: ReturnType<typeof buildSplitTransaction>) => void;
   onAutomation?: (
@@ -162,7 +162,7 @@ export default function SplitForm({
   );
 
   const friendsById = useMemo(() => {
-    const map = new Map<string, LegacyFriend>();
+    const map = new Map<string, Friend>();
     for (const f of friends) {
       map.set(f.id, f);
     }

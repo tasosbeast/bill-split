@@ -1,14 +1,14 @@
 import { memo } from "react";
-import type { LegacyFriend } from "../types/legacySnapshot";
+import type { Friend } from "../types/legacySnapshot";
 
 interface FriendSummary {
-  friend: LegacyFriend;
+  friend: Friend;
   balance: number;
   canRemove: boolean;
 }
 
 interface FriendListProps {
-  friends: LegacyFriend[];
+  friends: Friend[];
   selectedId?: string | null;
   balances?: Map<string, number>;
   friendSummaries?: FriendSummary[];

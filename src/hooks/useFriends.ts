@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from "react";
 import { computeBalances } from "../lib/compute";
 import { useAppStore } from "../state/appStore";
-import type { LegacyFriend } from "../types/legacySnapshot";
+import type { Friend } from "../types/legacySnapshot";
 
 export interface FriendBalanceSummary {
-  friend: LegacyFriend;
+  friend: Friend;
   balance: number;
   canRemove: boolean;
 }
@@ -22,13 +22,13 @@ function normalizeEmail(value: string | undefined): string {
 }
 
 export interface UseFriendsResult {
-  friends: LegacyFriend[];
+  friends: Friend[];
   selectedId: string | null;
-  selectedFriend: LegacyFriend | null;
-  friendsById: Map<string, LegacyFriend>;
+  selectedFriend: Friend | null;
+  friendsById: Map<string, Friend>;
   balances: Map<string, number>;
   selectedBalance: number;
-  createFriend: (friend: LegacyFriend) => CreateFriendOutcome;
+  createFriend: (friend: Friend) => CreateFriendOutcome;
   selectFriend: (friendId: string | null) => void;
   removeFriend: (friendId: string) => RemoveFriendOutcome;
   friendSummaries: FriendBalanceSummary[];
@@ -51,7 +51,7 @@ export function useFriends(): UseFriendsResult {
   }, [friends]);
 
   const friendsById = useMemo(() => {
-    const map = new Map<string, LegacyFriend>();
+    const map = new Map<string, Friend>();
     for (const friend of friends) {
       map.set(friend.id, friend);
     }

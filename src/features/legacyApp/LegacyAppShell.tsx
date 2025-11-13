@@ -28,7 +28,7 @@ import SettlementAssistantModal, {
   type SettlementAssistantResult,
 } from "../../components/SettlementAssistantModal";
 import type {
-  LegacyFriend,
+  Friend,
   StoredTransaction,
   UISnapshot,
 } from "../../types/legacySnapshot";
@@ -50,7 +50,7 @@ type TemplateRequestIntent = {
 };
 
 interface SettlementAssistantState {
-  friend: LegacyFriend;
+  friend: Friend;
   balance: number;
 }
 export default function LegacyAppShell() {

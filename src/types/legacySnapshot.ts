@@ -2,7 +2,7 @@ import type { Transaction } from "./transaction";
 import type { TransactionTemplate } from "./transactionTemplate";
 import type { Friend } from "./domain";
 
-export type LegacyFriend = Friend;
+export type { Friend };
 
 export type StoredTransaction = Transaction & Record<string, unknown>;
 

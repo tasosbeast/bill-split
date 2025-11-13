@@ -2,7 +2,7 @@ import type {
   UISnapshot,
   StoredTransaction,
   StoredSnapshotTemplate,
-  LegacyFriend,
+  Friend,
 } from "../types/legacySnapshot";
 import type {
   SettlementStatus,
@@ -18,7 +18,6 @@ import {
   isQuotaExceededError,
   getStorageErrorMessage,
 } from "../services/storageMonitor";
-import type { Friend } from "../types/domain";
 
 const STORAGE_BASE_KEY = "bill-split";
 const STORAGE_VERSION = 1;
@@ -560,7 +559,7 @@ export function clearState(): void {
   }
 }
 
-export type { UISnapshot, LegacyFriend, StoredTransaction };
+export type { UISnapshot, Friend, StoredTransaction };
 function sanitizeFriend(value: unknown): Friend | null {
   if (!isRecord(value)) return null;
   const id =

@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { LegacyFriend, UISnapshot } from "../../types/legacySnapshot";
+import type { Friend, UISnapshot } from "../../types/legacySnapshot";
 import type { UseLegacySnapshotResult } from "../useLegacySnapshot";
 import type { UseFriendSelectionResult } from "../useFriendSelection";
 
@@ -130,7 +130,7 @@ describe("useFriendSelection", () => {
 
     const { result, unmount } = renderHook(() => useFriendSelection());
 
-    const newFriend: LegacyFriend = {
+    const newFriend: Friend = {
       id: "friend-2",
       name: "Maria",
       email: "maria@example.com",
@@ -147,8 +147,8 @@ describe("useFriendSelection", () => {
     expect(outcomeValue).toEqual({ ok: true });
     expect(mocks.setFriends).toHaveBeenCalledTimes(1);
     const updater = mocks.setFriends.mock.calls[0][0] as (
-      prev: LegacyFriend[]
-    ) => LegacyFriend[];
+      prev: Friend[]
+    ) => Friend[];
     const updatedFriends = updater(baseSnapshot.friends);
     expect(updatedFriends).toHaveLength(2);
     expect(updatedFriends).toContainEqual(newFriend);
@@ -292,7 +292,7 @@ describe("useFriendSelection", () => {
 
   it("removes a friend and related transactions when balances are settled", () => {
     const { updaters, mocks } = createUpdaters();
-    const friend: LegacyFriend = {
+    const friend: Friend = {
       id: "friend-1",
       name: "Alex",
       email: "alex@example.com",
@@ -331,7 +331,7 @@ describe("useFriendSelection", () => {
     expect(mocks.setFriends).toHaveBeenCalledTimes(1);
     const nextFriends = mocks.setFriends.mock.calls[0]?.[0];
     expect(typeof nextFriends).toBe("function");
-    const evaluatedFriends = (nextFriends as (friends: LegacyFriend[]) => LegacyFriend[])(snapshot.friends);
+    const evaluatedFriends = (nextFriends as (friends: Friend[]) => Friend[])(snapshot.friends);
     expect(evaluatedFriends).toEqual([]);
 
     expect(mocks.setTransactions).toHaveBeenCalledTimes(1);
@@ -349,7 +349,7 @@ describe("useFriendSelection", () => {
 
   it("blocks friend removal when an outstanding balance exists", () => {
     const { updaters, mocks } = createUpdaters();
-    const friend: LegacyFriend = {
+    const friend: Friend = {
       id: "friend-1",
       name: "Alex",
       email: "alex@example.com",

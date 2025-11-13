@@ -10,11 +10,11 @@ import { CATEGORIES } from "../lib/categories";
 import { roundToCents } from "../lib/money";
 import { buildSplitTransaction } from "../lib/transactions";
 import type { StoredTransaction } from "../types/legacySnapshot";
-import type { LegacyFriend } from "../types/legacySnapshot";
+import type { Friend } from "../types/legacySnapshot";
 
 interface EditTransactionModalProps {
   tx: StoredTransaction;
-  friend?: LegacyFriend | null;
+  friend?: Friend | null;
   onClose: () => void;
   onSave: (transaction: StoredTransaction) => void;
 }

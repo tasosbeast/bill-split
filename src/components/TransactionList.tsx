@@ -7,13 +7,13 @@ import {
 } from "./filters";
 import { CATEGORIES } from "../lib/categories";
 import { CATEGORY_FILTER_ALL } from "../lib/transactionFilters";
-import type { LegacyFriend, StoredTransaction } from "../types/legacySnapshot";
+import type { Friend, StoredTransaction } from "../types/legacySnapshot";
 
 function ensureMap(
-  source: Map<string, LegacyFriend> | Record<string, LegacyFriend> | undefined
-): Map<string, LegacyFriend> {
+  source: Map<string, Friend> | Record<string, Friend> | undefined
+): Map<string, Friend> {
   if (source instanceof Map) return source;
-  const map = new Map<string, LegacyFriend>();
+  const map = new Map<string, Friend>();
   if (source && typeof source === "object") {
     for (const [key, value] of Object.entries(source)) {
       map.set(key, value);
@@ -23,8 +23,8 @@ function ensureMap(
 }
 
 interface TransactionListProps {
-  friend: LegacyFriend | null;
-  friendsById: Map<string, LegacyFriend> | Record<string, LegacyFriend>;
+  friend: Friend | null;
+  friendsById: Map<string, Friend> | Record<string, Friend>;
   transactions?: StoredTransaction[];
   items?: StoredTransaction[];
   onRequestEdit: (transaction: StoredTransaction) => void;

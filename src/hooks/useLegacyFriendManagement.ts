@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useFriendSelection } from "./useFriendSelection";
 import { useAppStore } from "../state/appStore";
-import type { LegacyFriend } from "../types/legacySnapshot";
+import type { Friend } from "../types/legacySnapshot";
 
 type FriendSelectionResult = ReturnType<typeof useFriendSelection>;
 
@@ -9,7 +9,7 @@ export interface LegacyFriendManagementResult extends FriendSelectionResult {
   showAddModal: boolean;
   openAddModal: () => void;
   closeAddModal: () => void;
-  createFriend: (friend: LegacyFriend) => ReturnType<FriendSelectionResult["createFriend"]>;
+  createFriend: (friend: Friend) => ReturnType<FriendSelectionResult["createFriend"]>;
   removeFriend: FriendSelectionResult["removeFriend"];
 }
 

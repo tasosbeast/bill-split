@@ -9,11 +9,11 @@ import {
 import userEvent from "@testing-library/user-event";
 import TransactionList from "../TransactionList";
 import type {
-  LegacyFriend,
+  Friend,
   StoredTransaction,
 } from "../../types/legacySnapshot";
 
-const mockFriend: LegacyFriend = {
+const mockFriend: Friend = {
   id: "friend1",
   name: "Alice",
   email: "alice@example.com",
@@ -21,7 +21,7 @@ const mockFriend: LegacyFriend = {
   createdAt: Date.now(),
 };
 
-const mockFriendsById = new Map<string, LegacyFriend>([
+const mockFriendsById = new Map<string, Friend>([
   ["friend1", mockFriend],
   [
     "friend2",
@@ -284,7 +284,7 @@ describe("TransactionList", () => {
     });
 
     it("handles friendsById as Record object", () => {
-      const friendsRecord: Record<string, LegacyFriend> = {
+      const friendsRecord: Record<string, Friend> = {
         friend1: mockFriend,
         friend2: {
           id: "friend2",
@@ -315,7 +315,7 @@ describe("TransactionList", () => {
       render(
         <TransactionList
           friend={mockFriend}
-          friendsById={undefined as unknown as Map<string, LegacyFriend>}
+          friendsById={undefined as unknown as Map<string, Friend>}
           transactions={mockTransactions}
           onRequestEdit={mockOnRequestEdit}
           onDelete={mockOnDelete}

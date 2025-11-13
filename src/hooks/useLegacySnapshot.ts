@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { saveState } from "../lib/storage";
 import type {
-  LegacyFriend,
+  Friend,
   StoredTransaction,
   UISnapshot,
   StoredSnapshotTemplate,
@@ -10,7 +10,7 @@ import { useAppStore } from "../state/appStore";
 export type SetStateAction<T> = T | ((prev: T) => T);
 
 export interface LegacySnapshotUpdaters {
-  setFriends: (action: SetStateAction<LegacyFriend[]>) => void;
+  setFriends: (action: SetStateAction<Friend[]>) => void;
   setSelectedId: (action: SetStateAction<string | null>) => void;
   setTransactions: (action: SetStateAction<StoredTransaction[]>) => void;
   setTemplates: (action: SetStateAction<StoredSnapshotTemplate[]>) => void;

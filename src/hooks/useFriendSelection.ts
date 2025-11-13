@@ -8,7 +8,7 @@ import {
   useLegacySnapshot,
   type UseLegacySnapshotResult,
 } from "./useLegacySnapshot";
-import type { LegacyFriend, UISnapshot } from "../types/legacySnapshot";
+import type { Friend, UISnapshot } from "../types/legacySnapshot";
 
 type CreateFriendOutcome =
   | { ok: true }
@@ -34,13 +34,13 @@ function normalizeEmail(value: string | undefined): string {
 
 export interface UseFriendSelectionResult {
   snapshot: UISnapshot;
-  friends: LegacyFriend[];
+  friends: Friend[];
   selectedId: string | null;
-  selectedFriend: LegacyFriend | null;
-  friendsById: Map<string, LegacyFriend>;
+  selectedFriend: Friend | null;
+  friendsById: Map<string, Friend>;
   balances: Map<string, number>;
   selectedBalance: number;
-  createFriend: (friend: LegacyFriend) => CreateFriendOutcome;
+  createFriend: (friend: Friend) => CreateFriendOutcome;
   selectFriend: (friendId: string | null) => void;
   ensureSettle: () => SettleGuardOutcome;
   removeFriend: (friendId: string) => RemoveFriendOutcome;
@@ -61,7 +61,7 @@ export function useFriendSelection(): UseFriendSelectionResult {
   }, [friends]);
 
   const friendsById = useMemo(() => {
-    const map = new Map<string, LegacyFriend>();
+    const map = new Map<string, Friend>();
     for (const friend of friends) {
       map.set(friend.id, friend);
     }

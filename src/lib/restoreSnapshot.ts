@@ -10,7 +10,7 @@ import type {
   TransactionPaymentMetadata,
 } from "../types/transaction";
 import type {
-  LegacyFriend,
+  Friend,
   RestoreSnapshotResult,
   StoredTransaction,
   StoredSnapshotTemplate,
@@ -314,8 +314,8 @@ function buildCategoryIndex(): Map<string, string> {
 function sanitizeFriendRaw(
   friend: unknown,
   stableId: (value: unknown) => string,
-  emailIndex: Map<string, LegacyFriend>
-): LegacyFriend | null {
+  emailIndex: Map<string, Friend>
+): Friend | null {
   if (!isRecord(friend)) return null;
   const friendRecord: Record<string, unknown> = friend;
   const id = stableId(friendRecord.id);
@@ -347,7 +347,7 @@ function sanitizeFriendRaw(
     return null;
   }
 
-  const entry: LegacyFriend = { 
+  const entry: Friend = { 
     id, 
     name, 
     tag,
@@ -499,8 +499,8 @@ export function restoreSnapshot(data: unknown): RestoreSnapshotResult {
   };
 
   const categoryIndex = buildCategoryIndex();
-  const emailIndex = new Map<string, LegacyFriend>();
-  const safeFriends: LegacyFriend[] = [];
+  const emailIndex = new Map<string, Friend>();
+  const safeFriends: Friend[] = [];
 
   for (const friend of data.friends) {
     const sanitized = sanitizeFriendRaw(friend, stableId, emailIndex);

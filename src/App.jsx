@@ -1,5 +1,5 @@
 import "./index.css";
-import LegacyAppShell from "./features/legacyApp/LegacyAppShell";
+import AppShell from "./features/app/AppShell";
 import ToastRegion from "./components/ToastRegion";
 
 export default function App() {
@@ -9,7 +9,7 @@ export default function App() {
         Skip to main content
       </a>
       <ToastRegion />
-      <LegacyAppShell />
+      <AppShell />
     </>
   );
 }

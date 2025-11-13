@@ -3,9 +3,8 @@ import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Friend, StoredTransaction } from "../../types/legacySnapshot";
 
-const createFriendMock = vi.fn<
-  (friend: Friend) => { ok: boolean; reason?: string }
->();
+const createFriendMock =
+  vi.fn<(friend: Friend) => { ok: boolean; reason?: string }>();
 const ensureSettleMock = vi.fn();
 const removeFriendMock = vi.fn();
 
@@ -38,10 +37,13 @@ vi.mock("../useFriendSelection", () => ({
   useFriendSelection: () => baseSelection,
 }));
 
-const { useLegacyFriendManagement } = await import("../useLegacyFriendManagement");
+const { useLegacyFriendManagement } = await import(
+  "../useLegacyFriendManagement"
+);
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-  true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function renderHook<T>(callback: () => T) {
   const result: { current: T | null } = { current: null };
@@ -98,11 +100,11 @@ describe("useLegacyFriendManagement", () => {
       result.current.openAddModal();
     });
 
-    const friend: Friend = { 
-      id: "friend-1", 
+    const friend: Friend = {
+      id: "friend-1",
       name: "Alex",
       active: true,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     };
 
     act(() => {
@@ -116,7 +118,10 @@ describe("useLegacyFriendManagement", () => {
   });
 
   it("keeps modal open when creation fails", () => {
-    createFriendMock.mockReturnValueOnce({ ok: false, reason: "duplicate-email" });
+    createFriendMock.mockReturnValueOnce({
+      ok: false,
+      reason: "duplicate-email",
+    });
     const { result, unmount } = renderHook(() => useLegacyFriendManagement());
 
     act(() => {
@@ -124,11 +129,11 @@ describe("useLegacyFriendManagement", () => {
     });
 
     act(() => {
-      result.current.createFriend({ 
-        id: "friend-2", 
+      result.current.createFriend({
+        id: "friend-2",
         name: "Maria",
         active: true,
-        createdAt: Date.now()
+        createdAt: Date.now(),
       });
     });
 

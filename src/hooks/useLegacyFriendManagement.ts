@@ -9,7 +9,9 @@ export interface LegacyFriendManagementResult extends FriendSelectionResult {
   showAddModal: boolean;
   openAddModal: () => void;
   closeAddModal: () => void;
-  createFriend: (friend: Friend) => ReturnType<FriendSelectionResult["createFriend"]>;
+  createFriend: (
+    friend: Friend
+  ) => ReturnType<FriendSelectionResult["createFriend"]>;
   removeFriend: FriendSelectionResult["removeFriend"];
 }
 
@@ -19,7 +21,9 @@ export function useLegacyFriendManagement(): LegacyFriendManagementResult {
   const openAddModal = useAppStore((state) => state.openAddModal);
   const closeAddModal = useAppStore((state) => state.closeAddModal);
 
-  const createFriend = useCallback<LegacyFriendManagementResult["createFriend"]>(
+  const createFriend = useCallback<
+    LegacyFriendManagementResult["createFriend"]
+  >(
     (friend) => {
       const outcome = selection.createFriend(friend);
       if (outcome.ok) {

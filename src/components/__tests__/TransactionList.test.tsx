@@ -8,10 +8,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import TransactionList from "../TransactionList";
-import type {
-  Friend,
-  StoredTransaction,
-} from "../../types/legacySnapshot";
+import type { Friend, StoredTransaction } from "../../types/legacySnapshot";
 
 const mockFriend: Friend = {
   id: "friend1",

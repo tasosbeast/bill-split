@@ -43,6 +43,7 @@ src/
 ## Refactoring Strategy
 
 ### Phase 1: Type Aliases (Safest)
+
 **Remove unnecessary type aliases without changing functionality**
 
 1. Replace `LegacyFriend` with `Friend` throughout codebase
@@ -56,6 +57,7 @@ src/
 ---
 
 ### Phase 2: Rename Files & Folders
+
 **Reorganize folder structure and rename files**
 
 #### 2a. Rename `src/features/legacyApp/` → `src/features/app/`
@@ -68,12 +70,14 @@ src/features/legacyApp/LegacyAppShell.tsx
 #### 2b. Move `src/components/legacy/` panels to top-level components
 
 **Option A (Flat):** Move to `src/components/`
+
 ```
 src/components/legacy/AnalyticsPanel.tsx
   → src/components/AnalyticsPanel.tsx
 ```
 
 **Option B (Panels folder):** Create `src/components/panels/`
+
 ```
 src/components/legacy/AnalyticsPanel.tsx
   → src/components/panels/AnalyticsPanel.tsx
@@ -82,6 +86,7 @@ src/components/legacy/AnalyticsPanel.tsx
 **Recommendation:** Option A (Flat) - Simpler, fewer folders, already have Balances.jsx and Transactions.jsx at top level
 
 **Files affected:**
+
 - `AnalyticsPanel.tsx`
 - `FriendsPanel.tsx`
 - `TransactionsPanel.tsx`
@@ -90,6 +95,7 @@ src/components/legacy/AnalyticsPanel.tsx
 ---
 
 ### Phase 3: Rename Hooks
+
 **Remove "Legacy" prefix from hook names**
 
 ```
@@ -109,6 +115,7 @@ useLegacyTransactions.ts → useTransactions.ts (WAIT - already exists!)
 ---
 
 ### Phase 4: Rename Types File
+
 **Rename `legacySnapshot.ts` to something more descriptive**
 
 ```
@@ -116,6 +123,7 @@ types/legacySnapshot.ts → types/snapshot.ts
 ```
 
 **Alternative names:**
+
 - `appSnapshot.ts` (describes what it is)
 - `persistence.ts` (describes its purpose)
 - `domain.ts` (if merging with existing domain types)
@@ -136,7 +144,6 @@ types/legacySnapshot.ts → types/snapshot.ts
 
 1. `src/types/legacySnapshot.ts`
    - Remove: `export type LegacyFriend = Friend;`
-   
 2. Replace all occurrences of `LegacyFriend` with `Friend`:
    - `src/hooks/*.ts` (5 files)
    - `src/hooks/__tests__/*.tsx` (3 test files)
@@ -144,6 +151,7 @@ types/legacySnapshot.ts → types/snapshot.ts
    - `src/features/legacyApp/LegacyAppShell.tsx`
 
 **Command to find all occurrences:**
+
 ```bash
 grep -r "LegacyFriend" src/
 ```
@@ -161,6 +169,7 @@ mv src/features/legacyApp src/features/app
 ```
 
 **Update in:** `src/App.jsx`
+
 ```javascript
 // Before
 import LegacyAppShell from "./features/legacyApp/LegacyAppShell";
@@ -180,6 +189,7 @@ rmdir src/components/legacy/
 ```
 
 **Update imports in:** `src/features/app/AppShell.tsx`
+
 ```typescript
 // Before
 import FriendsPanel from "../../components/legacy/FriendsPanel";
@@ -227,6 +237,7 @@ mv src/types/legacySnapshot.ts src/types/snapshot.ts
 ```
 
 **Update all imports** (~30 files)
+
 ```typescript
 // Before
 import type { UISnapshot } from "../types/legacySnapshot";
@@ -264,6 +275,7 @@ import type { UISnapshot } from "../types/snapshot";
 ## Git Commit Strategy
 
 ### Commit 1: Remove LegacyFriend type alias
+
 ```
 refactor: replace LegacyFriend with Friend type
 
@@ -276,6 +288,7 @@ Tests: All passing
 ```
 
 ### Commit 2: Rename legacyApp folder
+
 ```
 refactor: rename legacyApp → app folder structure
 
@@ -288,6 +301,7 @@ Tests: All passing
 ```
 
 ### Commit 3: Move legacy panels to top-level
+
 ```
 refactor: move panels from legacy/ to components/
 
@@ -301,6 +315,7 @@ Tests: All passing
 ```
 
 ### Commit 4: Rename hooks
+
 ```
 refactor: remove "Legacy" prefix from hook names
 
@@ -313,6 +328,7 @@ Tests: All passing
 ```
 
 ### Commit 5: Rename types file
+
 ```
 refactor: rename legacySnapshot.ts → snapshot.ts
 
@@ -328,13 +344,13 @@ Tests: All passing
 
 ## Risk Assessment
 
-| Step | Risk Level | Mitigation |
-|------|-----------|------------|
-| Remove LegacyFriend alias | 🟢 Low | Simple find-replace, TypeScript catches errors |
-| Rename legacyApp folder | 🟢 Low | Single import site, easy to verify |
-| Move legacy/ panels | 🟡 Medium | Multiple import sites, careful path updates needed |
-| Rename hooks | 🟡 Medium | Many import sites, potential naming conflicts |
-| Rename types file | 🟠 High | Most import sites, touches many files |
+| Step                      | Risk Level | Mitigation                                         |
+| ------------------------- | ---------- | -------------------------------------------------- |
+| Remove LegacyFriend alias | 🟢 Low     | Simple find-replace, TypeScript catches errors     |
+| Rename legacyApp folder   | 🟢 Low     | Single import site, easy to verify                 |
+| Move legacy/ panels       | 🟡 Medium  | Multiple import sites, careful path updates needed |
+| Rename hooks              | 🟡 Medium  | Many import sites, potential naming conflicts      |
+| Rename types file         | 🟠 High    | Most import sites, touches many files              |
 
 **Overall risk:** 🟡 **Medium** - Mostly mechanical changes, but touches many files
 
@@ -343,6 +359,7 @@ Tests: All passing
 ## Rollback Plan
 
 If issues arise:
+
 1. **Stop immediately** after failed step
 2. **Git reset** to last known good commit
 3. **Review** failed changes
@@ -364,7 +381,7 @@ If issues arise:
 ## Timeline Estimate
 
 - **Step 1 (LegacyFriend):** 30 minutes
-- **Step 2 (Folders):** 45 minutes  
+- **Step 2 (Folders):** 45 minutes
 - **Step 3 (Hooks):** 60 minutes
 - **Step 4 (Types):** 45 minutes
 - **Testing & verification:** 30 minutes
@@ -378,14 +395,17 @@ If issues arise:
 **Should we proceed with full refactoring or partial?**
 
 **Option A: Full refactoring (all 5 steps)**
+
 - Pros: Complete cleanup, no legacy naming left
 - Cons: Touches ~50+ files, higher risk
 
 **Option B: Partial refactoring (steps 1-3 only)**
+
 - Pros: Lower risk, immediate benefit
 - Cons: Still have "legacySnapshot" file
 
 **Option C: Minimal refactoring (step 1 only)**
+
 - Pros: Lowest risk, quick win
 - Cons: Incomplete cleanup
 

@@ -1,9 +1,6 @@
 import { CATEGORIES } from "./categories";
 import { roundToCents } from "./money";
-import {
-  buildSplitTransaction,
-  upgradeTransactions,
-} from "./transactions";
+import { buildSplitTransaction, upgradeTransactions } from "./transactions";
 import type {
   TransactionParticipant,
   SettlementStatus,
@@ -53,7 +50,9 @@ function normalizeSettlementStatus(value: unknown): SettlementStatus | null {
   return null;
 }
 
-function sanitizePaymentMetadata(value: unknown): TransactionPaymentMetadata | null {
+function sanitizePaymentMetadata(
+  value: unknown
+): TransactionPaymentMetadata | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
@@ -227,23 +226,22 @@ function parseSettlementTransaction(
     typeof rawDelta === "number" && Number.isFinite(rawDelta)
       ? rawDelta
       : Number(rawDelta ?? 0);
-  const delta = Number.isFinite(numericDelta)
-    ? roundToCents(numericDelta)
-    : 0;
+  const delta = Number.isFinite(numericDelta) ? roundToCents(numericDelta) : 0;
 
   const rawStatus = normalizeSettlementStatus(
     (transaction as { settlementStatus?: unknown }).settlementStatus
   );
-  const settlementStatus: SettlementStatus =
-    rawStatus ?? "confirmed";
+  const settlementStatus: SettlementStatus = rawStatus ?? "confirmed";
 
-  const rawInitiatedAt = (transaction as { settlementInitiatedAt?: unknown }).settlementInitiatedAt;
+  const rawInitiatedAt = (transaction as { settlementInitiatedAt?: unknown })
+    .settlementInitiatedAt;
   const settlementInitiatedAt =
     typeof rawInitiatedAt === "string" && rawInitiatedAt
       ? rawInitiatedAt
       : base.createdAt;
 
-  const rawConfirmedAt = (transaction as { settlementConfirmedAt?: unknown }).settlementConfirmedAt;
+  const rawConfirmedAt = (transaction as { settlementConfirmedAt?: unknown })
+    .settlementConfirmedAt;
   const settlementConfirmedAt =
     typeof rawConfirmedAt === "string" && rawConfirmedAt
       ? rawConfirmedAt
@@ -251,7 +249,8 @@ function parseSettlementTransaction(
       ? base.updatedAt ?? base.createdAt
       : null;
 
-  const rawCancelledAt = (transaction as { settlementCancelledAt?: unknown }).settlementCancelledAt;
+  const rawCancelledAt = (transaction as { settlementCancelledAt?: unknown })
+    .settlementCancelledAt;
   const settlementCancelledAt =
     typeof rawCancelledAt === "string" && rawCancelledAt
       ? rawCancelledAt
@@ -334,9 +333,7 @@ function sanitizeFriendRaw(
 
   const rawTag = friendRecord.tag;
   const tag =
-    typeof rawTag === "string" && rawTag.trim().length > 0
-      ? rawTag
-      : "friend";
+    typeof rawTag === "string" && rawTag.trim().length > 0 ? rawTag : "friend";
 
   if (email && emailIndex.has(email)) {
     const existing = emailIndex.get(email)!;
@@ -347,12 +344,12 @@ function sanitizeFriendRaw(
     return null;
   }
 
-  const entry: Friend = { 
-    id, 
-    name, 
+  const entry: Friend = {
+    id,
+    name,
     tag,
     active: true,
-    createdAt: Date.now()
+    createdAt: Date.now(),
   };
   if (email) {
     entry.email = email;
@@ -382,7 +379,8 @@ function sanitizeTemplateParticipantRaw(
   }
   if (!id) return null;
   const amountValue = Number(participant.amount);
-  const amount = Number.isFinite(amountValue) && amountValue >= 0 ? amountValue : 0;
+  const amount =
+    Number.isFinite(amountValue) && amountValue >= 0 ? amountValue : 0;
   return { id, amount: roundToCents(amount) };
 }
 
@@ -391,11 +389,18 @@ function sanitizeTemplateRecurrenceRaw(
 ): TransactionTemplateRecurrence | null {
   if (!isRecord(value)) return null;
   const frequency = value.frequency;
-  if (frequency !== "monthly" && frequency !== "weekly" && frequency !== "yearly") {
+  if (
+    frequency !== "monthly" &&
+    frequency !== "weekly" &&
+    frequency !== "yearly"
+  ) {
     return null;
   }
   const rawDate = value.nextOccurrence;
-  if (typeof rawDate !== "string" || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(rawDate.trim())) {
+  if (
+    typeof rawDate !== "string" ||
+    !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(rawDate.trim())
+  ) {
     return null;
   }
   const trimmedDate = rawDate.trim();
@@ -424,12 +429,19 @@ function parseTemplates(
     if (!isRecord(entry)) continue;
     const rawId = entry.id;
     const rawName = entry.name;
-    const id = typeof rawId === "string" && rawId.trim().length > 0 ? rawId.trim() : null;
+    const id =
+      typeof rawId === "string" && rawId.trim().length > 0
+        ? rawId.trim()
+        : null;
     const name =
-      typeof rawName === "string" && rawName.trim().length > 0 ? rawName.trim() : null;
+      typeof rawName === "string" && rawName.trim().length > 0
+        ? rawName.trim()
+        : null;
     if (!id || !name) continue;
 
-    const participantsRaw = Array.isArray(entry.participants) ? entry.participants : [];
+    const participantsRaw = Array.isArray(entry.participants)
+      ? entry.participants
+      : [];
     const participants: StoredSnapshotTemplate["participants"] = [];
     const seen = new Set<string>();
     for (const part of participantsRaw) {
@@ -463,11 +475,13 @@ function parseTemplates(
           : null,
       participants,
       createdAt:
-        typeof record.createdAt === "string" && record.createdAt.trim().length > 0
+        typeof record.createdAt === "string" &&
+        record.createdAt.trim().length > 0
           ? record.createdAt.trim()
           : new Date().toISOString(),
       updatedAt:
-        typeof record.updatedAt === "string" && record.updatedAt.trim().length > 0
+        typeof record.updatedAt === "string" &&
+        record.updatedAt.trim().length > 0
           ? record.updatedAt.trim()
           : null,
       recurrence: recurrence ?? null,
@@ -560,7 +574,13 @@ export function restoreSnapshot(data: unknown): RestoreSnapshotResult {
       const rawNote = rawTx.note;
       const note = typeof rawNote === "string" ? rawNote : "";
 
-      const base: TransactionBase = { id: baseId, category, note, createdAt, updatedAt };
+      const base: TransactionBase = {
+        id: baseId,
+        category,
+        note,
+        createdAt,
+        updatedAt,
+      };
       const helpers: ParseHelpers = { stableId, friendIdSet };
 
       let parsed: ParsedTransaction;
@@ -593,9 +613,7 @@ export function restoreSnapshot(data: unknown): RestoreSnapshotResult {
     safeTransactions
   ) as ParsedTransaction[];
   const normalizedSelectedId =
-    typeof data.selectedId === "string"
-      ? stableId(data.selectedId)
-      : null;
+    typeof data.selectedId === "string" ? stableId(data.selectedId) : null;
   const templates = parseTemplates(data.templates, { stableId, friendIdSet });
 
   return {

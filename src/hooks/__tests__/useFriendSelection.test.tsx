@@ -5,9 +5,8 @@ import type { Friend, UISnapshot } from "../../types/legacySnapshot";
 import type { UseLegacySnapshotResult } from "../useLegacySnapshot";
 import type { UseFriendSelectionResult } from "../useFriendSelection";
 
-const computeBalancesMock = vi.fn<
-  (...args: unknown[]) => Map<string, number>
->();
+const computeBalancesMock =
+  vi.fn<(...args: unknown[]) => Map<string, number>>();
 const useLegacySnapshotMock = vi.fn<() => UseLegacySnapshotResult>();
 
 vi.mock(
@@ -15,7 +14,7 @@ vi.mock(
   () =>
     ({
       useLegacySnapshot: useLegacySnapshotMock,
-    }) satisfies { useLegacySnapshot: () => UseLegacySnapshotResult }
+    } satisfies { useLegacySnapshot: () => UseLegacySnapshotResult })
 );
 
 vi.mock(
@@ -23,13 +22,14 @@ vi.mock(
   () =>
     ({
       computeBalances: computeBalancesMock,
-    }) satisfies { computeBalances: () => Map<string, number> }
+    } satisfies { computeBalances: () => Map<string, number> })
 );
 
 const { useFriendSelection } = await import("../useFriendSelection");
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-  true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function renderHook<T>(callback: () => T) {
   const result: { current: T | null } = { current: null };
@@ -63,34 +63,30 @@ function renderHook<T>(callback: () => T) {
 }
 
 const baseSnapshot: UISnapshot = {
-  friends: [{ 
-    id: "friend-1", 
-    name: "Alex", 
-    email: "alex@example.com",
-    active: true,
-    createdAt: Date.now()
-  }],
+  friends: [
+    {
+      id: "friend-1",
+      name: "Alex",
+      email: "alex@example.com",
+      active: true,
+      createdAt: Date.now(),
+    },
+  ],
   selectedId: null,
   transactions: [],
   templates: [],
 };
 
 const createUpdaters = () => {
-  const setFriends = vi.fn<
-    UseLegacySnapshotResult["updaters"]["setFriends"]
-  >();
-  const setSelectedId = vi.fn<
-    UseLegacySnapshotResult["updaters"]["setSelectedId"]
-  >();
-  const setTransactions = vi.fn<
-    UseLegacySnapshotResult["updaters"]["setTransactions"]
-  >();
-  const setTemplates = vi.fn<
-    UseLegacySnapshotResult["updaters"]["setTemplates"]
-  >();
-  const replaceSnapshot = vi.fn<
-    UseLegacySnapshotResult["updaters"]["replaceSnapshot"]
-  >();
+  const setFriends = vi.fn<UseLegacySnapshotResult["updaters"]["setFriends"]>();
+  const setSelectedId =
+    vi.fn<UseLegacySnapshotResult["updaters"]["setSelectedId"]>();
+  const setTransactions =
+    vi.fn<UseLegacySnapshotResult["updaters"]["setTransactions"]>();
+  const setTemplates =
+    vi.fn<UseLegacySnapshotResult["updaters"]["setTemplates"]>();
+  const replaceSnapshot =
+    vi.fn<UseLegacySnapshotResult["updaters"]["replaceSnapshot"]>();
   const reset = vi.fn<UseLegacySnapshotResult["updaters"]["reset"]>();
 
   return {
@@ -135,7 +131,7 @@ describe("useFriendSelection", () => {
       name: "Maria",
       email: "maria@example.com",
       active: true,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     };
 
     let outcome: ReturnType<UseFriendSelectionResult["createFriend"]>;
@@ -172,7 +168,7 @@ describe("useFriendSelection", () => {
         name: "Alex Clone",
         email: "alex@example.com",
         active: true,
-        createdAt: Date.now()
+        createdAt: Date.now(),
       });
       expect(outcome).toEqual({ ok: false, reason: "duplicate-email" });
     });
@@ -187,8 +183,20 @@ describe("useFriendSelection", () => {
     const { updaters } = createUpdaters();
     const snapshot: UISnapshot = {
       friends: [
-        { id: "friend-1", name: "Alex", email: "alex@example.com", active: true, createdAt: Date.now() },
-        { id: "friend-2", name: "Maria", email: "maria@example.com", active: true, createdAt: Date.now() },
+        {
+          id: "friend-1",
+          name: "Alex",
+          email: "alex@example.com",
+          active: true,
+          createdAt: Date.now(),
+        },
+        {
+          id: "friend-2",
+          name: "Maria",
+          email: "maria@example.com",
+          active: true,
+          createdAt: Date.now(),
+        },
       ],
       selectedId: "friend-2",
       transactions: [{ id: "tx-1" }] as unknown as UISnapshot["transactions"],
@@ -244,7 +252,9 @@ describe("useFriendSelection", () => {
       snapshot,
       updaters,
     });
-    computeBalancesMock.mockReturnValue(new Map<string, number>([["friend-1", 0]]));
+    computeBalancesMock.mockReturnValue(
+      new Map<string, number>([["friend-1", 0]])
+    );
 
     const { result, unmount } = renderHook(() => useFriendSelection());
 
@@ -297,7 +307,7 @@ describe("useFriendSelection", () => {
       name: "Alex",
       email: "alex@example.com",
       active: true,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     };
     const snapshot: UISnapshot = {
       friends: [friend],
@@ -318,11 +328,15 @@ describe("useFriendSelection", () => {
       snapshot,
       updaters,
     });
-    computeBalancesMock.mockReturnValue(new Map<string, number>([["friend-1", 0]]));
+    computeBalancesMock.mockReturnValue(
+      new Map<string, number>([["friend-1", 0]])
+    );
 
     const { result, unmount } = renderHook(() => useFriendSelection());
 
-    let outcome: ReturnType<UseFriendSelectionResult["removeFriend"]> | undefined;
+    let outcome:
+      | ReturnType<UseFriendSelectionResult["removeFriend"]>
+      | undefined;
     act(() => {
       outcome = result.current.removeFriend("friend-1");
     });
@@ -331,14 +345,18 @@ describe("useFriendSelection", () => {
     expect(mocks.setFriends).toHaveBeenCalledTimes(1);
     const nextFriends = mocks.setFriends.mock.calls[0]?.[0];
     expect(typeof nextFriends).toBe("function");
-    const evaluatedFriends = (nextFriends as (friends: Friend[]) => Friend[])(snapshot.friends);
+    const evaluatedFriends = (nextFriends as (friends: Friend[]) => Friend[])(
+      snapshot.friends
+    );
     expect(evaluatedFriends).toEqual([]);
 
     expect(mocks.setTransactions).toHaveBeenCalledTimes(1);
     const nextTransactions = mocks.setTransactions.mock.calls[0]?.[0];
     expect(typeof nextTransactions).toBe("function");
     const evaluatedTransactions = (
-      nextTransactions as (txs: UISnapshot["transactions"]) => UISnapshot["transactions"]
+      nextTransactions as (
+        txs: UISnapshot["transactions"]
+      ) => UISnapshot["transactions"]
     )(snapshot.transactions);
     expect(evaluatedTransactions).toEqual([]);
 
@@ -354,7 +372,7 @@ describe("useFriendSelection", () => {
       name: "Alex",
       email: "alex@example.com",
       active: true,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     };
     const snapshot: UISnapshot = {
       friends: [friend],
@@ -373,7 +391,9 @@ describe("useFriendSelection", () => {
 
     const { result, unmount } = renderHook(() => useFriendSelection());
 
-    let outcome: ReturnType<UseFriendSelectionResult["removeFriend"]> | undefined;
+    let outcome:
+      | ReturnType<UseFriendSelectionResult["removeFriend"]>
+      | undefined;
     act(() => {
       outcome = result.current.removeFriend("friend-1");
     });

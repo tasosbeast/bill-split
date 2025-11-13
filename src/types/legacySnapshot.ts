@@ -25,4 +25,7 @@ export interface RestoreSnapshotResult extends UISnapshot {
   }>;
 }
 
-export type { SettlementStatus, TransactionPaymentMetadata } from "./transaction";
+export type {
+  SettlementStatus,
+  TransactionPaymentMetadata,
+} from "./transaction";

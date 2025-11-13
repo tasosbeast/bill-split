@@ -1,4 +1,9 @@
-import React, { useEffect, useMemo, useState, type MutableRefObject } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  type MutableRefObject,
+} from "react";
 import Modal from "./Modal";
 import { formatEUR, roundToCents } from "../lib/money";
 import type { Friend } from "../types/legacySnapshot";
@@ -125,7 +130,11 @@ export default function SettlementAssistantModal({
         <form className="form-grid" onSubmit={handleSubmit}>
           <p className="kicker">{directionLabel}</p>
 
-          {error && <div className="error" role="alert">{error}</div>}
+          {error && (
+            <div className="error" role="alert">
+              {error}
+            </div>
+          )}
 
           <div>
             <label className="kicker" htmlFor="settlement-method">
@@ -218,11 +227,7 @@ export default function SettlementAssistantModal({
             <button type="submit" className="button">
               Save settlement
             </button>
-            <button
-              type="button"
-              className="btn-ghost"
-              onClick={onClose}
-            >
+            <button type="button" className="btn-ghost" onClick={onClose}>
               Cancel
             </button>
           </div>

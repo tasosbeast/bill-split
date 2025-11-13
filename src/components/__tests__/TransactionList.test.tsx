@@ -64,7 +64,13 @@ const mockTransactions: StoredTransaction[] = [
       { id: "you", amount: 500 },
       { id: "friend1", amount: 500 },
     ],
-    effects: [{ friendId: "friend1", delta: -500 }],
+    effects: [
+      {
+        friendId: "friend1",
+        delta: -500,
+        share: 0,
+      },
+    ],
     createdAt: "2024-01-20T14:00:00.000Z",
   },
   {
@@ -78,7 +84,13 @@ const mockTransactions: StoredTransaction[] = [
       { id: "you", amount: 1500 },
       { id: "friend1", amount: 1500 },
     ],
-    effects: [{ friendId: "friend1", delta: 1500 }],
+    effects: [
+      {
+        friendId: "friend1",
+        delta: 1500,
+        share: 0,
+      },
+    ],
     createdAt: "2024-02-10T18:00:00.000Z",
   },
 ];

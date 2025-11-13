@@ -175,6 +175,14 @@ body {
   filter: brightness(1.1);
 }
 
+.button:disabled {
+  background: #15161d;
+  color: #6b7280;
+  border-color: #1a1c24;
+  cursor: not-allowed;
+  filter: none;
+}
+
 .input,
 .select {
   width: 100%;
@@ -314,7 +322,9 @@ body {
 }
 
 .friend-list__delete[disabled] {
-  opacity: 0.5;
+  background: #15161d;
+  color: #6b7280;
+  border-color: #1a1c24;
   cursor: not-allowed;
 }
 
@@ -844,4 +854,3 @@ body {
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
-

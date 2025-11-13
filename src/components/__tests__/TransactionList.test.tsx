@@ -35,42 +35,51 @@ const mockFriendsById = new Map<string, Friend>([
 const mockTransactions: StoredTransaction[] = [
   {
     id: "tx1",
-    date: "2024-01-15T10:00:00.000Z",
-    description: "Lunch",
+    type: "split",
+    total: 5000,
+    note: "Lunch",
     category: "Food",
-    amount: 5000,
     payer: "you",
     participants: [
       { id: "you", amount: 2500 },
       { id: "friend1", amount: 2500 },
     ],
-    effects: [{ friendId: "friend1", delta: 2500 }],
+    effects: [
+      {
+        friendId: "friend1",
+        delta: 2500,
+        share: 0,
+      },
+    ],
+    createdAt: "2024-01-15T10:00:00.000Z",
   },
   {
     id: "tx2",
-    date: "2024-01-20T14:00:00.000Z",
-    description: "Coffee",
+    type: "split",
+    total: 1000,
+    note: "Coffee",
     category: "Drinks",
-    amount: 1000,
     payer: "friend1",
     participants: [
       { id: "you", amount: 500 },
       { id: "friend1", amount: 500 },
     ],
     effects: [{ friendId: "friend1", delta: -500 }],
+    createdAt: "2024-01-20T14:00:00.000Z",
   },
   {
     id: "tx3",
-    date: "2024-02-10T18:00:00.000Z",
-    description: "Taxi",
+    type: "split",
+    total: 3000,
+    note: "Taxi",
     category: "Transport",
-    amount: 3000,
     payer: "you",
     participants: [
       { id: "you", amount: 1500 },
       { id: "friend1", amount: 1500 },
     ],
     effects: [{ friendId: "friend1", delta: 1500 }],
+    createdAt: "2024-02-10T18:00:00.000Z",
   },
 ];
 

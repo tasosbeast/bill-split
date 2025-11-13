@@ -8,7 +8,15 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SplitForm from "../SplitForm";
-import type { LegacyFriend } from "../../types/legacySnapshot";
+
+// Local test-only definition (original module has no exported LegacyFriend)
+interface LegacyFriend {
+  id: string;
+  name: string;
+  email: string;
+  active: boolean;
+  createdAt: number;
+}
 
 // Mock buildSplitTransaction
 vi.mock("../../lib/transactions", () => ({

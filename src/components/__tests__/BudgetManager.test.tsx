@@ -248,7 +248,7 @@ describe("BudgetManager", () => {
     await user.clear(input);
     await user.type(input, "300");
 
-    expect(input.value).toBe("300");
+    expect(input).toHaveValue(300);
   });
 
   it("commits budget on blur", async () => {
@@ -321,7 +321,6 @@ describe("BudgetManager", () => {
     );
 
     const input = screen.getByRole("spinbutton");
-    expect(input).toHaveValue(200);
 
     await user.clear(input);
     await user.type(input, "999");

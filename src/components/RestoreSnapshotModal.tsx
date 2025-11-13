@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import type { ChangeEvent } from "react";
-import Modal from "../Modal";
+import Modal from "./Modal";
 
 interface RestoreSnapshotModalProps {
   onClose: () => void;
@@ -42,7 +42,10 @@ export default function RestoreSnapshotModal({
   return (
     <Modal title="Restore Snapshot" onClose={onClose}>
       {() => (
-        <form className="form-grid" onSubmit={(event) => event.preventDefault()}>
+        <form
+          className="form-grid"
+          onSubmit={(event) => event.preventDefault()}
+        >
           <p className="kicker">
             Choose a previously exported backup file to overwrite the current
             snapshot.

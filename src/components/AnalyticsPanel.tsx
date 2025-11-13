@@ -1,13 +1,10 @@
 import { memo, Suspense, lazy } from "react";
-import type {
-  LegacyFriend,
-  StoredTransaction,
-} from "../../types/legacySnapshot";
+import type { Friend, StoredTransaction } from "../types/legacySnapshot";
 
-const AnalyticsDashboard = lazy(() => import("../AnalyticsDashboard"));
+const AnalyticsDashboard = lazy(() => import("./AnalyticsDashboard"));
 
 interface AnalyticsPanelState {
-  friends: LegacyFriend[];
+  friends: Friend[];
   selectedId: string | null;
   balances: Map<string, number>;
   transactions: StoredTransaction[];

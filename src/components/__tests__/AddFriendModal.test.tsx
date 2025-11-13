@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AddFriendModal from "../AddFriendModal";
+import type { Friend } from "../../types/legacySnapshot";
 
 // Mock the toast store
 vi.mock("../../state/toastStore", () => ({
@@ -106,7 +107,7 @@ describe("AddFriendModal", () => {
       expect(mockOnCreate).toHaveBeenCalledTimes(1);
     });
 
-    const callArg = mockOnCreate.mock.calls[0][0];
+    const [callArg] = mockOnCreate.mock.calls[0] as [Friend];
     expect(callArg.name).toBe("John Doe");
     expect(callArg.email).toBe("john@example.com");
     expect(callArg.tag).toBe("friend");
@@ -131,7 +132,7 @@ describe("AddFriendModal", () => {
       expect(mockOnCreate).toHaveBeenCalledTimes(1);
     });
 
-    const callArg = mockOnCreate.mock.calls[0][0];
+    const [callArg] = mockOnCreate.mock.calls[0] as [Friend];
     expect(callArg.name).toBe("John Doe");
     expect(callArg.email).toBe("john@example.com");
   });
@@ -150,7 +151,7 @@ describe("AddFriendModal", () => {
       expect(mockOnCreate).toHaveBeenCalledTimes(1);
     });
 
-    const callArg = mockOnCreate.mock.calls[0][0];
+    const [callArg] = mockOnCreate.mock.calls[0] as [Friend];
     expect(callArg.email).toBe("john@example.com");
   });
 

@@ -1,16 +1,16 @@
 import { memo, Suspense, lazy } from "react";
-import type { LegacyFriend, StoredTransaction } from "../../types/legacySnapshot";
-import type { Transaction } from "../../types/transaction";
+import type { Friend, StoredTransaction } from "../types/legacySnapshot";
+import type { Transaction } from "../types/transaction";
 import type {
   TransactionTemplate,
   SplitDraftPreset,
-} from "../../types/transactionTemplate";
-import type { SplitAutomationRequest } from "../../hooks/useTransactionTemplates";
-import TransactionTemplatesPanel from "../TransactionTemplatesPanel";
-import { useDebouncedCallback } from "../../hooks/useDebouncedCallback";
+} from "../types/transactionTemplate";
+import type { SplitAutomationRequest } from "../hooks/useTransactionTemplates";
+import TransactionTemplatesPanel from "./TransactionTemplatesPanel";
+import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 
-const SplitForm = lazy(() => import("../SplitForm"));
-const Transactions = lazy(() => import("../Transactions"));
+const SplitForm = lazy(() => import("./SplitForm"));
+const Transactions = lazy(() => import("./Transactions"));
 
 interface FriendTransaction extends StoredTransaction {
   effect?: {
@@ -21,15 +21,18 @@ interface FriendTransaction extends StoredTransaction {
 }
 
 interface TransactionsPanelProps {
-  friends: LegacyFriend[];
-  selectedFriend: LegacyFriend | null;
+  friends: Friend[];
+  selectedFriend: Friend | null;
   selectedBalance: number;
-  friendsById: Map<string, LegacyFriend>;
+  friendsById: Map<string, Friend>;
   transactions: FriendTransaction[];
   txFilter: string;
   categories: string[];
   onSplit: (transaction: StoredTransaction) => void;
-  onAutomation?: (transaction: StoredTransaction, automation: SplitAutomationRequest | null) => void;
+  onAutomation?: (
+    transaction: StoredTransaction,
+    automation: SplitAutomationRequest | null
+  ) => void;
   onOpenSettlement: () => void;
   onFilterChange: (value: string) => void;
   onClearFilter: () => void;

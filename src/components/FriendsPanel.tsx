@@ -1,16 +1,16 @@
 import { memo, Suspense, lazy } from "react";
-import type { LegacyFriend } from "../../types/legacySnapshot";
-import type { FriendBalanceSummary } from "../../hooks/useFriends";
+import type { Friend } from "../types/legacySnapshot";
+import type { FriendBalanceSummary } from "../hooks/useFriends";
 import type {
   SettlementStatus,
   TransactionPaymentMetadata,
-} from "../../types/transaction";
+} from "../types/transaction";
 
-const FriendList = lazy(() => import("../FriendList"));
-const Balances = lazy(() => import("../Balances"));
+const FriendList = lazy(() => import("./FriendList"));
+const Balances = lazy(() => import("./Balances"));
 
 interface FriendsPanelProps {
-  friends: LegacyFriend[];
+  friends: Friend[];
   friendSummaries?: FriendBalanceSummary[];
   selectedFriendId: string | null;
   balances: Map<string, number>;

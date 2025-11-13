@@ -20,10 +20,10 @@ import {
 } from "../../hooks/useTransactionTemplates";
 import { useAppStore } from "../../state/appStore";
 import { useToasts } from "../../state/toastStore";
-import FriendsPanel from "../../components/legacy/FriendsPanel";
-import TransactionsPanel from "../../components/legacy/TransactionsPanel";
-import AnalyticsPanel from "../../components/legacy/AnalyticsPanel";
-import RestoreSnapshotModal from "../../components/legacy/RestoreSnapshotModal";
+import FriendsPanel from "../../components/FriendsPanel";
+import TransactionsPanel from "../../components/TransactionsPanel";
+import AnalyticsPanel from "../../components/AnalyticsPanel";
+import RestoreSnapshotModal from "../../components/RestoreSnapshotModal";
 import SettlementAssistantModal, {
   type SettlementAssistantResult,
 } from "../../components/SettlementAssistantModal";
